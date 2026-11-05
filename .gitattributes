@@ -1,0 +1,15 @@
+# Git применяет единые окончания строк к текстовым файлам. Это предотвращает
+# ложные изменения в diff между Windows и Linux-сервером CI.
+* text=auto eol=lf
+
+# Скрипты запуска Windows сохраняются с CRLF, иначе они могут не запуститься.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Бинарные файлы Git не преобразует при checkout и commit.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.jar binary

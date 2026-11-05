@@ -1,0 +1,41 @@
+# GitHub Actions запускает этот workflow для каждой ветки и Pull Request.
+# Он не выкатывает приложение: только проверяет документацию и Maven-сборку.
+name: Verify
+
+on:
+  pull_request:
+  push:
+    branches:
+      - "**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  # Проверяет, что Markdown-ссылки внутри репозитория не ведут к отсутствующим файлам.
+  documentation:
+    name: Validate documentation links
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+      - name: Validate local Markdown links
+        shell: pwsh
+        run: ./scripts/verify-markdown-links.ps1
+
+  # Собирает Maven-проект в той же JDK 25, которую мы выбрали для сервисов.
+  build:
+    name: Verify Maven build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+      - name: Set up Temurin JDK 25
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "25.0.5"
+          cache: maven
+      - name: Verify Maven build
+        run: bash ./mvnw --batch-mode --no-transfer-progress verify

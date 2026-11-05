@@ -16,10 +16,11 @@
 token: обычная проверка может принимать его до истечения срока при активном
 пользователе. Это статический вывод из кода, не результат нового теста.
 
-Источники: [проверка JWT](../../../../backend/app/core/security/tokens.py),
-[текущая идентификация](../../../../backend/app/modules/identity/application/current_identity.py),
-[чтение пользователя](../../../../backend/app/modules/identity/infrastructure/repository.py),
-[выход](../../../../backend/app/modules/identity/application/logout.py).
+Источники — исторические пути монолита, не перенесённые в этот репозиторий:
+`backend/app/core/security/tokens.py`,
+`backend/app/modules/identity/application/current_identity.py`,
+`backend/app/modules/identity/infrastructure/repository.py` и
+`backend/app/modules/identity/application/logout.py`.
 
 Для Java / Spring сохраняем идею JWT с `sub` и `sid` и отзыв сессии в БД,
 но добавляем обязательную проверку сессии при защищённом запросе. Вызывающий

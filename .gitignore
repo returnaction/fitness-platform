@@ -5,7 +5,6 @@ target/
 *.war
 *.log
 .mvn/timing.properties
-.mvn/wrapper/maven-wrapper.jar
 
 # IDEs and editors
 .idea/
