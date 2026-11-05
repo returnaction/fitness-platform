@@ -58,7 +58,10 @@ server does not make separate servers fault tolerant.
   `1-branch-governance`, `2-identity-service`, and `3-ci-pipeline`.
 - Branch numbers form one strictly increasing sequence for the whole
   repository. Never reuse a number, including after a branch has been merged
-  or deleted. Determine the next number from both local and remote branches.
+  or deleted. The next branch number is exactly one greater than the highest
+  number already used: after `2-...`, the next branch must be `3-...`; gaps and
+  arbitrary numbers are not allowed. Determine it from both local and remote
+  branches.
 - Keep one coherent task in one branch. Merge it through a pull request after
   its required checks pass; do not push directly to `main`.
 
