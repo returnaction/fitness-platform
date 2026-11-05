@@ -301,8 +301,8 @@ Attempt terminal outcomes are `ACCEPTED_FOR_EXERCISE_REVIEW`, `REVIEW_REQUIRED`,
 Terminal attempt state is immutable. Retryable worker execution is separate, and
 manual correction appends a superseding assessment/decision.
 
-The [Trusted Video Proof document map](../../trusted-video-proof/README.md) links the
-current phase plans and the future work described below.
+The Trusted Video Proof document map is maintained outside this repository; its
+current phase plans and future work are therefore not linked here.
 
 Proof integrity and exercise correctness are independent. Only
 `ACCEPTED_FOR_EXERCISE_REVIEW` enters the existing moderator exercise decision.

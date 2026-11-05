@@ -14,3 +14,21 @@ in [System Design](system-design/README.md).
 
 The repository intentionally contains no generated application code yet. The
 first implementation will follow the agreed System Design contracts.
+
+## Build baseline
+
+- JDK: Eclipse Temurin 25.0.5 LTS.
+- Framework baseline: Spring Boot 4.1.2.
+- Build tool: Maven Wrapper.
+
+Run the build from Windows with:
+
+```powershell
+.\mvnw.cmd --batch-mode --no-transfer-progress verify
+```
+
+Run the documentation link check with:
+
+```powershell
+.\scripts\verify-markdown-links.ps1
+```

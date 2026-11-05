@@ -1,6 +1,7 @@
 # Instructions for the New Java Project
 
-This file applies to the [system-design/](system-design/) directory. To apply
+This file applies to the [System Design documentation](system-design/README.md).
+To apply
 these rules to the entire future repository, place these instructions in that
 repository's root `AGENTS.md` as well. More specific instructions in nested
 directories supplement the root instructions.
@@ -8,10 +9,10 @@ directories supplement the root instructions.
 ## Project and Technology
 
 The fitness application is being designed as a set of microservices. Use
-Eclipse Temurin JDK 25.0.5 LTS and Spring Boot 4. Pin the exact dependency
-versions, build tool, and verification tools in the project configuration once
-they have been selected; do not invent an existing implementation or versions.
-Verify library compatibility.
+Eclipse Temurin JDK 25.0.5 LTS and Spring Boot 4.1.2. Maven Wrapper is the
+standard build entry point. Pin dependency and verification-tool versions in
+the project configuration; do not invent an existing implementation or
+versions. Verify library compatibility.
 
 Architectural directions: PostgreSQL, with data owned by the service that uses
 it; Kafka for events; RabbitMQ for agreed background jobs; HTTP and gRPC where
@@ -43,6 +44,19 @@ one server does not make separate servers fault tolerant.
 - Do not create commits or run merge, push, deploy, or migrations against a
   user database without explicit authorization. Preserve other people's
   changes.
+
+## Git Branches
+
+- Start every implementation or documentation change in a new branch created
+  from the current `main`. Do not make ordinary changes directly on `main`.
+- Name every work branch with the next unused positive integer followed by a
+  short kebab-case description: `<number>-<description>`. For example:
+  `1-branch-governance`, `2-identity-service`, and `3-ci-pipeline`.
+- Branch numbers form one strictly increasing sequence for the whole
+  repository. Never reuse a number, including after a branch has been merged
+  or deleted. Determine the next number from both local and remote branches.
+- Keep one coherent task in one branch. Merge it through a pull request after
+  its required checks pass; do not push directly to `main`.
 
 ## Documentation
 
