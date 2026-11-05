@@ -16,9 +16,13 @@ versions. Verify library compatibility.
 
 Architectural directions: PostgreSQL, with data owned by the service that uses
 it; Kafka for events; RabbitMQ for agreed background jobs; HTTP and gRPC where
-appropriate; and S3-compatible storage for video. Refer to the documentation
-for concrete contracts and constraints. Running several components locally on
-one server does not make separate servers fault tolerant.
+appropriate; and S3-compatible storage for video. Use Liquibase for database
+schema migrations. In local development PostgreSQL is installed and managed
+outside Docker; create one explicitly named database per service and do not add
+PostgreSQL containers to Docker Compose. Kafka for local development runs in
+Docker Compose in KRaft mode, without ZooKeeper. Refer to the documentation for
+concrete contracts and constraints. Running several components locally on one
+server does not make separate servers fault tolerant.
 
 ## How to Work
 
