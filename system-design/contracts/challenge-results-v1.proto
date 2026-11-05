@@ -1,0 +1,11 @@
+syntax = "proto3";
+package fitness.challenge.v1;
+option java_multiple_files = true;
+option java_package = "fitness.challenge.v1";
+
+// Список фиксируется Challenge до события окончательного результата.
+service ChallengeResultService {
+  rpc ListResultWinners(ListResultWinnersRequest) returns (ListResultWinnersResponse);
+}
+message ListResultWinnersRequest { string result_id = 1; string cursor = 2; int32 limit = 3; }
+message ListResultWinnersResponse { repeated string user_ids = 1; string next_cursor = 2; }

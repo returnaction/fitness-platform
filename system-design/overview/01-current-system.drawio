@@ -1,0 +1,31 @@
+<mxfile host="app.diagrams.net" version="24.7.17">
+  <diagram id="current-system" name="Текущая система">
+    <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="827" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="title" value="ТЕКУЩАЯ СИСТЕМА — staging по конфигурации проекта" style="text;html=1;align=center;fontSize=20;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="90" y="15" width="980" height="40" as="geometry"/></mxCell>
+        <mxCell id="phone" value="Телефон: Flutter + Android&#xa;Участник и модератор&#xa;Запись и загрузка видео" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=14;" vertex="1" parent="1"><mxGeometry x="40" y="110" width="220" height="100" as="geometry"/></mxCell>
+        <mxCell id="api" value="FastAPI: модульный монолит&#xa;Identity · Accounts · Catalog&#xa;Challenges · Coins · Submissions&#xa;Verification · API модерации" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=14;" vertex="1" parent="1"><mxGeometry x="370" y="100" width="350" height="125" as="geometry"/></mxCell>
+        <mxCell id="db" value="PostgreSQL&#xa;Участники, challenge, монеты,&#xa;состояния, задания и outbox" style="cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=14;" vertex="1" parent="1"><mxGeometry x="870" y="95" width="230" height="120" as="geometry"/></mxCell>
+        <mxCell id="storage" value="MinIO / S3&#xa;Части видео&#xa;и подготовленные файлы" style="cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=14;" vertex="1" parent="1"><mxGeometry x="50" y="460" width="220" height="115" as="geometry"/></mxCell>
+        <mxCell id="redis" value="Redis / RQ&#xa;Очереди задач" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=14;" vertex="1" parent="1"><mxGeometry x="390" y="445" width="200" height="85" as="geometry"/></mxCell>
+        <mxCell id="dispatcher" value="Proof dispatcher&#xa;Проверяет БД и ставит&#xa;задачи обработки в RQ" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=14;" vertex="1" parent="1"><mxGeometry x="710" y="325" width="230" height="95" as="geometry"/></mxCell>
+        <mxCell id="proofworker" value="Proof worker&#xa;Проверка · сборка видео&#xa;допуск к модерации" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=14;" vertex="1" parent="1"><mxGeometry x="710" y="505" width="230" height="95" as="geometry"/></mxCell>
+        <mxCell id="scheduler" value="Scheduler + worker&#xa;Жизненный цикл challenge&#xa;задачи через Redis / RQ" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=14;" vertex="1" parent="1"><mxGeometry x="390" y="650" width="245" height="90" as="geometry"/></mxCell>
+        <mxCell id="note" value="Это схема компонентов из кода и docker-compose.staging.yml, а не проверка текущего состояния сервера. Proof dispatcher и worker включаются профилем proof-processing; отдельные этапы зависят от настроек. В staging также есть одноразовые migrate, minio-init и lifecycle-schedule." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=12;align=left;spacing=8;" vertex="1" parent="1"><mxGeometry x="690" y="645" width="430" height="115" as="geometry"/></mxCell>
+        <mxCell id="e_phone_api" value="API" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;" edge="1" parent="1" source="phone" target="api"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e_api_db" value="чтение / запись" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;" edge="1" parent="1" source="api" target="db"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e_phone_storage" value="части и просмотр по ссылкам" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;" edge="1" parent="1" source="phone" target="storage"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e_api_storage" value="проверка / ссылки" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;" edge="1" parent="1" source="api" target="storage"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e_dispatch_db" value="задачи и outbox" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;" edge="1" parent="1" source="dispatcher" target="db"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e_dispatch_redis" value="ID задачи" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;" edge="1" parent="1" source="dispatcher" target="redis"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e_redis_proof" value="RQ" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;" edge="1" parent="1" source="redis" target="proofworker"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e_worker_db" value="статус / результат" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;" edge="1" parent="1" source="proofworker" target="db"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e_worker_storage" value="читает части / сохраняет видео" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;" edge="1" parent="1" source="proofworker" target="storage"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e_lifecycle_redis" value="планирование / RQ" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;" edge="1" parent="1" source="scheduler" target="redis"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e_lifecycle_db" value="состояние challenge" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;" edge="1" parent="1" source="scheduler" target="db"><mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="1060" y="690"/><mxPoint x="1060" y="230"/></Array></mxGeometry></mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

@@ -1,0 +1,126 @@
+<mxfile host="Electron" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/28.1.2 Chrome/138.0.7204.243 Electron/37.4.0 Safari/537.36" version="28.1.2">
+  <diagram id="future-system-overview" name="Общая карта будущей системы">
+    <mxGraphModel dx="2305" dy="1201" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2300" pageHeight="1200" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="title" value="БУДУЩАЯ СИСТЕМА — учебная карта, границы ещё обсуждаются" style="text;html=1;align=center;fontSize=21;fontStyle=1;" parent="1" vertex="1">
+          <mxGeometry x="130" y="30" width="1200" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="user" value="Участник&#xa;мобильное приложение" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=15;" parent="1" vertex="1">
+          <mxGeometry x="110" y="125" width="240" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="moduser" value="Модератор&#xa;приложение / Review" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=15;" parent="1" vertex="1">
+          <mxGeometry x="990" y="120" width="240" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="api_gateway" value="API Gateway&#xa;входящие запросы и маршрутизация" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=15;" parent="1" vertex="1">
+          <mxGeometry x="520" y="125" width="250" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="identity" value="Identity + Accounts (два сервиса)&#xa;вход и ограничения / профиль&#xa;новые вступления могут быть запрещены" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=15;" parent="1" vertex="1">
+          <mxGeometry x="85" y="360" width="250" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="challenge" value="Challenge&#xa;участники, задания, результаты" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=15;" parent="1" vertex="1">
+          <mxGeometry x="430" y="360" width="270" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="catalog" value="Каталог упражнений&#xa;описания и вариации" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=15;" parent="1" vertex="1">
+          <mxGeometry x="85" y="580" width="250" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="video" value="Video Proof&#xa;запись и подготовка видео&#xa;RabbitMQ: задачи worker" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=15;" parent="1" vertex="1">
+          <mxGeometry x="780" y="360" width="260" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="rabbit_jobs" value="RabbitMQ&#xa;quorum queue: ID задачи" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=15;" parent="1" vertex="1">
+          <mxGeometry x="1580" y="340" width="230" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="video_worker" value="Video worker&#xa;захватывает задачу в PostgreSQL;&#xa;проверяет и собирает видео" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=14;" parent="1" vertex="1">
+          <mxGeometry x="1900" y="460" width="280" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="moderation" value="Модерация&#xa;Review и решения" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=15;" parent="1" vertex="1">
+          <mxGeometry x="1270" y="280" width="250" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="coins" value="Монеты&#xa;ставки, баланс, операции" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=15;" parent="1" vertex="1">
+          <mxGeometry x="430" y="580" width="270" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="notifications" value="Уведомления&#xa;сообщения и настройки" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=15;" parent="1" vertex="1">
+          <mxGeometry x="780" y="580" width="260" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="objects" value="S3-хранилище&#xa;видео и его части" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=14;" parent="1" vertex="1">
+          <mxGeometry x="1130" y="580" width="250" height="95" as="geometry" />
+        </mxCell>
+        <mxCell id="events" value="Kafka&#xa;асинхронные события между сервисами" style="shape=queue;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=15;" parent="1" vertex="1">
+          <mxGeometry x="520" y="820" width="460" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="database" value="ВЛАДЕНИЕ ДАННЫМИ&#xa;Identity: доступ; Accounts: профили&#xa;Catalog: упражнения и вариации&#xa;Challenge: задания, участники, итоги&#xa;Coins: кошельки, резервы, ledger&#xa;Video Proof: записи и метаданные&#xa;Moderation: проверки и решения&#xa;Notifications: настройки и сообщения&#xa;&#xa;PostgreSQL; данные принадлежат своим сервисам" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=13;align=left;spacing=8;" parent="1" vertex="1">
+          <mxGeometry x="85" y="780" width="340" height="210" as="geometry" />
+        </mxCell>
+        <mxCell id="note" value="Это учебная карта ответственности, а не описание действующей системы. Стрелки показывают общие связи; контракты описаны отдельно. Путь видео: services/video-proof/06-future-proof-flow.drawio. Апелляции входят в проект; автоматическая проверка AI отложена." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=14;align=left;spacing=12;" parent="1" vertex="1">
+          <mxGeometry x="1040" y="805" width="380" height="160" as="geometry" />
+        </mxCell>
+        <mxCell id="e1" value="запросы" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;" parent="1" source="user" target="api_gateway" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e2" value="challenge / участие" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;" parent="1" source="api_gateway" target="challenge" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e3" value="задание / отправка" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;" parent="1" source="challenge" target="video" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e4" value="запрос Review" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;" parent="1" source="moduser" target="api_gateway" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_gateway_identity" value="вход" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;" parent="1" source="api_gateway" target="identity" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_gateway_moderation" value="Review" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;" parent="1" source="api_gateway" target="moderation" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_gateway_video" value="запись" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;" parent="1" source="api_gateway" target="video" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_video_rabbit" value="уведомление о задаче" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;" parent="1" source="video" target="rabbit_jobs" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_rabbit_worker" value="получает ID задачи" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;" parent="1" source="rabbit_jobs" target="video_worker" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_worker_storage" value="читает части / сохраняет видео" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;startArrow=block;" parent="1" source="video_worker" target="objects" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_video_kafka" value="video.ready через Outbox" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;dashed=1;" parent="1" source="video" target="events" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e5" value="упражнения" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;" parent="1" source="challenge" target="catalog" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="565" y="490" />
+              <mxPoint x="210" y="490" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e6" value="ставки / итог" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;" parent="1" source="challenge" target="coins" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e7" value="файлы" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;" parent="1" source="video" target="objects" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e8" value="события" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;dashed=1;" parent="1" source="challenge" target="events" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e9" value="события" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;startArrow=block;dashed=1;" parent="1" source="moderation" target="events" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e10" value="сообщения" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;dashed=1;" parent="1" source="events" target="notifications" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e11" value="доставка участнику" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;dashed=1;" parent="1" source="notifications" target="user" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="910" y="550" />
+              <mxPoint x="370" y="550" />
+              <mxPoint x="370" y="170" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

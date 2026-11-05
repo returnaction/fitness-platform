@@ -1,0 +1,142 @@
+<mxfile host="Electron" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/28.1.2 Chrome/138.0.7204.243 Electron/37.4.0 Safari/537.36" version="28.1.2">
+  <diagram id="future-proof-flow" name="Будущий путь видео">
+    <mxGraphModel dx="2712" dy="1413" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1900" pageHeight="2300" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="title" value="БУДУЩАЯ СИСТЕМА — учебная схема, ещё не реализована" style="text;html=1;fontSize=20;fontStyle=1;align=center;" parent="1" vertex="1">
+          <mxGeometry x="90" y="20" width="1250" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="phone" value="Участник / телефон&#xA;выбирает задание, записывает и загружает видео" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=15;" parent="1" vertex="1">
+          <mxGeometry x="80" y="100" width="260" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="challenge" value="CHALLENGE&#xA;проверяет участника, задание и срок&#xA;выдаёт допуск и хранит условия задания" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=15;" parent="1" vertex="1">
+          <mxGeometry x="450" y="100" width="340" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="video" value="VIDEO PROOF&#xA;задачи обработки: PostgreSQL + RabbitMQ + worker;&#xA;событие готовности → Outbox → Kafka" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=15;" parent="1" vertex="1">
+          <mxGeometry x="980" y="140" width="330" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="storage" value="Хранилище видео&#xA;фрагменты и готовый файл" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=14;" parent="1" vertex="1">
+          <mxGeometry x="960" y="290" width="250" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="ready" value="video.ready&#xA;submission, authorization, task и asset ID&#xA;версия asset" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=14;" parent="1" vertex="1">
+          <mxGeometry x="510" y="295" width="250" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="card" value="CHALLENGE выдаёт допуск к проверке&#xA;снимок задания + ID готового видео&#xA;сохраняет событие через Outbox" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=15;" parent="1" vertex="1">
+          <mxGeometry x="440" y="445" width="390" height="95" as="geometry" />
+        </mxCell>
+        <mxCell id="queue" value="Kafka: proof.review_admitted&#xA;карточка для модерации" style="shape=queue;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=14;" parent="1" vertex="1">
+          <mxGeometry x="890" y="455" width="285" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="moderation" value="МОДЕРАЦИЯ&#xA;сохраняет карточку в своей базе&#xA;создаёт один элемент Review на отправку" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=15;" parent="1" vertex="1">
+          <mxGeometry x="880" y="665" width="350" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="moderator" value="Модератор: четыре кнопки&#xA;Approve / Disapprove: техника&#xA;Disapprove: задание / Reject" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=15;" parent="1" vertex="1">
+          <mxGeometry x="460" y="670" width="300" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="result" value="МОДЕРАЦИЯ: сохраняет решение и исходящее событие (Outbox) вместе&#xA;Review обновляется после сохранения; доставку ждёт отдельно" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=14;" parent="1" vertex="1">
+          <mxGeometry x="395" y="850" width="540" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="decision_queue" value="Kafka: moderation.review_decided&#xA;событие о решении модератора" style="shape=queue;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=14;" parent="1" vertex="1">
+          <mxGeometry x="500" y="1010" width="330" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="apply" value="CHALLENGE&#xA;по ID отправки находит задание и участника&#xA;применяет решение один раз" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=14;" parent="1" vertex="1">
+          <mxGeometry x="450" y="1160" width="430" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="approve" value="APPROVE&#xA;Задание выполнено;&#xA;проверяем другие задания дня" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=14;" parent="1" vertex="1">
+          <mxGeometry x="180" y="1350" width="270" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="disapprove" value="ДВА ВИДА DISAPPROVE&#xA;Упражнение / количество: без апелляции.&#xA;Техника: возможна апелляция за 24 часа." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=14;" parent="1" vertex="1">
+          <mxGeometry x="525" y="1350" width="270" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="appeal" value="АПЕЛЛЯЦИЯ НА ТЕХНИКУ — будущая функция&#xA;Если другое задание дня окончательно не выполнено без права апелляции, участник выбывает; поданная апелляция прекращается с сохранением истории.&#xA;На подачу — 24 часа с решения; на рассмотрение — 24 часа с подачи.&#xA;Участник продолжает задания; видео следующих дней сохраняются и ждут решения.&#xA;Удовлетворена → видео направляются на проверку.&#xA;Отклонена / не подана вовремя → выбывание с исходного дня; видео не проверяются.&#xA;Challenge идёт дальше; итог и монеты ждут своевременных апелляций.&#xA;При задержке ожидаем решения и уведомляем ответственного." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=14;align=left;spacing=10;" vertex="1" parent="1">
+          <mxGeometry x="1230" y="1320" width="480" height="320" as="geometry" />
+        </mxCell>
+        <mxCell id="reject" value="REJECT: неподходящее видео&#xA;Задание не выполнено; участник выбывает.&#xA;Видео скрыто от других участников." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=14;" parent="1" vertex="1">
+          <mxGeometry x="870" y="1350" width="300" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="outcome" value="CHALLENGE: результат дня и соревнования&#xA;ожидает необходимых загрузок и проверок;&#xA;при возможной или поданной апелляции участник не считается окончательно выбывшим;&#xA;окончательный итог ждёт сроки подачи и решения по апелляциям" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=14;" parent="1" vertex="1">
+          <mxGeometry x="400" y="1510" width="530" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="finished" value="CHALLENGE: окончательный итог&#xA;ID результата, число победителей и digest;&#xA;результат и событие сохраняются через Outbox" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=14;" parent="1" vertex="1">
+          <mxGeometry x="435" y="1680" width="460" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="coins_queue" value="Kafka: challenge.finished&#xA;событие об окончательном итоге" style="shape=queue;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=14;" parent="1" vertex="1">
+          <mxGeometry x="485" y="1830" width="360" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="coins" value="COINS: получает победителей из Challenge по gRPC;&#xA;находит ставки и записывает распределение;&#xA;повтор не начисляет монеты дважды" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=14;" parent="1" vertex="1">
+          <mxGeometry x="400" y="1990" width="530" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="coins_note" value="Несколько победителей делят банк поровну; остаточные монеты распределяются случайно разным победителям. При ничьей один на один банк делится поровну. Если право на апелляцию есть, итог ждёт срока и решения; если нет — ожидать его не нужно. Монеты виртуальные." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=14;align=left;spacing=10;" parent="1" vertex="1">
+          <mxGeometry x="1010" y="1810" width="330" height="175" as="geometry" />
+        </mxCell>
+        <mxCell id="stores_note" value="ГДЕ ЧТО ХРАНИТСЯ&#xA;Challenge: задание, допуск, результат и события.&#xA;Video Proof: submission и метаданные видео.&#xA;Kafka: сообщения между сервисами.&#xA;Moderation: карточки Review, решения и события.&#xA;S3: фрагменты и готовое видео, не файл в очереди.&#xA;&#xA;ПРОСМОТР: модератор открывает карточку → сервер проверяет права → выдаёт временную ссылку → плеер получает видео из S3." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=14;align=left;spacing=10;" parent="1" vertex="1">
+          <mxGeometry x="1110" y="940" width="375" height="310" as="geometry" />
+        </mxCell>
+        <mxCell id="e1" value="1. выбрать задание" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;" parent="1" source="phone" target="challenge" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e2" value="2. разрешение на попытку" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;" parent="1" source="challenge" target="video" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e3" value="3. хранение" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;" parent="1" source="video" target="storage" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e4" value="4. видео подготовлено" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;" parent="1" source="video" target="ready" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e5" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;" parent="1" source="ready" target="card" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e6" value="5. допуск" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;" parent="1" source="card" target="queue" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e7" value="6. доставка" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;" parent="1" source="queue" target="moderation" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e8" value="7. Review" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;" parent="1" source="moderation" target="moderator" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e9" value="8. решение" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;" parent="1" source="moderator" target="result" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e10" value="9. асинхронно" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;" parent="1" source="result" target="decision_queue" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e11" value="10. доставка события" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;" parent="1" source="decision_queue" target="apply" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e12" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;" parent="1" source="apply" target="approve" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e13" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;" parent="1" source="apply" target="disapprove" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e14" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;" parent="1" source="apply" target="reject" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="appeal_edge" value="если причина — техника" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;dashed=1;" edge="1" parent="1" source="disapprove" target="appeal">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e15" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;" parent="1" source="approve" target="outcome" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e16" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;" parent="1" source="disapprove" target="outcome" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e17" value="после необходимых решений" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;" parent="1" source="outcome" target="finished" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e18" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;" parent="1" source="finished" target="coins_queue" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e19" value="асинхронно" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;" parent="1" source="coins_queue" target="coins" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="note" value="Важно: описание задания берётся с сервера, а не от телефона. Видео в очередь не помещается — передаётся идентификатор. Доступ к файлу проверяется отдельно. Одно принятое видео на задание. Подробные контракты находятся в документах сервисов." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=14;align=left;spacing=10;" parent="1" vertex="1">
+          <mxGeometry x="80" y="585" width="300" height="210" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

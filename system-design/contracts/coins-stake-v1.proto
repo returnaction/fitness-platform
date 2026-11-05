@@ -1,0 +1,41 @@
+syntax = "proto3";
+package fitness.coins.v1;
+option java_multiple_files = true;
+option java_package = "fitness.coins.v1";
+
+// Учебный контракт; реализация и безопасность подлежат проверке.
+service StakeService {
+  rpc ReserveStake(ReserveStakeRequest) returns (ReserveStakeResponse);
+  rpc ReleaseStake(ReleaseStakeRequest) returns (ReleaseStakeResponse);
+  rpc GetStakeOperation(GetStakeOperationRequest) returns (StakeOperationResponse);
+  rpc BeginStakeSet(BeginStakeSetRequest) returns (BeginStakeSetResponse);
+  rpc PutStakeBatch(PutStakeBatchRequest) returns (PutStakeBatchResponse);
+  rpc FinalizeStakeSet(FinalizeStakeSetRequest) returns (FinalizeStakeSetResponse);
+  rpc FreezeStakeSet(FreezeStakeSetRequest) returns (FreezeStakeSetResponse);
+  rpc ListActiveHoldsForCancellation(ListActiveHoldsForCancellationRequest) returns (ListActiveHoldsForCancellationResponse);
+  rpc CompleteStakeCancellation(CompleteStakeCancellationRequest) returns (CompleteStakeCancellationResponse);
+}
+message ReserveStakeRequest { string join_operation_id = 1; string user_id = 2; string challenge_id = 3; int64 amount = 4; }
+enum ReserveOutcome { RESERVE_OUTCOME_UNSPECIFIED = 0; RESERVED = 1; INSUFFICIENT_FUNDS = 2; ACTIVE_HOLD_EXISTS = 3; }
+message ReserveStakeResponse { string join_operation_id = 1; ReserveOutcome outcome = 2; optional string hold_id = 3; }
+enum ReleaseReason { RELEASE_REASON_UNSPECIFIED = 0; JOIN_NOT_CONFIRMED = 1; CHALLENGE_CANCELLED = 2; }
+enum ReleaseOutcome { RELEASE_OUTCOME_UNSPECIFIED = 0; RELEASED = 1; }
+message ReleaseStakeRequest { string release_operation_id = 1; string hold_id = 2; string challenge_id = 3; ReleaseReason reason = 4; }
+message ReleaseStakeResponse { string release_operation_id = 1; string hold_id = 2; ReleaseOutcome outcome = 3; }
+enum StakeOperationKind { STAKE_OPERATION_KIND_UNSPECIFIED = 0; RESERVE = 1; RELEASE = 2; }
+message GetStakeOperationRequest { StakeOperationKind kind = 1; string operation_id = 2; }
+message StakeOperationResponse { oneof result { ReserveStakeResponse reserve = 1; ReleaseStakeResponse release = 2; } }
+message SealedStake { string hold_id = 1; string user_id = 2; int64 amount = 3; }
+message BeginStakeSetRequest { string seal_operation_id = 1; string challenge_id = 2; int64 set_version = 3; int64 expected_count = 4; string expected_digest = 5; }
+message BeginStakeSetResponse { string seal_operation_id = 1; }
+message PutStakeBatchRequest { string seal_operation_id = 1; int32 batch_number = 2; repeated SealedStake stakes = 3; }
+message PutStakeBatchResponse { string seal_operation_id = 1; int32 batch_number = 2; }
+message FinalizeStakeSetRequest { string seal_operation_id = 1; }
+message FinalizeStakeSetResponse { string seal_operation_id = 1; string challenge_id = 2; int64 set_version = 3; int64 stake_count = 4; string set_digest = 5; }
+message FreezeStakeSetRequest { string cancellation_id = 1; string challenge_id = 2; }
+message FreezeStakeSetResponse { string cancellation_id = 1; string challenge_id = 2; }
+message ListActiveHoldsForCancellationRequest { string cancellation_id = 1; string challenge_id = 2; string cursor = 3; int32 limit = 4; }
+message CancellationHold { string hold_id = 1; string user_id = 2; int64 amount = 3; }
+message ListActiveHoldsForCancellationResponse { repeated CancellationHold holds = 1; string next_cursor = 2; }
+message CompleteStakeCancellationRequest { string cancellation_id = 1; string challenge_id = 2; }
+message CompleteStakeCancellationResponse { string cancellation_id = 1; string challenge_id = 2; }

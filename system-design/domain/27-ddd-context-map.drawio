@@ -1,0 +1,79 @@
+<mxfile host="Electron" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/28.1.2 Chrome/138.0.7204.243 Electron/37.4.0 Safari/537.36" version="28.1.2">
+  <diagram id="ddd-context-map" name="DDD — карта контекстов">
+    <mxGraphModel dx="1547" dy="763" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1900" pageHeight="1500" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="context_title" value="КАРТА КОНТЕКСТОВ DDD — учебная будущая модель" style="text;html=1;align=center;fontSize=21;fontStyle=1;" parent="1" vertex="1">
+          <mxGeometry x="220" y="30" width="1300" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="identity_context" value="IDENTITY + ACCOUNTS (два контекста)&#xa;Identity: вход и ограничения&#xa;Accounts: профиль" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=15;" parent="1" vertex="1">
+          <mxGeometry x="70" y="180" width="300" height="115" as="geometry" />
+        </mxCell>
+        <mxCell id="catalog_context" value="КАТАЛОГ УПРАЖНЕНИЙ&#xa;упражнения, вариации&#xa;актуальные описания" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=15;" parent="1" vertex="1">
+          <mxGeometry x="70" y="380" width="300" height="115" as="geometry" />
+        </mxCell>
+        <mxCell id="challenge_context" value="CHALLENGE&#xa;соревнования, участники, дни и задания&#xa;отправки и итоги соревнования" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=16;fontStyle=1;" parent="1" vertex="1">
+          <mxGeometry x="680" y="430" width="380" height="140" as="geometry" />
+        </mxCell>
+        <mxCell id="coins_context" value="COINS&#xa;виртуальные кошельки, ставки&#xa;резервы, ledger" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=15;" parent="1" vertex="1">
+          <mxGeometry x="1390" y="160" width="300" height="115" as="geometry" />
+        </mxCell>
+        <mxCell id="video_context" value="VIDEO PROOF&#xa;приём, проверка целостности&#xa;подготовка видео" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=15;" parent="1" vertex="1">
+          <mxGeometry x="70" y="810" width="300" height="115" as="geometry" />
+        </mxCell>
+        <mxCell id="moderation_context" value="MODERATION&#xa;карточки Review и решения&#xa;проверка человеком" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=15;" parent="1" vertex="1">
+          <mxGeometry x="710" y="930" width="320" height="115" as="geometry" />
+        </mxCell>
+        <mxCell id="notifications_context" value="NOTIFICATIONS&#xa;история уведомлений, настройки&#xa;попытки доставки" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=15;" parent="1" vertex="1">
+          <mxGeometry x="1390" y="810" width="300" height="115" as="geometry" />
+        </mxCell>
+        <mxCell id="context_note" value="Учебная карта ответственности, не готовые API и не физическое размещение. Стрелки показывают смысл связи; точные контракты и восстановление описаны отдельно. Identity и Accounts — отдельные контексты, здесь показаны вместе для компактности. Монеты виртуальные. Модератор не видит никнейм участника; сам человек виден на видео." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=14;align=left;spacing=10;" parent="1" vertex="1">
+          <mxGeometry x="180" y="1190" width="1390" height="130" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_identity_context" value="право на вступление; профиль" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;" parent="1" source="identity_context" target="challenge_context" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_catalog_context" value="условия выбранного упражнения" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;" parent="1" source="catalog_context" target="challenge_context" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_challenge_coins" value="резерв / отмена / итог" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;" parent="1" source="challenge_context" target="coins_context" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_coins_challenge" value="результат резерва" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;dashed=1;" parent="1" source="coins_context" target="challenge_context" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_challenge_video" value="разрешённая отправка" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;exitX=0;exitY=0.75;exitDx=0;exitDy=0;" parent="1" source="challenge_context" target="video_context" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="930" y="600" as="sourcePoint" />
+            <Array as="points">
+              <mxPoint x="630" y="535" />
+              <mxPoint x="630" y="610" />
+              <mxPoint x="220" y="610" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_video_challenge" value="видео готово" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;dashed=1;" parent="1" source="video_context" target="challenge_context" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="800" y="868" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_challenge_moderation" value="задание и ID видео" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;" parent="1" source="challenge_context" target="moderation_context" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_moderation_challenge" value="решение проверки" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;dashed=1;" parent="1" source="moderation_context" target="challenge_context" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_challenge_notifications" value="события для участника" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;dashed=1;" parent="1" source="challenge_context" target="notifications_context" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1540" y="520" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
