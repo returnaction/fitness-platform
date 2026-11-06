@@ -1,6 +1,8 @@
 spring:
   application:
     name: identity-service
+  jackson:
+    property-naming-strategy: SNAKE_CASE
   autoconfigure:
     exclude:
       - org.springframework.boot.security.autoconfigure.UserDetailsServiceAutoConfiguration
@@ -21,6 +23,16 @@ spring:
     open-in-view: false
   liquibase:
     change-log: classpath:db/changelog/db.changelog-master.yaml
+
+identity:
+  registration:
+    password:
+      argon2:
+        salt-length: 16
+        hash-length: 32
+        parallelism: 1
+        memory-kib: 19456
+        iterations: 2
 
 management:
   endpoints:

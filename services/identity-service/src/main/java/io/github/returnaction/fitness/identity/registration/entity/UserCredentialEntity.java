@@ -48,4 +48,8 @@ public class UserCredentialEntity {
     public UUID getUserId() {
         return userId;
     }
+
+    public String getPasswordHash() {
+        return passwordHash;
+    }
 }

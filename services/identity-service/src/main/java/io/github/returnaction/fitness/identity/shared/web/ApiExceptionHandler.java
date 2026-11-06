@@ -1,5 +1,8 @@
 package io.github.returnaction.fitness.identity.shared.web;
 
+import io.github.returnaction.fitness.identity.registration.application.InvalidIdempotencyKeyException;
+import io.github.returnaction.fitness.identity.registration.application.RegistrationConflictException;
+import io.github.returnaction.fitness.identity.registration.application.RegistrationValidationException;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.List;
 import org.slf4j.Logger;
@@ -9,6 +12,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
@@ -30,6 +34,37 @@ public class ApiExceptionHandler {
                 .toList();
         return response(
                 HttpStatus.UNPROCESSABLE_CONTENT, "validation_error", "Check the submitted data.", details, request);
+    }
+
+    @ExceptionHandler(InvalidIdempotencyKeyException.class)
+    ResponseEntity<ApiErrorResponse> handleInvalidIdempotencyKey(HttpServletRequest request) {
+        return response(HttpStatus.BAD_REQUEST, "invalid_request", "Check the request format.", List.of(), request);
+    }
+
+    @ExceptionHandler(MissingRequestHeaderException.class)
+    ResponseEntity<ApiErrorResponse> handleMissingRequestHeader(HttpServletRequest request) {
+        return response(HttpStatus.BAD_REQUEST, "invalid_request", "Check the request format.", List.of(), request);
+    }
+
+    @ExceptionHandler(RegistrationValidationException.class)
+    ResponseEntity<ApiErrorResponse> handleRegistrationValidation(
+            RegistrationValidationException exception, HttpServletRequest request) {
+        List<ApiErrorResponse.ErrorDetail> details = exception.getViolations().stream()
+                .map(violation -> new ApiErrorResponse.ErrorDetail(violation.field(), violation.code()))
+                .toList();
+        return response(
+                HttpStatus.UNPROCESSABLE_CONTENT, "validation_error", "Check the submitted data.", details, request);
+    }
+
+    @ExceptionHandler(RegistrationConflictException.class)
+    ResponseEntity<ApiErrorResponse> handleRegistrationConflict(
+            RegistrationConflictException exception, HttpServletRequest request) {
+        return response(
+                HttpStatus.CONFLICT,
+                exception.getCode(),
+                "Registration conflicts with existing data.",
+                List.of(),
+                request);
     }
 
     @ExceptionHandler(Exception.class)
