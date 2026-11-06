@@ -1,0 +1,41 @@
+syntax = "proto3";
+
+package fitness.accounts.provisioning.v1;
+
+option java_multiple_files = true;
+option java_package = "io.github.returnaction.fitness.contracts.accounts.provisioning.v1";
+option java_outer_classname = "AccountsProvisioningV1Proto";
+
+// Owned by Accounts Service. Identity calls this only while provisioning a
+// registration. Both services validate UUID strings as lowercase UUID values.
+service AccountsProvisioningService {
+  // Requires mTLS service identity Identity and permission
+  // identity.registration.provision. Repeats are safe and never overwrite an
+  // existing profile for the same user_id.
+  rpc EnsureProfile(EnsureProfileRequest) returns (EnsureProfileResponse);
+}
+
+message EnsureProfileRequest {
+  // Diagnostic UUID. It does not grant access and must not appear in public logs.
+  string request_id = 1;
+  // Stable across retries of the same registration operation.
+  string registration_operation_id = 2;
+  // Stable user UUID selected by Identity.
+  string user_id = 3;
+}
+
+message EnsureProfileResponse {
+  string user_id = 1;
+  ProvisioningStatus status = 2;
+}
+
+enum ProvisioningStatus {
+  PROVISIONING_STATUS_UNSPECIFIED = 0;
+  // The profile is committed in Accounts' local database.
+  PROVISIONING_STATUS_READY = 1;
+}
+
+// gRPC statuses: INVALID_ARGUMENT for malformed IDs, UNAUTHENTICATED or
+// PERMISSION_DENIED for service identity failures, FAILED_PRECONDITION for a
+// permanent incompatible state, and UNAVAILABLE/DEADLINE_EXCEEDED/
+// RESOURCE_EXHAUSTED/ABORTED for retryable failures.
