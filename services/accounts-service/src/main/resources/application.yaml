@@ -35,3 +35,12 @@ management:
 
 server:
   port: ${SERVER_PORT}
+
+accounts:
+  grpc:
+    enabled: ${ACCOUNTS_GRPC_ENABLED}
+    address: ${ACCOUNTS_GRPC_ADDRESS}
+    port: ${ACCOUNTS_GRPC_PORT}
+    certificate: ${ACCOUNTS_GRPC_CERTIFICATE}
+    private-key: ${ACCOUNTS_GRPC_PRIVATE_KEY}
+    trust-certificate: ${ACCOUNTS_GRPC_TRUST_CERTIFICATE}

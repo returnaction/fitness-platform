@@ -25,7 +25,22 @@ spring:
     change-log: classpath:db/changelog/db.changelog-master.yaml
 
 identity:
+  accounts-grpc:
+    enabled: ${IDENTITY_ACCOUNTS_GRPC_ENABLED}
+    host: ${IDENTITY_ACCOUNTS_GRPC_HOST}
+    port: ${IDENTITY_ACCOUNTS_GRPC_PORT}
+    certificate: ${IDENTITY_ACCOUNTS_GRPC_CERTIFICATE}
+    private-key: ${IDENTITY_ACCOUNTS_GRPC_PRIVATE_KEY}
+    trust-certificate: ${IDENTITY_ACCOUNTS_GRPC_TRUST_CERTIFICATE}
   registration:
+    worker:
+      enabled: ${IDENTITY_REGISTRATION_WORKER_ENABLED}
+      poll-ms: ${IDENTITY_REGISTRATION_WORKER_POLL_MS}
+      batch-size: ${IDENTITY_REGISTRATION_WORKER_BATCH_SIZE}
+      lease-seconds: ${IDENTITY_REGISTRATION_WORKER_LEASE_SECONDS}
+      retry-initial-seconds: ${IDENTITY_REGISTRATION_RETRY_INITIAL_SECONDS}
+      retry-max-seconds: ${IDENTITY_REGISTRATION_RETRY_MAX_SECONDS}
+      jitter-fraction: ${IDENTITY_REGISTRATION_RETRY_JITTER_FRACTION}
     password:
       argon2:
         salt-length: 16

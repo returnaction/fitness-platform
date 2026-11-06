@@ -1,0 +1,14 @@
+services:
+  step-ca:
+    image: smallstep/step-ca:0.30.2
+    ports:
+      - "127.0.0.1:9000:9000"
+    environment:
+      DOCKER_STEPCA_INIT_NAME: Fitness Local CA
+      DOCKER_STEPCA_INIT_DNS_NAMES: localhost,127.0.0.1
+      DOCKER_STEPCA_INIT_PROVISIONER_NAME: fitness-local
+    volumes:
+      - fitness-step-ca:/home/step
+
+volumes:
+  fitness-step-ca:
