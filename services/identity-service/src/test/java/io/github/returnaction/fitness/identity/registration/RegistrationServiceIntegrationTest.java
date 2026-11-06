@@ -7,6 +7,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import io.github.returnaction.fitness.identity.registration.application.RegistrationConflictException;
 import io.github.returnaction.fitness.identity.registration.application.RegistrationService;
 import io.github.returnaction.fitness.identity.registration.dto.RegisterUserRequest;
 import io.github.returnaction.fitness.identity.registration.entity.UserCredentialEntity;
@@ -14,7 +15,11 @@ import io.github.returnaction.fitness.identity.registration.entity.UserEntity;
 import io.github.returnaction.fitness.identity.registration.entity.UserStatus;
 import io.github.returnaction.fitness.identity.registration.repository.UserCredentialRepository;
 import io.github.returnaction.fitness.identity.registration.repository.UserRepository;
+import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -126,6 +131,65 @@ class RegistrationServiceIntegrationTest {
                 .andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.error.code").value("validation_error"))
                 .andExpect(jsonPath("$.error.details[0].field").value("password"));
+    }
+
+    @Test
+    void rejectsEmailWithMultipleAtSigns() throws Exception {
+        for (String email : List.of("a@@b", "a@b@c")) {
+            mockMvc.perform(post("/api/v1/auth/register")
+                            .header("Idempotency-Key", UUID.randomUUID().toString())
+                            .contentType(APPLICATION_JSON)
+                            .content("{\"email\":\"" + email + "\",\"password\":\"a\"}"))
+                    .andExpect(status().isUnprocessableEntity())
+                    .andExpect(jsonPath("$.error.code").value("validation_error"))
+                    .andExpect(jsonPath("$.error.details[0].field").value("email"));
+        }
+    }
+
+    @Test
+    void handlesConcurrentRequestsWithSameKeyWithoutDuplicate() throws Exception {
+        UUID key = UUID.randomUUID();
+        try (ExecutorService executor = Executors.newFixedThreadPool(2)) {
+            CompletableFuture<RegistrationService.RegistrationStartResult> first = CompletableFuture.supplyAsync(
+                    () -> registrationService.start(key, new RegisterUserRequest("same-key@example.com", "a")),
+                    executor);
+            CompletableFuture<RegistrationService.RegistrationStartResult> second = CompletableFuture.supplyAsync(
+                    () -> registrationService.start(key, new RegisterUserRequest("same-key@example.com", "a")),
+                    executor);
+
+            assertThat(first.get()).isEqualTo(second.get());
+        }
+        assertThat(userCount("same-key@example.com")).isEqualTo(1);
+    }
+
+    @Test
+    void handlesConcurrentRequestsWithDifferentKeysAndSameEmail() throws Exception {
+        try (ExecutorService executor = Executors.newFixedThreadPool(2)) {
+            CompletableFuture<RegistrationService.RegistrationStartResult> first = CompletableFuture.supplyAsync(
+                    () -> registrationService.start(
+                            UUID.randomUUID(), new RegisterUserRequest("same-email@example.com", "a")),
+                    executor);
+            CompletableFuture<RegistrationService.RegistrationStartResult> second = CompletableFuture.supplyAsync(
+                    () -> registrationService.start(
+                            UUID.randomUUID(), new RegisterUserRequest("same-email@example.com", "a")),
+                    executor);
+
+            List<CompletableFuture<RegistrationService.RegistrationStartResult>> results = List.of(first, second);
+            int successfulRequests = 0;
+            int conflictingRequests = 0;
+            for (CompletableFuture<RegistrationService.RegistrationStartResult> result : results) {
+                try {
+                    result.get();
+                    successfulRequests++;
+                } catch (java.util.concurrent.ExecutionException exception) {
+                    assertThat(exception.getCause()).isInstanceOf(RegistrationConflictException.class);
+                    conflictingRequests++;
+                }
+            }
+            assertThat(successfulRequests).isEqualTo(1);
+            assertThat(conflictingRequests).isEqualTo(1);
+        }
+        assertThat(userCount("same-email@example.com")).isEqualTo(1);
     }
 
     private int userRoleCount(UUID userId) {

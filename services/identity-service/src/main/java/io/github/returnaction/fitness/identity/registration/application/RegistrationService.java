@@ -1,5 +1,6 @@
 package io.github.returnaction.fitness.identity.registration.application;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.returnaction.fitness.identity.registration.dto.RegisterUserRequest;
 import io.github.returnaction.fitness.identity.registration.entity.RegistrationOperationEntity;
 import io.github.returnaction.fitness.identity.registration.entity.RoleCode;
@@ -18,9 +19,10 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.UUID;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * Создаёт локальную часть PENDING-регистрации в одной транзакции Identity.
@@ -36,6 +38,11 @@ public class RegistrationService {
     private final UserRoleRepository userRoleRepository;
     private final RegistrationOperationRepository operationRepository;
 
+    @SuppressFBWarnings(
+            value = "EI_EXPOSE_REP2",
+            justification = "TransactionTemplate is a Spring infrastructure bean and is never exposed by the service.")
+    private final TransactionTemplate transactionTemplate;
+
     public RegistrationService(
             RegistrationInputValidator inputValidator,
             PasswordEncoder passwordEncoder,
@@ -43,7 +50,8 @@ public class RegistrationService {
             UserCredentialRepository userCredentialRepository,
             RoleRepository roleRepository,
             UserRoleRepository userRoleRepository,
-            RegistrationOperationRepository operationRepository) {
+            RegistrationOperationRepository operationRepository,
+            TransactionTemplate transactionTemplate) {
         this.inputValidator = inputValidator;
         this.passwordEncoder = passwordEncoder;
         this.userRepository = userRepository;
@@ -51,13 +59,25 @@ public class RegistrationService {
         this.roleRepository = roleRepository;
         this.userRoleRepository = userRoleRepository;
         this.operationRepository = operationRepository;
+        this.transactionTemplate = transactionTemplate;
     }
 
-    @Transactional
     public RegistrationStartResult start(UUID idempotencyKey, RegisterUserRequest request) {
         RegistrationInputValidator.ValidatedRegistration input = inputValidator.validate(request);
         byte[] digest = sha256(idempotencyKey.toString());
+        try {
+            RegistrationStartResult result = transactionTemplate.execute(status -> createOrRepeat(digest, input));
+            if (result == null) {
+                throw new IllegalStateException("Registration transaction completed without a result");
+            }
+            return result;
+        } catch (DataIntegrityViolationException exception) {
+            return resolveWriteConflict(digest, input, exception);
+        }
+    }
 
+    private RegistrationStartResult createOrRepeat(
+            byte[] digest, RegistrationInputValidator.ValidatedRegistration input) {
         RegistrationOperationEntity existing =
                 operationRepository.findByIdempotencyKeyDigest(digest).orElse(null);
         if (existing != null) {
@@ -79,6 +99,21 @@ public class RegistrationService {
         RegistrationOperationEntity operation = new RegistrationOperationEntity(UUID.randomUUID(), digest, userId);
         operationRepository.save(operation);
         return new RegistrationStartResult(operation.getId(), userId);
+    }
+
+    private RegistrationStartResult resolveWriteConflict(
+            byte[] digest,
+            RegistrationInputValidator.ValidatedRegistration input,
+            DataIntegrityViolationException exception) {
+        RegistrationOperationEntity existing =
+                operationRepository.findByIdempotencyKeyDigest(digest).orElse(null);
+        if (existing != null) {
+            return repeat(existing, input);
+        }
+        if (userRepository.findByEmailCanonical(input.emailCanonical()).isPresent()) {
+            throw new RegistrationConflictException("email_already_registered");
+        }
+        throw exception;
     }
 
     private RegistrationStartResult repeat(

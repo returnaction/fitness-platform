@@ -5,14 +5,11 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-import java.util.regex.Pattern;
 import org.springframework.stereotype.Component;
 
 /** Нормализует email и проверяет правила v1, не изменяя пароль. */
 @Component
 public class RegistrationInputValidator {
-
-    private static final Pattern EMAIL_PATTERN = Pattern.compile("^[!-~]+@[!-~]+$");
 
     public ValidatedRegistration validate(RegisterUserRequest request) {
         List<RegistrationValidationException.Violation> violations = new ArrayList<>();
@@ -32,12 +29,15 @@ public class RegistrationInputValidator {
             return null;
         }
         String email = source.strip().toLowerCase(Locale.ROOT);
-        if (email.length() < 3
-                || email.length() > 254
-                || !EMAIL_PATTERN.matcher(email).matches()) {
+        if (email.length() < 3 || email.length() > 254 || !hasValidEmailStructure(email)) {
             violations.add(new RegistrationValidationException.Violation("email", "invalid_format"));
         }
         return email;
+    }
+
+    private boolean hasValidEmailStructure(String email) {
+        return email.chars().filter(character -> character == '@').count() == 1
+                && email.chars().allMatch(character -> character >= '!' && character <= '~');
     }
 
     private void validatePassword(String password, List<RegistrationValidationException.Violation> violations) {

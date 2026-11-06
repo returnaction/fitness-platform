@@ -16,6 +16,7 @@ import org.springframework.boot.test.context.SpringBootTest.WebEnvironment;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.transaction.support.TransactionTemplate;
 
 @SpringBootTest(
         webEnvironment = WebEnvironment.MOCK,
@@ -43,6 +44,10 @@ class RequestIdFilterSecurityTest {
 
     @MockitoBean
     private RegistrationOperationRepository operationRepository;
+
+    // В этом тесте DataSource намеренно отключён: проверяется только порядок web/security-фильтров.
+    @MockitoBean
+    private TransactionTemplate transactionTemplate;
 
     @Test
     void addsRequestIdToRequestRejectedBySecurity() throws Exception {

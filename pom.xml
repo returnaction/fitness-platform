@@ -32,6 +32,7 @@
         <!-- Quality tools run locally and in CI through the Maven verify phase. -->
         <spotless.version>3.10.4</spotless.version>
         <spotbugs.version>4.10.5.0</spotbugs.version>
+        <spotbugs.annotations.version>4.10.5</spotbugs.annotations.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 
@@ -47,6 +48,11 @@
                 <groupId>org.bouncycastle</groupId>
                 <artifactId>bcprov-jdk18on</artifactId>
                 <version>${bouncycastle.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.github.spotbugs</groupId>
+                <artifactId>spotbugs-annotations</artifactId>
+                <version>${spotbugs.annotations.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
