@@ -11,10 +11,10 @@
 ## Уточнение до реализации
 
 - [ ] [Security] Настроить и измерить Argon2id (`19456 KiB`, 2 итерации, 1 поток, соль 16 байтов, hash 32 байта); проверить обновление hash при усилении параметров.
-- [ ] [API] Реализовать ASCII email v1, пароль 12–128 символов/до 1024 UTF-8 байтов и лимит регистрации 5 запросов с IP в минуту.
+- [ ] [API] Реализовать ASCII email v1, пароль 1–128 символов/до 1024 UTF-8 байтов и лимит регистрации 5 запросов с IP в минуту.
 - [x] [Контракты] Зафиксировать OpenAPI регистрации и `.proto` `EnsureProfile` / `EnsureWallet`.
 - [ ] [gRPC] Настроить mTLS с private CA / step-ca, URI SAN service identity, deadlines и коды ошибок.
-- [ ] [Data] Сверить окончательный DDL Identity, Accounts и Coins с владельцами таблиц; определить Liquibase master changelog каждого сервиса.
+- [ ] [Data] Сверить окончательный DDL Accounts и Coins с владельцами таблиц; Liquibase master changelog Identity и его начальная схема определяются в ветке `7-identity-registration-persistence`.
 
 ## Локальная платформа и каркас сервисов
 

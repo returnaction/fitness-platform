@@ -1,1 +1,4 @@
-databaseChangeLog: []
+databaseChangeLog:
+  - include:
+      file: changes/001-initial-identity-schema.yaml
+      relativeToChangelogFile: true

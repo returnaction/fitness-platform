@@ -1,0 +1,11 @@
+databaseChangeLog:
+  - changeSet:
+      id: 001-initial-identity-schema
+      author: returnaction
+      dbms: postgresql
+      changes:
+        - sqlFile:
+            path: 001-initial-identity-schema.sql
+            relativeToChangelogFile: true
+            splitStatements: true
+            stripComments: false

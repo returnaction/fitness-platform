@@ -47,3 +47,8 @@ Create the ignored local configuration file once:
 Then set the real `DATABASE_PASSWORD` in
 `services/identity-service/.env`. The local Spring profile imports that file
 automatically; it is never committed or copied into a Docker image.
+
+Before the first run, a PostgreSQL administrator must create the service role
+and the `fitness_identity` database. The exact local and server provisioning
+steps, minimal rights, and verification commands are in
+[PostgreSQL provisioning](docs/database-provisioning.md).
