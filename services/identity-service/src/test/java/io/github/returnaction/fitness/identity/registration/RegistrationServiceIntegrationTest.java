@@ -26,6 +26,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
@@ -34,8 +35,9 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 @Testcontainers(disabledWithoutDocker = true)
-@SpringBootTest(properties = {"SERVER_PORT=0", "DATABASE_POOL_MIN_IDLE=2", "DATABASE_POOL_MAX_SIZE=10"})
+@SpringBootTest
 @AutoConfigureMockMvc
+@ActiveProfiles("test")
 class RegistrationServiceIntegrationTest {
 
     @Container

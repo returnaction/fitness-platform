@@ -14,6 +14,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.SpringBootTest.WebEnvironment;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -21,10 +22,10 @@ import org.springframework.transaction.support.TransactionTemplate;
 @SpringBootTest(
         webEnvironment = WebEnvironment.MOCK,
         properties = {
-            "SERVER_PORT=0",
             "spring.autoconfigure.exclude=org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration,org.springframework.boot.security.autoconfigure.UserDetailsServiceAutoConfiguration"
         })
 @AutoConfigureMockMvc
+@ActiveProfiles("test")
 class RequestIdFilterSecurityTest {
 
     @Autowired
