@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>io.github.returnaction.fitness</groupId>
+        <artifactId>fitness-platform</artifactId>
+        <version>0.1.0-SNAPSHOT</version>
+        <relativePath>../../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>fitness-grpc-contracts</artifactId>
+    <name>Fitness gRPC Contracts</name>
+    <description>Generated Java classes for the versioned internal gRPC contracts.</description>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.google.protobuf</groupId>
+            <artifactId>protobuf-java</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.grpc</groupId>
+            <artifactId>grpc-protobuf</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.grpc</groupId>
+            <artifactId>grpc-stub</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>javax.annotation</groupId>
+            <artifactId>javax.annotation-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>com.github.spotbugs</groupId>
+                <artifactId>spotbugs-maven-plugin</artifactId>
+                <configuration>
+                    <excludeFilterFile>${project.basedir}/spotbugs-exclude.xml</excludeFilterFile>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>io.github.ascopes</groupId>
+                <artifactId>protobuf-maven-plugin</artifactId>
+                <version>${protobuf.maven.plugin.version}</version>
+                <configuration>
+                    <sourceDirectories>
+                        <sourceDirectory>${project.basedir}/../proto</sourceDirectory>
+                    </sourceDirectories>
+                    <protoc kind="binary-maven">
+                        <version>${protobuf.version}</version>
+                    </protoc>
+                    <plugins>
+                        <plugin kind="binary-maven">
+                            <groupId>io.grpc</groupId>
+                            <artifactId>protoc-gen-grpc-java</artifactId>
+                            <version>${grpc.version}</version>
+                        </plugin>
+                    </plugins>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>
