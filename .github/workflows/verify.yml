@@ -24,8 +24,9 @@ jobs:
         shell: pwsh
         run: ./scripts/verify-markdown-links.ps1
 
-  # Собирает Maven-проект в той же JDK 25, которую мы выбрали для сервисов.
+  # Собирает Maven-проект, проверяет форматирование и статический анализ в JDK 25.
   build:
+    # Имя сохранено: оно уже может быть обязательным check в GitHub Ruleset для main.
     name: Verify Maven build
     runs-on: ubuntu-latest
     steps:
@@ -37,5 +38,5 @@ jobs:
           distribution: temurin
           java-version: "25.0.5"
           cache: maven
-      - name: Verify Maven build
+      - name: Verify Maven build, formatting, and static analysis
         run: bash ./mvnw --batch-mode --no-transfer-progress verify
