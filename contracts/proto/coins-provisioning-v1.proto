@@ -1,0 +1,41 @@
+syntax = "proto3";
+
+package fitness.coins.provisioning.v1;
+
+option java_multiple_files = true;
+option java_package = "io.github.returnaction.fitness.contracts.coins.provisioning.v1";
+option java_outer_classname = "CoinsProvisioningV1Proto";
+
+// Owned by Coins Service. Identity calls this only while provisioning a
+// registration. Both services validate UUID strings as lowercase UUID values.
+service CoinsProvisioningService {
+  // Requires mTLS service identity Identity and permission
+  // identity.registration.provision. Repeats are safe and never alter an
+  // existing wallet or its balance for the same user_id.
+  rpc EnsureWallet(EnsureWalletRequest) returns (EnsureWalletResponse);
+}
+
+message EnsureWalletRequest {
+  // Diagnostic UUID. It does not grant access and must not appear in public logs.
+  string request_id = 1;
+  // Stable across retries of the same registration operation.
+  string registration_operation_id = 2;
+  // Stable user UUID selected by Identity.
+  string user_id = 3;
+}
+
+message EnsureWalletResponse {
+  string user_id = 1;
+  ProvisioningStatus status = 2;
+}
+
+enum ProvisioningStatus {
+  PROVISIONING_STATUS_UNSPECIFIED = 0;
+  // The zero-balance wallet is committed in Coins' local database.
+  PROVISIONING_STATUS_READY = 1;
+}
+
+// gRPC statuses: INVALID_ARGUMENT for malformed IDs, UNAUTHENTICATED or
+// PERMISSION_DENIED for service identity failures, FAILED_PRECONDITION for a
+// permanent incompatible state, and UNAVAILABLE/DEADLINE_EXCEEDED/
+// RESOURCE_EXHAUSTED/ABORTED for retryable failures.

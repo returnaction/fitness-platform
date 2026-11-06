@@ -1,0 +1,229 @@
+openapi: 3.1.1
+info:
+  title: Identity API
+  version: 1.0.0
+  description: |
+    Внешний REST API Identity Service. Этот контракт описывает регистрацию
+    пользователя первой версии и не является API текущего Python-приложения.
+servers:
+  - url: https://api.example.invalid
+    description: Placeholder. Реальный адрес задаётся конфигурацией окружения.
+paths:
+  /api/v1/auth/register:
+    post:
+      tags: [Authentication]
+      summary: Register a user and start the first session
+      operationId: registerUser
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+            examples:
+              basic:
+                value:
+                  email: anna@example.com
+                  password: correct horse battery staple
+      responses:
+        '201':
+          description: Account, profile, wallet, and first session are ready.
+          headers:
+            Cache-Control:
+              description: Always `no-store`; responses contain tokens.
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegisterResponse'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/RegistrationUnavailable'
+components:
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: |
+        A cryptographically generated UUID v4. Keep the same value while retrying
+        one registration intent. The key is not authentication data.
+      schema:
+        type: string
+        format: uuid
+  schemas:
+    RegisterRequest:
+      type: object
+      additionalProperties: false
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+          minLength: 3
+          maxLength: 254
+          pattern: '^[\x21-\x7E]+$'
+          description: |
+            ASCII email. Leading and trailing whitespace is removed; comparison is
+            case-insensitive. Unicode and IDN addresses are not supported in v1.
+        password:
+          type: string
+          format: password
+          minLength: 12
+          maxLength: 128
+          writeOnly: true
+          description: |
+            At most 1024 UTF-8 bytes. The server does not normalize or silently
+            truncate it.
+    RegisterResponse:
+      type: object
+      additionalProperties: false
+      required: [user, session]
+      properties:
+        user:
+          $ref: '#/components/schemas/RegisteredUser'
+        session:
+          $ref: '#/components/schemas/SessionTokens'
+    RegisteredUser:
+      type: object
+      additionalProperties: false
+      required: [id, email, status]
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        status:
+          type: string
+          const: ACTIVE
+    SessionTokens:
+      type: object
+      additionalProperties: false
+      required:
+        [access_token, refresh_token, token_type, expires_in, refresh_expires_in]
+      properties:
+        access_token:
+          type: string
+          writeOnly: true
+        refresh_token:
+          type: string
+          writeOnly: true
+        token_type:
+          type: string
+          const: Bearer
+        expires_in:
+          type: integer
+          const: 900
+        refresh_expires_in:
+          type: integer
+          const: 2592000
+    ErrorResponse:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          type: object
+          additionalProperties: false
+          required: [code, message, request_id]
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+            details:
+              type: array
+              items:
+                type: object
+                additionalProperties: false
+                required: [field, code]
+                properties:
+                  field:
+                    type: string
+                  code:
+                    type: string
+            request_id:
+              type: string
+              format: uuid
+  responses:
+    InvalidRequest:
+      description: Invalid JSON or a missing/invalid Idempotency-Key.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: invalid_request
+              message: Check the request format.
+              request_id: 2c160d4b-0f61-4702-99e1-99713d0c9326
+    ValidationError:
+      description: The email or password violates v1 validation rules.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: validation_error
+              message: Check the submitted data.
+              details:
+                - field: email
+                  code: invalid_format
+              request_id: 2c160d4b-0f61-4702-99e1-99713d0c9326
+    Conflict:
+      description: |
+        `email_already_registered` means another operation owns the normalized
+        email. `idempotency_key_conflict` means the same key was sent with
+        different credentials; the response does not identify the differing field.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    RateLimited:
+      description: Registration limit exceeded.
+      headers:
+        Retry-After:
+          description: Seconds until the client can retry.
+          schema:
+            type: integer
+            minimum: 1
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: rate_limited
+              message: Try again later.
+              request_id: 2c160d4b-0f61-4702-99e1-99713d0c9326
+    RegistrationUnavailable:
+      description: |
+        A temporary provisioning failure. Retry the same request with the same
+        Idempotency-Key and password; no session or token is issued.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    InternalError:
+      description: Unexpected failure without internal details.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'

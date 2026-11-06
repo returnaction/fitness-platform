@@ -1,7 +1,7 @@
 # План реализации: регистрация пользователя
 
 > **Спецификация:** [spec.md](spec.md)  
-> **Статус:** draft  
+> **Статус:** approved
 > **Связанные документы system-design:** [регистрация Identity](../../system-design/services/identity/30-identity-registration.md), [сессии Identity](../../system-design/services/identity/31-identity-login-sessions.md), [внутренние контракты](../../system-design/interactions/59-identity-accounts-internal-api.md)
 
 ## Краткое решение
@@ -46,14 +46,14 @@
 
 | Направление | Тип | Изменение | Версионирование / совместимость |
 | --- | --- | --- | --- |
-| Flutter → Identity | REST `POST /api/v1/auth/register` | email, password, `Idempotency-Key`, ошибки и токены | v1; новые необязательные поля допустимы |
-| Identity → Accounts | gRPC `EnsureProfile` | `{request_id, registration_operation_id, user_id}` → `{user_id, status: READY}` | отдельный Protobuf v1 |
-| Identity → Coins | gRPC `EnsureWallet` | `{request_id, registration_operation_id, user_id}` → `{user_id, status: READY}` | отдельный Protobuf v1 |
+| Flutter → Identity | [REST `POST /api/v1/auth/register`](../../contracts/openapi/identity-auth-v1.yaml) | email, password, `Idempotency-Key`, ошибки и токены | OpenAPI v1; новые необязательные поля допустимы |
+| Identity → Accounts | [gRPC `EnsureProfile`](../../contracts/proto/accounts-provisioning-v1.proto) | `{request_id, registration_operation_id, user_id}` → `{user_id, status: READY}` | Protobuf v1 |
+| Identity → Coins | [gRPC `EnsureWallet`](../../contracts/proto/coins-provisioning-v1.proto) | `{request_id, registration_operation_id, user_id}` → `{user_id, status: READY}` | Protobuf v1 |
 
-- gRPC использует mTLS. Клиентский сертификат от private CA проекта имеет URI
-  SAN `spiffe://fitness.local/identity-service`; получатель по нему определяет
-  service identity и разрешает `identity.registration.provision`. Пользовательские
-  токены и service JWT в первой версии запрещены.
+- gRPC использует mTLS. Клиентский сертификат от private CA, выдаваемый step-ca,
+  имеет URI SAN `spiffe://fitness.local/identity-service`; получатель по нему
+  определяет service identity и разрешает `identity.registration.provision`.
+  Пользовательские токены и service JWT в первой версии запрещены.
 - Внешний HTTP API на сервере публикуется через Caddy: он получает и обновляет
   бесплатный сертификат Let's Encrypt после привязки домена. В локальной среде
   используется отдельная private CA, а gRPC-порты не публикуются наружу.
@@ -77,6 +77,10 @@
   исходный ключ идемпотентности, баланс или содержимое профиля.
 - `Idempotency-Key` — UUID v4; в Identity хранится SHA-256 digest. Он не
   является credential и не заменяет проверку пароля при повторе.
+- Регистрация ограничивается Bucket4j token bucket в Caffeine local cache:
+  5 запросов на IP в минуту для одного экземпляра Identity. После рестарта
+  счётчики очищаются; при нескольких экземплярах требуется Bucket4j с Redis
+  backend до их развёртывания. Forwarded IP принимается только от Caddy.
 
 ## Проверка
 
@@ -98,6 +102,6 @@
 | --- | --- |
 | Сложность трёх сервисов в первом пути | Реализовать минимальные сервисы и их контракт вместе; не подменять production-поведение общими таблицами или постоянными mock. |
 | `409` раскрывает занятый email | Допустимо только для учебной версии; перед публичным запуском требуется продуктовое и security-решение. |
-| HTTPS и mTLS требуют сертификатов | Caddy получает бесплатный Let’s Encrypt сертификат для домена; внутренняя private CA выдаёт отдельные сертификаты сервисам. |
+| HTTPS и mTLS требуют сертификатов | Caddy получает бесплатный Let’s Encrypt сертификат для домена; step-ca выдаёт и ротирует внутренние сертификаты сервисов. |
 | Kafka добавлена без контракта события | Поднять KRaft в платформе, но не создавать топики и producer без согласованного потребителя. |
 
