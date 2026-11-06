@@ -9,11 +9,14 @@ in [System Design](system-design/README.md).
 - `apps/mobile/` — the future Flutter application.
 - `services/` — independent Spring Boot services.
 - `contracts/` — cross-service Protobuf and event contracts.
+- `docs/` — engineering standards and development guidance.
 - `platform/` — local infrastructure configuration, such as Docker Compose.
 - `system-design/` — architecture, domain model, service contracts, and ADRs.
 
 The repository intentionally contains no generated application code yet. The
-first implementation will follow the agreed System Design contracts.
+first implementation will follow the agreed System Design contracts. Coding
+conventions for all future service modules are in
+[Engineering Standards](docs/engineering-standards.md).
 
 ## Build baseline
 
