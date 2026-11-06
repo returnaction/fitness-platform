@@ -7,3 +7,6 @@ spring:
 logging:
   level:
     io.github.returnaction.fitness.identity: DEBUG
+    # HikariCP сам выводит фактические настройки пула, включая minimumIdle и
+    # maximumPoolSize. Пароль подключения в этом выводе маскируется.
+    com.zaxxer.hikari.HikariConfig: DEBUG

@@ -15,7 +15,7 @@ import org.springframework.test.web.servlet.MockMvc;
         webEnvironment = WebEnvironment.MOCK,
         properties = {
             "SERVER_PORT=0",
-            "spring.autoconfigure.exclude=org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration"
+            "spring.autoconfigure.exclude=org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration,org.springframework.boot.security.autoconfigure.UserDetailsServiceAutoConfiguration"
         })
 @AutoConfigureMockMvc
 class RequestIdFilterSecurityTest {

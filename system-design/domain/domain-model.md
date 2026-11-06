@@ -15,6 +15,7 @@ Identity owns the following tables:
 
 User statuses:
 
+- `PENDING`
 - `ACTIVE`
 - `SUSPENDED`
 - `DISABLED`
