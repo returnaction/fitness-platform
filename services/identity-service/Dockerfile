@@ -4,10 +4,10 @@ WORKDIR /workspace
 COPY .mvn .mvn
 COPY mvnw pom.xml ./
 COPY services/identity-service/pom.xml services/identity-service/pom.xml
-RUN ./mvnw --batch-mode --no-transfer-progress -pl services/identity-service -am dependency:go-offline
+RUN bash ./mvnw --batch-mode --no-transfer-progress -pl services/identity-service -am dependency:go-offline
 
 COPY services/identity-service services/identity-service
-RUN ./mvnw --batch-mode --no-transfer-progress -pl services/identity-service -am package -DskipTests
+RUN bash ./mvnw --batch-mode --no-transfer-progress -pl services/identity-service -am package -DskipTests
 
 FROM eclipse-temurin:25-jre
 
