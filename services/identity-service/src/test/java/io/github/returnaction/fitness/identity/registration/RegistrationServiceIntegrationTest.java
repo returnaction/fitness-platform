@@ -34,12 +34,7 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 @Testcontainers(disabledWithoutDocker = true)
-@SpringBootTest(
-        properties = {
-            "SERVER_PORT=0",
-            "DATABASE_POOL_MIN_IDLE=2",
-            "DATABASE_POOL_MAX_SIZE=10"
-        })
+@SpringBootTest(properties = {"SERVER_PORT=0", "DATABASE_POOL_MIN_IDLE=2", "DATABASE_POOL_MAX_SIZE=10"})
 @AutoConfigureMockMvc
 class RegistrationServiceIntegrationTest {
 
