@@ -27,6 +27,8 @@
         <java.version>25</java.version>
         <!-- One stable MapStruct version for every future service module. -->
         <mapstruct.version>1.6.3</mapstruct.version>
+        <!-- Required by Spring Security Argon2PasswordEncoder at runtime. -->
+        <bouncycastle.version>1.80</bouncycastle.version>
         <!-- Quality tools run locally and in CI through the Maven verify phase. -->
         <spotless.version>3.10.4</spotless.version>
         <spotbugs.version>4.10.5.0</spotbugs.version>
@@ -40,6 +42,11 @@
                 <groupId>org.mapstruct</groupId>
                 <artifactId>mapstruct</artifactId>
                 <version>${mapstruct.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.bouncycastle</groupId>
+                <artifactId>bcprov-jdk18on</artifactId>
+                <version>${bouncycastle.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>

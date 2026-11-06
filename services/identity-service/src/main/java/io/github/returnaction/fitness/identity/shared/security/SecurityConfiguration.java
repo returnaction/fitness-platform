@@ -2,6 +2,7 @@ package io.github.returnaction.fitness.identity.shared.security;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -20,6 +21,8 @@ public class SecurityConfiguration {
                 .authorizeHttpRequests(authorization -> authorization
                         .requestMatchers(
                                 "/actuator/health", "/actuator/health/**", "/actuator/info", "/actuator/prometheus")
+                        .permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/auth/register")
                         .permitAll()
                         .anyRequest()
                         .denyAll())
