@@ -1,0 +1,37 @@
+spring:
+  application:
+    name: accounts-service
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.security.autoconfigure.UserDetailsServiceAutoConfiguration
+  profiles:
+    default: local
+  datasource:
+    url: ${DATABASE_URL}
+    username: ${DATABASE_USERNAME}
+    password: ${DATABASE_PASSWORD}
+    hikari:
+      # Значения задаются явно в .env локальной среды или в переменных окружения
+      # сервера. У них нет скрытого значения по умолчанию.
+      minimum-idle: ${DATABASE_POOL_MIN_IDLE}
+      maximum-pool-size: ${DATABASE_POOL_MAX_SIZE}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  liquibase:
+    change-log: classpath:db/changelog/db.changelog-master.yaml
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: never
+
+server:
+  port: ${SERVER_PORT}

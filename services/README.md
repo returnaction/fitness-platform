@@ -8,5 +8,7 @@ tables. Their source-of-truth interaction schemas are in `../contracts/`.
 
 Current modules:
 
-- `identity-service/` — bootstrap only; user registration is not implemented
-  yet.
+- `identity-service/` — initial PENDING-registration API; full provisioning,
+  activation and sessions are still in progress.
+- `accounts-service/` — service bootstrap; profile tables and `EnsureProfile`
+  will be added in the next increment.

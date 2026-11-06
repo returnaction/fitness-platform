@@ -1,0 +1,13 @@
+spring:
+  config:
+    import:
+      - optional:file:./.env.example[.properties]
+      - optional:file:./services/accounts-service/.env.example[.properties]
+      - optional:file:./.env[.properties]
+      - optional:file:./services/accounts-service/.env[.properties]
+
+logging:
+  level:
+    io.github.returnaction.fitness.accounts: DEBUG
+    # HikariCP выводит фактические minimumIdle и maximumPoolSize; пароль маскируется.
+    com.zaxxer.hikari.HikariConfig: DEBUG

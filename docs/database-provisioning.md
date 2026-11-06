@@ -92,13 +92,77 @@ FROM databasechangelog
 ORDER BY dateexecuted;
 ```
 
+## Accounts Service
+
+### 1. Создать роль и базу
+
+Выполнить команды от имени администратора PostgreSQL один раз в каждой новой
+среде, включая локальную среду разработчика и сервер. Значение пароля в Git и
+документацию не попадает.
+
+```sql
+CREATE ROLE fitness_accounts_app
+  LOGIN
+  NOSUPERUSER
+  NOCREATEDB
+  NOCREATEROLE
+  NOINHERIT
+  PASSWORD '<длинный-уникальный-пароль>';
+
+CREATE DATABASE fitness_accounts
+  OWNER fitness_accounts_app
+  ENCODING 'UTF8'
+  TEMPLATE template0;
+
+REVOKE ALL ON DATABASE fitness_accounts FROM PUBLIC;
+```
+
+Подключиться к `fitness_accounts` как администратор и выполнить:
+
+```sql
+REVOKE ALL ON SCHEMA public FROM PUBLIC;
+GRANT USAGE, CREATE ON SCHEMA public TO fitness_accounts_app;
+```
+
+### 2. Передать параметры сервису
+
+Локальный `.env` модуля `accounts-service` содержит:
+
+```properties
+DATABASE_URL=jdbc:postgresql://localhost:5432/fitness_accounts
+DATABASE_USERNAME=fitness_accounts_app
+DATABASE_PASSWORD=<пароль-роли>
+SERVER_PORT=8081
+```
+
+Этот файл создаётся из `.env.example`, остаётся игнорируемым Git и хранит
+реальный пароль только в локальной среде. На сервере те же переменные передаёт
+защищённая конфигурация процесса.
+
+### 3. Первый запуск и проверка
+
+Liquibase Accounts создаст таблицы своей схемы и служебные
+`databasechangelog`/`databasechangeloglock` при первом запуске сервиса. До
+появления миграции список таблиц `fitness_accounts.public` остаётся пустым.
+
+```sql
+SELECT datname FROM pg_database WHERE datname = 'fitness_accounts';
+
+SELECT rolname, rolsuper, rolcreatedb, rolcreaterole
+FROM pg_roles
+WHERE rolname = 'fitness_accounts_app';
+
+SELECT table_name
+FROM information_schema.tables
+WHERE table_schema = 'public';
+```
+
 ## Правило для следующих сервисов
 
-Перед первым запуском Accounts и Coins повторяется тот же шаблон с собственными
-именами: `fitness_accounts` / `fitness_accounts_app` и `fitness_coins` /
-`fitness_coins_app`. Схема каждой базы создаётся исключительно Liquibase-
-миграциями сервиса-владельца; другой сервис не читает и не изменяет эти таблицы
-напрямую.
+Перед первым запуском Coins повторяется тот же шаблон с собственными именами:
+`fitness_coins` / `fitness_coins_app`. Схема каждой базы создаётся
+исключительно Liquibase-миграциями сервиса-владельца; другой сервис не читает
+и не изменяет эти таблицы напрямую.
 
 Резервное копирование и восстановление PostgreSQL описаны в
 [плане резервного копирования](../system-design/architecture/recovery/56-postgresql-backup-plan.md).

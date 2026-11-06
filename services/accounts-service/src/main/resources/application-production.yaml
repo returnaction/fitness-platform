@@ -1,0 +1,7 @@
+logging:
+  structured:
+    format:
+      console: ecs
+
+server:
+  forward-headers-strategy: framework
