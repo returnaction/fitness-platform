@@ -13,8 +13,8 @@ in [System Design](system-design/README.md).
 - `platform/` — local infrastructure configuration, such as Docker Compose.
 - `system-design/` — architecture, domain model, service contracts, and ADRs.
 
-The repository intentionally contains no generated application code yet. The
-first implementation will follow the agreed System Design contracts. Coding
+The repository contains the initial bootstrap of Identity Service. Business
+functionality is added only after its agreed System Design contracts. Coding
 conventions for all future service modules are in
 [Engineering Standards](docs/engineering-standards.md).
 
@@ -35,3 +35,15 @@ Run the documentation link check with:
 ```powershell
 .\scripts\verify-markdown-links.ps1
 ```
+
+## Local Identity configuration
+
+Create the ignored local configuration file once:
+
+```powershell
+.\scripts\initialize-identity-local-env.ps1
+```
+
+Then set the real `DATABASE_PASSWORD` in
+`services/identity-service/.env`. The local Spring profile imports that file
+automatically; it is never committed or copied into a Docker image.
