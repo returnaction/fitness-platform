@@ -1,1 +1,4 @@
-databaseChangeLog: []
+databaseChangeLog:
+  - include:
+      file: changes/001-create-user-profiles.yaml
+      relativeToChangelogFile: true

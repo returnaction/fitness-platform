@@ -17,6 +17,15 @@
 
     <dependencies>
         <dependency>
+            <groupId>io.github.returnaction.fitness</groupId>
+            <artifactId>fitness-grpc-contracts</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.grpc</groupId>
+            <artifactId>grpc-netty-shaded</artifactId>
+        </dependency>
+        <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-webmvc</artifactId>
         </dependency>

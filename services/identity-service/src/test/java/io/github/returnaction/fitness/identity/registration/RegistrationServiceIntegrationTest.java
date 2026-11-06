@@ -13,8 +13,12 @@ import io.github.returnaction.fitness.identity.registration.dto.RegisterUserRequ
 import io.github.returnaction.fitness.identity.registration.entity.UserCredentialEntity;
 import io.github.returnaction.fitness.identity.registration.entity.UserEntity;
 import io.github.returnaction.fitness.identity.registration.entity.UserStatus;
+import io.github.returnaction.fitness.identity.registration.grpc.AccountsProvisioningClient;
 import io.github.returnaction.fitness.identity.registration.repository.UserCredentialRepository;
 import io.github.returnaction.fitness.identity.registration.repository.UserRepository;
+import io.github.returnaction.fitness.identity.registration.worker.AccountsProvisioningProcessor;
+import io.github.returnaction.fitness.identity.registration.worker.AccountsProvisioningScheduler;
+import io.github.returnaction.fitness.identity.registration.worker.RegistrationLeaseRepository;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -59,6 +63,9 @@ class RegistrationServiceIntegrationTest {
     private JdbcClient jdbcClient;
 
     @Autowired
+    private RegistrationLeaseRepository leases;
+
+    @Autowired
     private MockMvc mockMvc;
 
     @DynamicPropertySource
@@ -66,6 +73,159 @@ class RegistrationServiceIntegrationTest {
         registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
         registry.add("spring.datasource.username", POSTGRES::getUsername);
         registry.add("spring.datasource.password", POSTGRES::getPassword);
+    }
+
+    @Test
+    void workerClaimsAndRecordsProfileReadinessWithoutNetworkTransaction() {
+        var operation = registrationService.start(
+                UUID.randomUUID(), new RegisterUserRequest("worker-" + UUID.randomUUID() + "@example.com", "a"));
+        var client = org.mockito.Mockito.mock(AccountsProvisioningClient.class);
+        org.mockito.Mockito.doAnswer(invocation -> {
+                    assertThat(org.springframework.transaction.support.TransactionSynchronizationManager
+                                    .isActualTransactionActive())
+                            .isFalse();
+                    return null;
+                })
+                .when(client)
+                .ensureProfile(
+                        org.mockito.ArgumentMatchers.any(),
+                        org.mockito.ArgumentMatchers.any(),
+                        org.mockito.ArgumentMatchers.any());
+        var processor = new AccountsProvisioningProcessor(client, leases);
+        var scheduler = new AccountsProvisioningScheduler(leases, processor, 4, 30);
+        for (int attempt = 0; attempt < 10; attempt++) {
+            scheduler.poll();
+            boolean ready = jdbcClient
+                    .sql("SELECT profile_ready FROM registration_operations WHERE id = :id")
+                    .param("id", operation.operationId())
+                    .query(Boolean.class)
+                    .single();
+            if (ready) {
+                assertThat(jdbcClient
+                                .sql("SELECT status FROM users WHERE id = :id")
+                                .param("id", operation.userId())
+                                .query(String.class)
+                                .single())
+                        .isEqualTo("PENDING");
+                return;
+            }
+        }
+        throw new AssertionError("Worker did not mark the profile ready");
+    }
+
+    @Test
+    void workerRetriesUnavailableAccountsAndEventuallyMarksProfileReady() {
+        var operation = registrationService.start(
+                UUID.randomUUID(), new RegisterUserRequest("recovery-" + UUID.randomUUID() + "@example.com", "a"));
+        var client = org.mockito.Mockito.mock(AccountsProvisioningClient.class);
+        org.mockito.Mockito.doThrow(io.grpc.Status.UNAVAILABLE.asRuntimeException())
+                .doNothing()
+                .when(client)
+                .ensureProfile(
+                        org.mockito.ArgumentMatchers.any(),
+                        org.mockito.ArgumentMatchers.eq(operation.operationId()),
+                        org.mockito.ArgumentMatchers.eq(operation.userId()));
+        var processor = new AccountsProvisioningProcessor(client, leases);
+        var first = leases.claim(UUID.randomUUID(), 100, 30).stream()
+                .filter(lease -> lease.operationId().equals(operation.operationId()))
+                .findFirst()
+                .orElseThrow();
+        processor.process(first);
+
+        assertThat(jdbcClient
+                        .sql("SELECT retry_count = 1 AND NOT profile_ready AND recovery_blocked_at IS NULL "
+                                + "AND next_retry_at > clock_timestamp() "
+                                + "FROM registration_operations WHERE id = :id")
+                        .param("id", operation.operationId())
+                        .query(Boolean.class)
+                        .single())
+                .isTrue();
+        assertThat(leases.claim(UUID.randomUUID(), 100, 30))
+                .noneMatch(lease -> lease.operationId().equals(operation.operationId()));
+
+        jdbcClient
+                .sql("UPDATE registration_operations SET next_retry_at = clock_timestamp() WHERE id = :id")
+                .param("id", operation.operationId())
+                .update();
+        var second = leases.claim(UUID.randomUUID(), 100, 30).stream()
+                .filter(lease -> lease.operationId().equals(operation.operationId()))
+                .findFirst()
+                .orElseThrow();
+        processor.process(second);
+        assertThat(jdbcClient
+                        .sql("SELECT profile_ready FROM registration_operations WHERE id = :id")
+                        .param("id", operation.operationId())
+                        .query(Boolean.class)
+                        .single())
+                .isTrue();
+        assertThat(userRepository.findById(operation.userId()).orElseThrow().getStatus())
+                .isEqualTo(UserStatus.PENDING);
+    }
+
+    @Test
+    void retryAndPermanentFailureRespectLeaseAndScheduling() {
+        var operation = registrationService.start(
+                UUID.randomUUID(), new RegisterUserRequest("retry-" + UUID.randomUUID() + "@example.com", "a"));
+        var first = leases.claim(UUID.randomUUID(), 100, 30).stream()
+                .filter(lease -> lease.operationId().equals(operation.operationId()))
+                .findFirst()
+                .orElseThrow();
+        assertThat(leases.recordFailure(first, true, "ACCOUNTS_UNAVAILABLE")).isTrue();
+        assertThat(leases.recordFailure(first, true, "ACCOUNTS_UNAVAILABLE")).isFalse();
+        assertThat(jdbcClient
+                        .sql("SELECT retry_count FROM registration_operations WHERE id = :id")
+                        .param("id", operation.operationId())
+                        .query(Integer.class)
+                        .single())
+                .isEqualTo(1);
+        assertThat(jdbcClient
+                        .sql("SELECT next_retry_at > clock_timestamp() FROM registration_operations WHERE id = :id")
+                        .param("id", operation.operationId())
+                        .query(Boolean.class)
+                        .single())
+                .isTrue();
+        assertThat(leases.claim(UUID.randomUUID(), 100, 30))
+                .noneMatch(l -> l.operationId().equals(operation.operationId()));
+        jdbcClient
+                .sql("UPDATE registration_operations SET next_retry_at = clock_timestamp() WHERE id = :id")
+                .param("id", operation.operationId())
+                .update();
+        var second = leases.claim(UUID.randomUUID(), 100, 30).stream()
+                .filter(lease -> lease.operationId().equals(operation.operationId()))
+                .findFirst()
+                .orElseThrow();
+        assertThat(leases.recordFailure(second, false, "ACCOUNTS_PERMISSION_DENIED"))
+                .isTrue();
+        assertThat(jdbcClient
+                        .sql("SELECT recovery_blocked_at IS NOT NULL FROM registration_operations WHERE id = :id")
+                        .param("id", operation.operationId())
+                        .query(Boolean.class)
+                        .single())
+                .isTrue();
+        assertThat(leases.claim(UUID.randomUUID(), 100, 30))
+                .noneMatch(l -> l.operationId().equals(operation.operationId()));
+    }
+
+    @Test
+    void expiredLeaseCannotCompleteAfterAnotherWorkerClaims() {
+        var operation =
+                registrationService.start(UUID.randomUUID(), new RegisterUserRequest("lease-test@example.com", "a"));
+        var first = leases.claim(UUID.randomUUID(), 20, 30).stream()
+                .filter(lease -> lease.operationId().equals(operation.operationId()))
+                .findFirst()
+                .orElseThrow();
+        jdbcClient
+                .sql(
+                        "UPDATE registration_operations SET lease_until = clock_timestamp() - interval '1 second' WHERE id = :id")
+                .param("id", operation.operationId())
+                .update();
+        var second = leases.claim(UUID.randomUUID(), 20, 30).stream()
+                .filter(lease -> lease.operationId().equals(operation.operationId()))
+                .findFirst()
+                .orElseThrow();
+        assertThat(leases.markProfileReady(first)).isFalse();
+        assertThat(leases.markProfileReady(second)).isTrue();
+        assertThat(leases.markProfileReady(second)).isFalse();
     }
 
     @Test

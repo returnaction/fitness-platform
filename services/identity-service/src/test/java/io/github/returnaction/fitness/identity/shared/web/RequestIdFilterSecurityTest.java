@@ -9,6 +9,7 @@ import io.github.returnaction.fitness.identity.registration.repository.RoleRepos
 import io.github.returnaction.fitness.identity.registration.repository.UserCredentialRepository;
 import io.github.returnaction.fitness.identity.registration.repository.UserRepository;
 import io.github.returnaction.fitness.identity.registration.repository.UserRoleRepository;
+import io.github.returnaction.fitness.identity.registration.worker.RegistrationLeaseRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -45,6 +46,9 @@ class RequestIdFilterSecurityTest {
 
     @MockitoBean
     private RegistrationOperationRepository operationRepository;
+
+    @MockitoBean
+    private RegistrationLeaseRepository registrationLeaseRepository;
 
     // В этом тесте DataSource намеренно отключён: проверяется только порядок web/security-фильтров.
     @MockitoBean

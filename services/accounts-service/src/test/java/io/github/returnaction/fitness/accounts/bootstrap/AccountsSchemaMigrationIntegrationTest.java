@@ -26,13 +26,13 @@ class AccountsSchemaMigrationIntegrationTest {
     static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:17-alpine");
 
     @Test
-    void appliesEmptyChangelogWithoutCreatingProfileTables() throws Exception {
+    void appliesProfileMigration() throws Exception {
         applyMigrations();
 
         try (Connection connection =
                 DriverManager.getConnection(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())) {
-            assertThat(changeSetCount(connection)).isZero();
-            assertThat(applicationTableCount(connection)).isZero();
+            assertThat(changeSetCount(connection)).isEqualTo(1);
+            assertThat(applicationTableCount(connection)).isEqualTo(1);
         }
     }
 
