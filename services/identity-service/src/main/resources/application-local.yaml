@@ -1,0 +1,9 @@
+spring:
+  config:
+    import:
+      - optional:file:./.env[.properties]
+      - optional:file:./services/identity-service/.env[.properties]
+
+logging:
+  level:
+    io.github.returnaction.fitness.identity: DEBUG

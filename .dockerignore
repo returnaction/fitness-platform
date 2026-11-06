@@ -1,0 +1,14 @@
+# Local configuration and secrets must never enter a Docker build context.
+**/.env
+**/.env.*
+!**/.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+secrets/
+
+# Files that do not belong in an image build context.
+.git/
+.idea/
+**/target/

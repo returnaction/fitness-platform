@@ -19,6 +19,10 @@
     <name>Fitness Platform</name>
     <description>Parent Maven build for the Fitness Platform services.</description>
 
+    <modules>
+        <module>services/identity-service</module>
+    </modules>
+
     <properties>
         <java.version>25</java.version>
         <!-- One stable MapStruct version for every future service module. -->
