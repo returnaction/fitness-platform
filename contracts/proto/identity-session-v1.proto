@@ -1,0 +1,31 @@
+syntax = "proto3";
+
+package fitness.identity.session.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option java_multiple_files = true;
+option java_package = "io.github.returnaction.fitness.contracts.identity.session.v1";
+option java_outer_classname = "IdentitySessionV1Proto";
+
+// Только сервис с разрешением identity.session.verify; пользовательские токены не передаются.
+service IdentitySessionService {
+  rpc CheckSession(CheckSessionRequest) returns (CheckSessionResponse);
+}
+
+message CheckSessionRequest {
+  string request_id = 1;
+  string user_id = 2;
+  string session_id = 3;
+}
+
+message CheckSessionResponse {
+  SessionStatus status = 1;
+  google.protobuf.Timestamp checked_at = 2;
+}
+
+enum SessionStatus {
+  SESSION_STATUS_UNSPECIFIED = 0;
+  SESSION_STATUS_ACTIVE = 1;
+  SESSION_STATUS_INVALID = 2;
+}

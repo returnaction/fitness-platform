@@ -13,6 +13,7 @@ import io.github.returnaction.fitness.identity.registration.repository.UserCrede
 import io.github.returnaction.fitness.identity.registration.repository.UserRepository;
 import io.github.returnaction.fitness.identity.registration.repository.UserRoleRepository;
 import io.github.returnaction.fitness.identity.registration.worker.RegistrationLeaseRepository;
+import io.github.returnaction.fitness.identity.session.SessionVerificationRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -50,6 +51,9 @@ class RegistrationRateLimitHttpTest {
 
     @MockitoBean
     private RegistrationLeaseRepository leases;
+
+    @MockitoBean
+    private SessionVerificationRepository sessionVerificationRepository;
 
     @MockitoBean
     private RegistrationSessionService sessions;

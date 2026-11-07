@@ -26,6 +26,7 @@ import io.github.returnaction.fitness.identity.registration.worker.AccountsProvi
 import io.github.returnaction.fitness.identity.registration.worker.AccountsProvisioningScheduler;
 import io.github.returnaction.fitness.identity.registration.worker.CoinsProvisioningProcessor;
 import io.github.returnaction.fitness.identity.registration.worker.RegistrationLeaseRepository;
+import io.github.returnaction.fitness.identity.session.SessionVerificationRepository;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -78,6 +79,9 @@ class RegistrationServiceIntegrationTest {
 
     @Autowired
     private RegistrationLeaseRepository leases;
+
+    @Autowired
+    private SessionVerificationRepository sessionVerification;
 
     @Autowired
     private MockMvc mockMvc;
@@ -332,6 +336,57 @@ class RegistrationServiceIntegrationTest {
                         .query(Boolean.class)
                         .single())
                 .isTrue();
+    }
+
+    @Test
+    void sessionVerificationChecksOwnershipStatusRevocationAndExpiry() {
+        var operation = registrationService.start(
+                UUID.randomUUID(), new RegisterUserRequest("verify-" + UUID.randomUUID() + "@example.com", "a"));
+        UUID session = UUID.randomUUID();
+        jdbcClient
+                .sql(
+                        "INSERT INTO auth_sessions (id,user_id,expires_at) VALUES (:id,:user,clock_timestamp()+interval '1 day')")
+                .param("id", session)
+                .param("user", operation.userId())
+                .update();
+        assertThat(sessionVerification.check(operation.userId(), session).active())
+                .isFalse();
+        jdbcClient
+                .sql("UPDATE users SET status='ACTIVE' WHERE id=:id")
+                .param("id", operation.userId())
+                .update();
+        var active = sessionVerification.check(operation.userId(), session);
+        assertThat(active.active()).isTrue();
+        assertThat(active.checkedAt()).isNotNull();
+        assertThat(sessionVerification.check(UUID.randomUUID(), session).active())
+                .isFalse();
+        assertThat(sessionVerification
+                        .check(operation.userId(), UUID.randomUUID())
+                        .active())
+                .isFalse();
+        jdbcClient
+                .sql("UPDATE auth_sessions SET revoked_at=clock_timestamp() WHERE id=:id")
+                .param("id", session)
+                .update();
+        assertThat(sessionVerification.check(operation.userId(), session).active())
+                .isFalse();
+        jdbcClient
+                .sql("UPDATE auth_sessions SET revoked_at=NULL, created_at=clock_timestamp()-interval '2 days', "
+                        + "expires_at=clock_timestamp()-interval '1 day' WHERE id=:id")
+                .param("id", session)
+                .update();
+        assertThat(sessionVerification.check(operation.userId(), session).active())
+                .isFalse();
+        jdbcClient
+                .sql("UPDATE auth_sessions SET expires_at=clock_timestamp()+interval '1 day' WHERE id=:id")
+                .param("id", session)
+                .update();
+        jdbcClient
+                .sql("UPDATE users SET status='SUSPENDED' WHERE id=:id")
+                .param("id", operation.userId())
+                .update();
+        assertThat(sessionVerification.check(operation.userId(), session).active())
+                .isFalse();
     }
 
     @Test
