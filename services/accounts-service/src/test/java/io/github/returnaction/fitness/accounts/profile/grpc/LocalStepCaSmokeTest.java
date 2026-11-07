@@ -16,6 +16,7 @@ import io.grpc.netty.shaded.io.grpc.netty.NettyChannelBuilder;
 import io.grpc.netty.shaded.io.grpc.netty.NettyServerBuilder;
 import io.grpc.netty.shaded.io.netty.handler.ssl.ClientAuth;
 import java.io.File;
+import java.net.InetSocketAddress;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
@@ -29,9 +30,10 @@ class LocalStepCaSmokeTest {
         File directory = new File("../../secrets");
         File ca = new File(directory, "ca.crt");
         ProfileProvisioningService provisioning = mock(ProfileProvisioningService.class);
-        Server server = NettyServerBuilder.forPort(0)
+        Server server = NettyServerBuilder.forAddress(new InetSocketAddress("127.0.0.1", 0))
                 .sslContext(GrpcSslContexts.forServer(
-                                new File(directory, "accounts-server.crt"), new File(directory, "accounts-server.key"))
+                                new File(directory, "accounts-server.crt"),
+                                new File(directory, "accounts-server-pkcs8.key"))
                         .trustManager(ca)
                         .clientAuth(ClientAuth.REQUIRE)
                         .build())
@@ -43,7 +45,8 @@ class LocalStepCaSmokeTest {
                 .sslContext(GrpcSslContexts.forClient()
                         .trustManager(ca)
                         .keyManager(
-                                new File(directory, "identity-client.crt"), new File(directory, "identity-client.key"))
+                                new File(directory, "identity-client.crt"),
+                                new File(directory, "identity-client-pkcs8.key"))
                         .build())
                 .build();
         try {

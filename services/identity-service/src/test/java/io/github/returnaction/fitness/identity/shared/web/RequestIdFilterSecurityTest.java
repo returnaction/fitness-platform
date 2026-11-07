@@ -5,6 +5,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import io.github.returnaction.fitness.identity.registration.application.PendingLoginService;
+import io.github.returnaction.fitness.identity.registration.application.RegistrationReadinessWaiter;
 import io.github.returnaction.fitness.identity.registration.application.RegistrationSessionService;
 import io.github.returnaction.fitness.identity.registration.recovery.RegistrationRecoveryService;
 import io.github.returnaction.fitness.identity.registration.repository.RegistrationOperationRepository;
@@ -65,6 +66,9 @@ class RequestIdFilterSecurityTest {
 
     @MockitoBean
     private RegistrationSessionService registrationSessionService;
+
+    @MockitoBean
+    private RegistrationReadinessWaiter readinessWaiter;
 
     // В этом тесте DataSource намеренно отключён: проверяется только порядок web/security-фильтров.
     @MockitoBean

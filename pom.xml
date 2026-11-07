@@ -4,51 +4,146 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
+  <!-- ====================================================================== -->
+  <!-- РОДИТЕЛЬ (SPRING BOOT PARENT)                                          -->
+  <!-- Тут мы наследуем настройки от "дедушки" — Spring Boot Parent.          -->
+  <!-- Что он нам дает "из коробки" (Out of the box):                         -->
+  <!-- 1. Огромный BOM (список версий) всех библиотек Spring.                 -->
+  <!--    Нам не нужно вручную прописывать версии для Spring Web, JPA и т.д.  -->
+  <!-- 2. Настройки плагинов (компилятор, сборка jar) по умолчанию.           -->
+  <!-- 3. Фильтрацию ресурсов и кодировку UTF-8.                              -->
+  <!--                                                                        -->
+  <!-- ЧТО ЗА <relativePath/> (пустой тег)?                                   -->
+  <!-- По умолчанию Maven ищет родительский pom.xml в папке на уровень выше.  -->
+  <!-- Пустой тег говорит Maven: "Не ищи его на моем компьютере (в папках),   -->
+  <!-- а просто скачай с Maven Central (или из нашего Nexus) по GAV".         -->
+  <!-- ====================================================================== -->
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
         <version>4.1.2</version>
         <relativePath/>
     </parent>
-
+  <!-- ====================================================================== -->
+  <!-- КООРДИНАТЫ ПРОЕКТА (GAV - GroupId, ArtifactId, Version)                -->
+  <!-- Это уникальный "адрес" нашего проекта в мире Maven (и в Nexus).        -->
+  <!--                                                                        -->
+  <!-- groupId - Кто мы? Наша организация (как домен наоборот).               -->
+  <!--              Обычно пишут io.github.никнейм или com.компания.          -->
+  <!-- artifactId - Как называется сам проект (наше "изделие").               -->
+  <!-- version - Какая это версия.                                            -->
+  <!--              ВАЖНО: SNAPSHOT означает "сырая/недоделанная версия".     -->
+  <!--              Если мы заливаем это в Nexus, Maven будет знать, что этот -->
+  <!--              артефакт может меняться хоть каждый день.                 -->
+  <!-- ====================================================================== -->
     <groupId>io.github.returnaction.fitness</groupId>
     <artifactId>fitness-platform</artifactId>
     <version>0.1.0-SNAPSHOT</version>
+  <!-- Означает: "Этот файл не создает JAR, он только управляет"              -->
     <packaging>pom</packaging>
 
     <name>Fitness Platform</name>
     <description>Parent Maven build for the Fitness Platform services.</description>
 
+  <!-- ====================================================================== -->
+  <!-- СПИСОК МОДУЛЕЙ                                                         -->
+  <!-- Когда запускается сборка, Maven заходит в каждую папку по очереди.     -->
+  <!-- Сначала собираются контракты, так как они нужны всем сервисам.         -->
+  <!-- ====================================================================== -->
     <modules>
         <module>contracts/grpc-contracts</module>
         <module>services/identity-service</module>
         <module>services/accounts-service</module>
         <module>services/coins-service</module>
     </modules>
-
+  <!-- ====================================================================== -->
+  <!-- ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ (Версии)                                         -->
+  <!-- Меняем версию здесь — она меняется ВО ВСЕХ сервисах сразу.             -->
+  <!-- ====================================================================== -->
     <properties>
+        <!-- Версия Java. Spring Boot Parent использует её для настройки компилятора. -->
         <java.version>25</java.version>
-        <!-- One stable MapStruct version for every future service module. -->
         <mapstruct.version>1.6.3</mapstruct.version>
-        <!-- Required by Spring Security Argon2PasswordEncoder at runtime. -->
-        <bouncycastle.version>1.80</bouncycastle.version>
-        <!-- Quality tools run locally and in CI through the Maven verify phase. -->
+
+        <!-- === КАЧЕСТВА КОДА === -->
+        <!-- Spotless: Заставляет всех писать код с одинаковыми отступами. -->
         <spotless.version>3.10.4</spotless.version>
+        <!-- SpotBugs: Ищет потенциальные ошибки в коде (например, NPE). -->
         <spotbugs.version>4.10.5.0</spotbugs.version>
         <spotbugs.annotations.version>4.10.5</spotbugs.annotations.version>
-        <!-- One toolchain for generating and using versioned gRPC contracts. -->
+
+        <!-- === ИНСТРУМЕНТЫ ДЛЯ gRPC (Связь между сервисами) === -->
+        <!-- Protobuf: язык описания контрактов (файлы .proto). -->
         <protobuf.version>3.25.9</protobuf.version>
+        <!-- gRPC: фреймворк для быстрого общения микросервисов. -->
         <grpc.version>1.85.0</grpc.version>
+        <!-- Плагин Maven, который компилирует .proto файлы в Java-код. -->
         <protobuf.maven.plugin.version>5.1.12</protobuf.maven.plugin.version>
-        <javax.annotation.api.version>1.3.2</javax.annotation.api.version>
+
+        <!-- === БЕЗОПАСНОСТЬ И ЛИМИТЫ === -->
+        <!-- Nimbus JOSE + JWT: библиотека для работы с JWT-токенами (авторизация). -->
         <nimbus-jose-jwt.version>10.5</nimbus-jose-jwt.version>
+        <!-- Bucket4j: Rate Limiting (защита от DDoS, "не больше 10 запросов в минуту от одного юзера"). -->
         <bucket4j.version>8.16.0</bucket4j.version>
+
+        <!-- === КРИПТОГРАФИЯ И АННОТАЦИИ === -->
+        <!-- BouncyCastle: провайдер шифрования для алгоритма Argon2 (хеширование паролей). -->
+        <bouncycastle.version>1.80</bouncycastle.version>
+        <!-- javax.annotation-api: старые аннотации (@PostConstruct), выпиленные из JDK 11+. -->
+        <javax.annotation.api.version>1.3.2</javax.annotation.api.version>
+
+      <!-- Кодировка всех текстовых файлов проекта. Чтобы русские буквы не превращались в "кракозябры". -->
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 
+
+  <!-- ====================================================================== -->
+  <!-- DEPENDENCY MANAGEMENT (Центральный склад версий / BOM)                 -->
+  <!-- Это по сути "BOM" (Bill of Materials).                                 -->
+  <!-- Здесь мы НЕ подключаем библиотеки к самому корню. Мы просто говорим:   -->
+  <!-- "Если какой-то из наших сервисов (дочерних модулей) захочет юзать      -->
+  <!-- вот эту либу, то пусть берет строго ЭТУ версию".                       -->
+  <!--                                                                        -->
+  <!-- Зачем это надо:                                                        -->
+  <!-- 1. Чтобы не было конфликта версий.                                     -->
+  <!--    Представь, что один сервис тянет Jackson 2.15, а другой 2.16.       -->
+  <!--    В рантайме это приведет к ошибке NoSuchMethodError.                 -->
+  <!-- 2. Чтобы не дублировать версии в каждом дочернем pom.xml.              -->
+  <!--    В филиалах мы просто пишем <artifactId> и кайфуем.                  -->
+  <!-- ====================================================================== -->
     <dependencyManagement>
         <dependencies>
-            <!-- Keeps every transitive gRPC artifact on the same tested version. -->
+          <!-- ============================================================== -->
+          <!-- РАЗБОР ТЕГОВ (Что пишем и почему)                              -->
+          <!-- ============================================================== -->
+
+          <!-- <groupId>- Кто производитель? (Организация/Компания).          -->
+          <!--                Например: io.grpc, org.mapstruct.               -->
+          <!--                                                                -->
+          <!-- <artifactId> - Как называется сама библиотека?                 -->
+          <!--                Например: grpc-bom, mapstruct.                  -->
+          <!--                                                                -->
+          <!-- <version> - Какая версия? (Обычно берем из <properties>).      -->
+          <!--                Здесь мы жестко фиксируем версию.               -->
+          <!--                                                                -->
+          <!-- <type> - Тип артефакта. По умолчанию это jar (если тег         -->
+          <!--                не написан). Но если мы подключаем целый BOM    -->
+          <!--                (список версий), то тип указываем pom.          -->
+          <!--                                                                -->
+          <!-- <scope> - Область видимости. Для обычных либ пишут             -->
+          <!--                compile (по умолчанию) или test.                -->
+          <!--                Но, если мы импортируем чужой BOM (как grpc-bom)-->
+          <!--                мы обязаны написать scope=import.               -->
+          <!-- ============================================================== -->
+
+          <!-- =============================================================  -->
+          <!-- 1. grpc-bom (Список версий для всего gRPC)                     -->
+          <!-- ============================================================== -->
+          <!-- Что это: "Спецификация" (BOM - Bill of Materials).             -->
+          <!-- Зачем: Чтобы все gRPC-библиотеки (grpc-stub, grpc-protobuf     -->
+          <!-- и т.д.) были ОДНОЙ версии. Без этого Maven может скачать       -->
+          <!-- разные версии, и проект упадет с ошибкой.                      -->
+          <!-- type=pom, scope=import — говорим: "Это не код, а список правил"-->
             <dependency>
                 <groupId>io.grpc</groupId>
                 <artifactId>grpc-bom</artifactId>
@@ -56,37 +151,83 @@
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
-            <!-- A service adds this dependency without repeating its version. -->
+          <!-- ============================================================== -->
+          <!-- 2. mapstruct (Робот-переводчик)                                -->
+          <!-- ============================================================== -->
+          <!-- Что это: Генератор кода для перекладывания данных.             -->
+          <!-- Зачем: Избавляет от рутины. Вместо того чтобы вручную писать   -->
+          <!-- entity.setName(dto.getName()); для 100 полей, ты просто        -->
+          <!-- описываешь интерфейс, а MapStruct генерирует реализацию.       -->
             <dependency>
                 <groupId>org.mapstruct</groupId>
                 <artifactId>mapstruct</artifactId>
                 <version>${mapstruct.version}</version>
             </dependency>
+          <!-- ============================================================== -->
+          <!-- 3. bcprov-jdk18on (Криптография)                               -->
+          <!-- ============================================================== -->
+          <!-- Что это: Библиотека BouncyCastle — для шифрования              -->
+          <!-- Зачем: Нужна Spring Security для хеширования паролей           -->
+          <!-- алгоритмом Argon2 (это очень стойкий алгоритм).                -->
             <dependency>
                 <groupId>org.bouncycastle</groupId>
                 <artifactId>bcprov-jdk18on</artifactId>
                 <version>${bouncycastle.version}</version>
             </dependency>
+          <!-- ============================================================== -->
+          <!-- 4. spotbugs-annotations (Подсказки для робота-искателя багов)  -->
+          <!-- ============================================================== -->
+          <!-- Что это: Аннотации для SpotBugs.                               -->
+          <!-- Зачем: Позволяют сказать роботу: "Этот код я проверил,         -->
+          <!-- он безопасный, не ругайся". Или наоборот: "Тут точно баг,      -->
+          <!-- обрати внимание".                                              -->
             <dependency>
                 <groupId>com.github.spotbugs</groupId>
                 <artifactId>spotbugs-annotations</artifactId>
                 <version>${spotbugs.annotations.version}</version>
             </dependency>
+          <!-- ============================================================== -->
+          <!-- 5. protobuf-java (Сериализация данных)                         -->
+          <!-- ============================================================== -->
+          <!-- Что это: Основная библиотека Google Protocol Buffers.          -->
+          <!-- Зачем: Чтобы превращать Java-объекты в компактный              -->
+          <!-- бинарный формат (быстрее и меньше, чем JSON) для передачи      -->
+          <!-- по сети между микросервисами.                                  -->
             <dependency>
                 <groupId>com.google.protobuf</groupId>
                 <artifactId>protobuf-java</artifactId>
                 <version>${protobuf.version}</version>
             </dependency>
+          <!-- ============================================================== -->
+          <!-- 6. grpc-protobuf (Мост между gRPC и Protobuf)                  -->
+          <!-- ============================================================== -->
+          <!-- Что это: Интеграция.                                           -->
+          <!-- Зачем: Учит gRPC понимать сообщения, описанные через Protobuf. -->
+          <!-- Без нее gRPC не сможет передавать твои данные.                 -->
             <dependency>
                 <groupId>io.grpc</groupId>
                 <artifactId>grpc-protobuf</artifactId>
                 <version>${grpc.version}</version>
             </dependency>
+          <!-- ============================================================== -->
+          <!-- 7. grpc-stub (Клиентская часть для вызовов)                    -->
+          <!-- ============================================================== -->
+          <!-- Что это: Сгенерированные "заглушки" (stubs).                   -->
+          <!-- Зачем: Позволяет тебе вызывать удаленные методы так, как       -->
+          <!-- будто это локальный Java-код. Ты пишешь stub.myMethod(),       -->
+          <!-- а gRPC сам отправляет запрос по сети.                          -->
             <dependency>
                 <groupId>io.grpc</groupId>
                 <artifactId>grpc-stub</artifactId>
                 <version>${grpc.version}</version>
             </dependency>
+          <!-- ============================================================== -->
+          <!-- 8. javax.annotation-api (Старые аннотации)                     -->
+          <!-- ============================================================== -->
+          <!-- Что это: Набор общих аннотаций (например, @PostConstruct).     -->
+          <!-- Зачем: В Java 11+ их убрали из стандартной библиотеки, а       -->
+          <!-- Spring Framework (и сгенерированный gRPC-код) их использует.   -->
+          <!-- Поэтому мы добавляем их вручную.                               -->
             <dependency>
                 <groupId>javax.annotation</groupId>
                 <artifactId>javax.annotation-api</artifactId>
@@ -95,8 +236,25 @@
         </dependencies>
     </dependencyManagement>
 
+  <!-- ====================================================================== -->
+  <!-- BUILD / PLUGINS (Инструменты сборки)                                   -->
+  <!-- ====================================================================== -->
+  <!-- Maven — это просто менеджер (оркестратор). Сам по себе он ничего не    -->
+  <!-- умеет: он не компилирует Java и не собирает jar.                       -->
+  <!-- Он вызывает ПЛАГИНЫ на определенных этапах (phase).                    -->
+  <!-- Например: на этапе compile вызывается компилятор,                      -->
+  <!-- на этапе verify — проверяльщик багов и форматтер.                      -->
+  <!-- ====================================================================== -->
     <build>
         <plugins>
+          <!-- ============================================================== -->
+          <!-- 1. SPOTLESS (Инструмент форматирования)                        -->
+          <!-- ============================================================== -->
+          <!-- Что делает: Проверяет, чтобы весь код был красиво и одинаково  -->
+          <!-- отформатирован. Убирает неиспользуемые импорты.                -->
+          <!-- Зачем: Чтобы в Pull Request'ах не было мусорных изменений      -->
+          <!-- из-за того, что у Андрея пробелы, а у Васи табы.               -->
+          <!-- Когда запускается: Привязан к фазе verify (mvnw verify).       -->
             <plugin>
                 <groupId>com.diffplug.spotless</groupId>
                 <artifactId>spotless-maven-plugin</artifactId>
@@ -120,6 +278,14 @@
                     </execution>
                 </executions>
             </plugin>
+          <!-- ============================================================== -->
+          <!-- 2. SPOTBUGS (Статический анализатор кода)                      -->
+          <!-- ============================================================== -->
+          <!-- Что делает: Ищет потенциальные баги, не запуская программу.    -->
+          <!-- Например: null pointer exception, утечки памяти, ошибки        -->
+          <!-- в многопоточности.                                             -->
+          <!-- Когда запускается: На фазе verify. Если найдет баг —           -->
+          <!-- уронит сборку (failOnError=true).                              -->
             <plugin>
                 <groupId>com.github.spotbugs</groupId>
                 <artifactId>spotbugs-maven-plugin</artifactId>
@@ -139,11 +305,17 @@
                     </execution>
                 </executions>
             </plugin>
+          <!-- ============================================================== -->
+          <!-- 3. MAVEN-COMPILER-PLUGIN (Компилятор + Генерация кода)          -->
+          <!-- ============================================================== -->
+          <!-- Что делает: Переводит Java-код в байт-код (.class).            -->
+          <!-- ВАЖНО: В блоке annotationProcessorPaths мы говорим компилятору  -->
+          <!-- запустить MapStruct. Он сгенерирует код перекладывания данных  -->
+          <!-- из Entity в DTO прямо во время компиляции.                     -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
                 <configuration>
-                    <!-- Generates MapStruct implementations during Java compilation. -->
                     <annotationProcessorPaths>
                         <path>
                             <groupId>org.mapstruct</groupId>

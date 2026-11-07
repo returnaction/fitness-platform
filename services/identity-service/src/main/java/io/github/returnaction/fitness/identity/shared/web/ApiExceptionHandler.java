@@ -107,7 +107,10 @@ public class ApiExceptionHandler {
     @ExceptionHandler(Exception.class)
     ResponseEntity<ApiErrorResponse> handleUnexpected(Exception exception, HttpServletRequest request) {
         String requestId = requestId(request);
-        LOGGER.error("Unhandled request failure, request_id={}", requestId, exception);
+        LOGGER.error(
+                "Unhandled request failure, request_id={}, error_type={}",
+                requestId,
+                exception.getClass().getName());
         return response(
                 HttpStatus.INTERNAL_SERVER_ERROR, "internal_error", "Unexpected server error.", List.of(), request);
     }

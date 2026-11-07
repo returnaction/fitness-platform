@@ -18,7 +18,9 @@ class CoinsProvisioningSchedulerTest {
         var processor = mock(CoinsProvisioningProcessor.class);
         var lease = new RegistrationLeaseRepository.Lease(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), 1);
         when(repository.claimWallet(any(), eq(1), eq(30))).thenReturn(List.of(lease));
-        new CoinsProvisioningScheduler(repository, processor, 4, 30).poll();
+        try (var runner = new ProvisioningBatchRunner(4, 4)) {
+            new CoinsProvisioningScheduler(repository, processor, runner, 30).poll();
+        }
         verify(repository, times(4)).claimWallet(any(), eq(1), eq(30));
         verify(processor, times(4)).process(lease);
     }

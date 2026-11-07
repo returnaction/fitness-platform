@@ -13,6 +13,9 @@ spring:
     username: ${DATABASE_USERNAME}
     password: ${DATABASE_PASSWORD}
     hikari:
+      # Не включать значения строк из подробностей ошибок PostgreSQL в логи.
+      data-source-properties:
+        logServerErrorDetail: false
       # Значения задаются явно в .env локальной среды или в переменных окружения
       # сервера. У них нет скрытого значения по умолчанию.
       minimum-idle: ${DATABASE_POOL_MIN_IDLE}
@@ -55,6 +58,8 @@ identity:
     private-key: ${IDENTITY_ACCOUNTS_GRPC_PRIVATE_KEY}
     trust-certificate: ${IDENTITY_ACCOUNTS_GRPC_TRUST_CERTIFICATE}
   registration:
+    response-wait-ms: ${IDENTITY_REGISTRATION_RESPONSE_WAIT_MS}
+    response-poll-ms: ${IDENTITY_REGISTRATION_RESPONSE_POLL_MS}
     rate-limit:
       capacity: ${IDENTITY_REGISTRATION_RATE_CAPACITY}
       period-seconds: ${IDENTITY_REGISTRATION_RATE_PERIOD_SECONDS}
@@ -67,6 +72,7 @@ identity:
       enabled: ${IDENTITY_REGISTRATION_WORKER_ENABLED}
       poll-ms: ${IDENTITY_REGISTRATION_WORKER_POLL_MS}
       batch-size: ${IDENTITY_REGISTRATION_WORKER_BATCH_SIZE}
+      parallelism: ${IDENTITY_REGISTRATION_WORKER_PARALLELISM}
       lease-seconds: ${IDENTITY_REGISTRATION_WORKER_LEASE_SECONDS}
       retry-initial-seconds: ${IDENTITY_REGISTRATION_RETRY_INITIAL_SECONDS}
       retry-max-seconds: ${IDENTITY_REGISTRATION_RETRY_MAX_SECONDS}

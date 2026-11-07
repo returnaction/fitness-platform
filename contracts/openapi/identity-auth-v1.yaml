@@ -6,13 +6,13 @@ info:
     Внешний REST API Identity Service. Этот контракт описывает регистрацию
     пользователя первой версии и не является API текущего Python-приложения.
 servers:
-  - url: https://api.example.invalid
-    description: Placeholder. Реальный адрес задаётся конфигурацией окружения.
+  - url: http://localhost:8080
+    description: Пример для локальной разработки; реальный адрес задаётся конфигурацией окружения.
 paths:
   /api/v1/auth/register:
     post:
       tags: [Authentication]
-      summary: Register a user and start the first session
+      summary: Зарегистрировать пользователя и открыть первую сессию
       operationId: registerUser
       security: []
       parameters:
@@ -30,10 +30,10 @@ paths:
                   password: correct horse battery staple
       responses:
         '201':
-          description: Account, profile, wallet, and first session are ready.
+          description: Аккаунт, профиль, кошелек и первая сессия готовы.
           headers:
             Cache-Control:
-              description: Always `no-store`; responses contain tokens.
+              description: Всегда `no-store`; ответы содержат токены.
               schema:
                 type: string
                 const: no-store
@@ -41,6 +41,17 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/RegisterResponse'
+              example:
+                user:
+                  id: 4652f81b-2b27-4e99-8c21-4336c716fc09
+                  email: anna@example.com
+                  status: ACTIVE
+                session:
+                  access_token: example-access-token
+                  refresh_token: example-refresh-token
+                  token_type: Bearer
+                  expires_in: 900
+                  refresh_expires_in: 2592000
         '400':
           $ref: '#/components/responses/InvalidRequest'
         '409':
@@ -56,11 +67,11 @@ paths:
   /api/v1/auth/login:
     post:
       tags: [Authentication]
-      summary: Sign in or resume preparation for a pending registration
+      summary: Войти в систему или возобновить подготовку к незавершенной регистрации
       description: |
-        Valid credentials for an ACTIVE account create a separate login session.
-        Valid credentials for a PENDING account return registration_pending without
-        tokens and may accelerate its registration processing.
+        Корректные учетные данные для АКТИВНОГО аккаунта создают отдельную сессию входа.
+        Корректные учетные данные для АККАУНТА В ОЖИДАНИИ (PENDING) возвращают статус
+        registration_pending без токенов и могут ускорить процесс его регистрации.
       operationId: loginUser
       security: []
       requestBody:
@@ -71,7 +82,7 @@ paths:
               $ref: '#/components/schemas/RegisterRequest'
       responses:
         '200':
-          description: A new login session and token pair.
+          description: Новая сессия входа и пара токенов.
           headers:
             Cache-Control:
               description: Always no-store.
@@ -85,13 +96,13 @@ paths:
         '400':
           $ref: '#/components/responses/InvalidRequest'
         '401':
-          description: Invalid credentials without exposing account status.
+          description: Неверные учетные данные (без раскрытия статуса аккаунта).
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '403':
-          description: Authenticated credentials belong to an unavailable account.
+          description: Учетные данные верны, но аккаунт недоступен (заблокирован или в процессе удаления).
           content:
             application/json:
               schema:
@@ -103,7 +114,7 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
         '503':
-          description: registration_pending or temporarily unavailable login.
+          description: Регистрация еще не завершена (registration_pending) или вход временно недоступен.
           content:
             application/json:
               schema:
@@ -111,11 +122,12 @@ paths:
   /api/v1/auth/refresh:
     post:
       tags: [Authentication]
-      summary: Rotate a refresh token within its existing session
+      summary: Обновить (ротировать) refresh-токен в рамках текущей сессии
       description: |
-        Refresh tokens are single use. Reusing a previously used token with the
-        correct secret revokes the session. A wrong secret does not revoke it.
-        If the response is lost, retrying the old token requires a new login.
+        Refresh-токены одноразовые. Повторное использование ранее использованного токена
+        с правильным секретом аннулирует (отзывает) сессию. Неправильный секрет
+        не отзывает её. Если ответ был потерян, повторная попытка со старым токеном
+        потребует нового входа в систему.
       operationId: refreshSession
       security: []
       requestBody:
@@ -178,26 +190,24 @@ components:
       in: header
       required: true
       description: |
-        A cryptographically generated UUID v4. Keep the same value while retrying
-        one registration intent. The key is not authentication data.
+        Криптографически сгенерированный UUID v4. При повторной отправке запроса
+        на регистрацию используйте тот же самый ключ. Этот ключ не является
+        данными для входа (аутентификации).
       schema:
         type: string
         format: uuid
   schemas:
     RegisterRequest:
       type: object
-      additionalProperties: false
       required: [email, password]
       properties:
         email:
           type: string
-          format: email
-          minLength: 3
-          maxLength: 254
-          pattern: '^[\x21-\x7E]+$'
           description: |
-            ASCII email. Leading and trailing whitespace is removed; comparison is
-            case-insensitive. Unicode and IDN addresses are not supported in v1.
+            Leading and trailing whitespace is removed before validation. The
+            resulting address is 3–254 printable ASCII characters with exactly
+            one @ and a nonempty part on each side. Comparison is case-insensitive.
+            Unicode and IDN addresses are not supported in v1.
         password:
           type: string
           format: password
@@ -226,7 +236,7 @@ components:
           format: uuid
         email:
           type: string
-          format: email
+          description: Canonical ASCII address accepted by the registration rules.
         status:
           type: string
           const: ACTIVE
@@ -238,10 +248,8 @@ components:
       properties:
         access_token:
           type: string
-          writeOnly: true
         refresh_token:
           type: string
-          writeOnly: true
         token_type:
           type: string
           const: Bearer
@@ -353,8 +361,9 @@ components:
               request_id: 2c160d4b-0f61-4702-99e1-99713d0c9326
     RegistrationUnavailable:
       description: |
-        A temporary provisioning failure. Retry the same request with the same
-        Idempotency-Key and password; no session or token is issued.
+        Provisioning has not completed within the configured wait or is
+        temporarily unavailable. Retry with the same Idempotency-Key and
+        password; no session or token is issued.
       content:
         application/json:
           schema:

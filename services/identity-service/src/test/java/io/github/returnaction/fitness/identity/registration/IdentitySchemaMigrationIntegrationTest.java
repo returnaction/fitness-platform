@@ -48,6 +48,20 @@ class IdentitySchemaMigrationIntegrationTest {
             insertUser(connection, UUID.randomUUID(), "anna@example.com");
             assertThatThrownBy(() -> insertUser(connection, UUID.randomUUID(), "anna@example.com"))
                     .isInstanceOf(SQLException.class);
+
+            connection.setAutoCommit(false);
+            insertUser(connection, UUID.randomUUID(), "rollback@example.com");
+            assertThatThrownBy(() -> insertUser(connection, UUID.randomUUID(), "rollback@example.com"))
+                    .isInstanceOf(SQLException.class);
+            connection.rollback();
+            try (PreparedStatement statement =
+                    connection.prepareStatement("SELECT count(*) FROM users WHERE email_canonical = ?")) {
+                statement.setString(1, "rollback@example.com");
+                try (ResultSet result = statement.executeQuery()) {
+                    result.next();
+                    assertThat(result.getInt(1)).isZero();
+                }
+            }
         }
     }
 

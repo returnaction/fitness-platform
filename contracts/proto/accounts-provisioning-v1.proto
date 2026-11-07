@@ -6,36 +6,105 @@ option java_multiple_files = true;
 option java_package = "io.github.returnaction.fitness.contracts.accounts.provisioning.v1";
 option java_outer_classname = "AccountsProvisioningV1Proto";
 
-// Owned by Accounts Service. Identity calls this only while provisioning a
-// registration. Both services validate UUID strings as lowercase UUID values.
+// Владелец этого контракта — сервис Accounts. Сервис Identity вызывает его
+// только во время процесса регистрации (provisioning).
+// Оба сервиса проверяют, что UUID-строки переданы в нижнем регистре (lowercase).
 service AccountsProvisioningService {
-  // Requires mTLS service identity Identity and permission
-  // identity.registration.provision. Repeats are safe and never overwrite an
-  // existing profile for the same user_id.
+  // Требует mTLS-аутентификацию сервиса Identity и наличие разрешения (permission)
+  // identity.registration.provision. Повторные вызовы безопасны (идемпотентны)
+  // и никогда не перезаписывают существующий профиль для того же user_id.
   rpc EnsureProfile(EnsureProfileRequest) returns (EnsureProfileResponse);
 }
 
+// Запрос на создание (или проверку существования) профиля пользователя.
+// Используется сервисом Identity при регистрации нового пользователя.
 message EnsureProfileRequest {
-  // Diagnostic UUID. It does not grant access and must not appear in public logs.
+  // Диагностический UUID. Не дает прав доступа. Не должен попадать в публичные логи.
   string request_id = 1;
-  // Stable across retries of the same registration operation.
+
+  // Стабилен при повторных попытках (retry) одной и той же операции регистрации.
   string registration_operation_id = 2;
-  // Stable user UUID selected by Identity.
+
+  // Стабильный UUID пользователя, выбранный сервисом Identity.
   string user_id = 3;
 }
 
+// Ответ на запрос создания профиля.
 message EnsureProfileResponse {
+  // UUID пользователя, для которого был создан (или найден) профиль.
   string user_id = 1;
+
+  // READY означает, что профиль уже сохранён. Ошибки передаются статусом gRPC.
   ProvisioningStatus status = 2;
 }
 
+// INVALID_ARGUMENT: некорректный UUID; UNAUTHENTICATED / PERMISSION_DENIED:
+// ошибка service identity; FAILED_PRECONDITION: постоянная ошибка контракта.
+// UNAVAILABLE, DEADLINE_EXCEEDED, RESOURCE_EXHAUSTED и ABORTED допускают повтор;
+// неожиданный INTERNAL также повторяется с ограниченным backoff в Identity.
+
+// Перечисление (Enum) статусов готовности профиля.
 enum ProvisioningStatus {
+  // Статус не определен (значение по умолчанию, которого не должно быть в реальности).
   PROVISIONING_STATUS_UNSPECIFIED = 0;
-  // The profile is committed in Accounts' local database.
+
+  // Профиль успешно сохранен в локальной базе данных сервиса Accounts.
   PROVISIONING_STATUS_READY = 1;
 }
 
-// gRPC statuses: INVALID_ARGUMENT for malformed IDs, UNAUTHENTICATED or
-// PERMISSION_DENIED for service identity failures, FAILED_PRECONDITION for a
-// permanent incompatible state, and UNAVAILABLE/DEADLINE_EXCEEDED/
-// RESOURCE_EXHAUSTED/ABORTED for retryable failures.
+// ==============================================================================
+//                        ШПАРГАЛКА ПО ЭТОМУ КОНТРАКТУ
+// ==============================================================================
+//
+// ЧТО ЭТО ТАКОЕ?
+// Это файл контракта (Interface Definition Language - IDL) для gRPC.
+// Он описывает, КАК микросервис Identity будет общаться с микросервисом Accounts.
+// Мы (разработчики) пишем этот текст ВРУЧНУЮ.
+//
+// ЗАЧЕМ ОН НУЖЕН? (Аналогия)
+// Представь, что Identity — это менеджер, а Accounts — это склад.
+// Менеджеру нужно сказать складу: "Заведи профиль для пользователя с ID 123".
+// Чтобы они поняли друг друга, им нужен общий язык (чертеж). Этот .proto файл
+// и есть чертеж. В нем четко написано: "Запрос должен содержать поля request_id,
+// registration_operation_id и user_id".
+//
+// ------------------------------------------------------------------------------
+// ЧТО МЫ ТУТ ПОДКЛЮЧИЛИ И ЧТО СГЕНЕРИРУЕТСЯ (Как это работает под капотом)
+// ------------------------------------------------------------------------------
+//
+// 1. `syntax = "proto3";`
+//    Мы говорим, что используем 3-ю версию синтаксиса Protocol Buffers.
+//
+// 2. `option java_package = "...";`
+//    Когда Maven-модуль `grpc-contracts` будет собирать проект, он прочитает
+//    этот файл и сгенерирует Java-классы. Эта опция говорит:
+//    "Положи сгенерированные Java-файлы в пакет io.github.returnaction.fitness.contracts..."
+//
+// 3. `service AccountsProvisioningService`
+//    Мы описываем интерфейс (сервис). Из него сгенерируется Java-интерфейс.
+//    Сервис Accounts будет реализовывать этот интерфейс (напишет логику),
+//    а сервис Identity будет вызывать его методы (как клиент).
+//
+// 4. `rpc EnsureProfile(...)`
+//    Это метод (удаленный вызов процедуры).
+//    Из этой строчки сгенерируются:
+//    - Класс `EnsureProfileRequest` (Java-объект с полями request_id, user_id...)
+//    - Класс `EnsureProfileResponse` (Java-объект для ответа)
+//    - Метод для отправки запроса по сети.
+//
+// ------------------------------------------------------------------------------
+// СВЯЗЬ С ДРУГИМИ ФАЙЛАМИ ПРОЕКТА
+// ------------------------------------------------------------------------------
+//
+// - Этот файл лежит в папке `contracts/proto/`.
+// - Рядом лежит папка `contracts/grpc-contracts/` (это Maven-модуль).
+//   В его `pom.xml` настроен плагин, который берет файлы из `proto/` и генерирует
+//   из них Java-код в папку `target/generated-sources/`.
+// - Сервисы (`services/accounts-service` и `services/identity-service`)
+//   подключают этот модуль как зависимость в Maven.
+// - В итоге разработчики в Java-коде используют готовые методы,
+//   которые были сгенерированы из этого текста.
+//
+// ВАЖНО: Никогда не редактируй сгенерированный Java-код в папке target вручную!
+// Если нужно добавить поле — меняй этот .proto файл и пересобирай проект.
+// ==============================================================================

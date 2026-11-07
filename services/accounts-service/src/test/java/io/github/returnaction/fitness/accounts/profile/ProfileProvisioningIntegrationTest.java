@@ -9,14 +9,22 @@ import io.github.returnaction.fitness.accounts.profile.service.NicknameGenerator
 import io.github.returnaction.fitness.accounts.profile.service.ProfileProvisioningService;
 import io.github.returnaction.fitness.contracts.accounts.provisioning.v1.AccountsProvisioningServiceGrpc;
 import io.github.returnaction.fitness.contracts.accounts.provisioning.v1.EnsureProfileRequest;
+import io.github.returnaction.fitness.contracts.accounts.provisioning.v1.EnsureProfileResponse;
 import io.github.returnaction.fitness.contracts.accounts.provisioning.v1.ProvisioningStatus;
+import io.grpc.Server;
+import io.grpc.Status;
+import io.grpc.StatusRuntimeException;
 import io.grpc.netty.shaded.io.grpc.netty.GrpcSslContexts;
 import io.grpc.netty.shaded.io.grpc.netty.NettyChannelBuilder;
+import io.grpc.netty.shaded.io.grpc.netty.NettyServerBuilder;
+import io.grpc.stub.StreamObserver;
 import java.io.File;
+import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.util.UUID;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -57,6 +65,71 @@ class ProfileProvisioningIntegrationTest {
 
     @Autowired
     AccountsProvisioningGrpcService grpcService;
+
+    @Test
+    void retriesGrpcRequestAfterCommittedProfileResponseIsLost() throws Exception {
+        var loseFirstResponse = new AtomicBoolean(true);
+        var faultInjectedService = new AccountsProvisioningServiceGrpc.AccountsProvisioningServiceImplBase() {
+            @Override
+            public void ensureProfile(EnsureProfileRequest request, StreamObserver<EnsureProfileResponse> observer) {
+                boolean drop = loseFirstResponse.getAndSet(false);
+                grpcService.ensureProfile(request, new StreamObserver<>() {
+                    @Override
+                    public void onNext(EnsureProfileResponse response) {
+                        if (!drop) observer.onNext(response);
+                    }
+
+                    @Override
+                    public void onError(Throwable error) {
+                        observer.onError(error);
+                    }
+
+                    @Override
+                    public void onCompleted() {
+                        if (drop) observer.onError(Status.UNAVAILABLE.asRuntimeException());
+                        else observer.onCompleted();
+                    }
+                });
+            }
+        };
+        Server server = NettyServerBuilder.forAddress(new InetSocketAddress("127.0.0.1", 0))
+                .addService(faultInjectedService)
+                .build()
+                .start();
+        var channel = NettyChannelBuilder.forAddress("127.0.0.1", server.getPort())
+                .usePlaintext()
+                .build();
+        try {
+            UUID userId = UUID.randomUUID();
+            var request = EnsureProfileRequest.newBuilder()
+                    .setUserId(userId.toString())
+                    .setRequestId(UUID.randomUUID().toString())
+                    .setRegistrationOperationId(UUID.randomUUID().toString())
+                    .build();
+            var stub = AccountsProvisioningServiceGrpc.newBlockingStub(channel).withDeadlineAfter(5, TimeUnit.SECONDS);
+            assertThatThrownBy(() -> stub.ensureProfile(request))
+                    .isInstanceOfSatisfying(
+                            StatusRuntimeException.class,
+                            error -> assertThat(error.getStatus().getCode()).isEqualTo(Status.Code.UNAVAILABLE));
+            String nickname = jdbc.sql("SELECT nickname FROM user_profiles WHERE user_id=:id")
+                    .param("id", userId)
+                    .query(String.class)
+                    .single();
+            assertThat(stub.withDeadlineAfter(5, TimeUnit.SECONDS)
+                            .ensureProfile(request)
+                            .getStatus())
+                    .isEqualTo(ProvisioningStatus.PROVISIONING_STATUS_READY);
+            assertThat(jdbc.sql("SELECT count(*) FROM user_profiles WHERE user_id=:id AND nickname=:nickname")
+                            .param("id", userId)
+                            .param("nickname", nickname)
+                            .query(Long.class)
+                            .single())
+                    .isEqualTo(1);
+        } finally {
+            channel.shutdownNow().awaitTermination(5, TimeUnit.SECONDS);
+            server.shutdownNow().awaitTermination(5, TimeUnit.SECONDS);
+        }
+    }
 
     @Test
     @EnabledIfSystemProperty(named = "fitness.localStepCaSmoke", matches = "true")
@@ -143,7 +216,8 @@ class ProfileProvisioningIntegrationTest {
                         .param("publicId", UUID.randomUUID())
                         .param("nickname", "uniquenick")
                         .update())
-                .isInstanceOf(DataIntegrityViolationException.class);
+                .isInstanceOf(DataIntegrityViolationException.class)
+                .satisfies(error -> assertThat(error.getCause().getMessage()).doesNotContain("uniquenick"));
         assertThatThrownBy(() -> jdbc.sql(
                                 "INSERT INTO user_profiles (user_id, public_profile_id, nickname, visibility) VALUES (:id, :publicId, :nickname, 'INVALID')")
                         .param("id", UUID.randomUUID())

@@ -2,6 +2,7 @@ package io.github.returnaction.fitness.identity.registration.controller;
 
 import io.github.returnaction.fitness.identity.registration.application.InvalidIdempotencyKeyException;
 import io.github.returnaction.fitness.identity.registration.application.RegistrationNotReadyException;
+import io.github.returnaction.fitness.identity.registration.application.RegistrationReadinessWaiter;
 import io.github.returnaction.fitness.identity.registration.application.RegistrationService;
 import io.github.returnaction.fitness.identity.registration.application.RegistrationTokenService;
 import io.github.returnaction.fitness.identity.registration.dto.RegisterUserRequest;
@@ -26,11 +27,15 @@ public class RegistrationController {
 
     private final RegistrationService registrationService;
     private final ObjectProvider<RegistrationTokenService> tokenService;
+    private final RegistrationReadinessWaiter readinessWaiter;
 
     public RegistrationController(
-            RegistrationService registrationService, ObjectProvider<RegistrationTokenService> tokenService) {
+            RegistrationService registrationService,
+            ObjectProvider<RegistrationTokenService> tokenService,
+            RegistrationReadinessWaiter readinessWaiter) {
         this.registrationService = registrationService;
         this.tokenService = tokenService;
+        this.readinessWaiter = readinessWaiter;
     }
 
     @PostMapping("/register")
@@ -40,12 +45,15 @@ public class RegistrationController {
             HttpServletRequest servletRequest) {
         var operation = registrationService.start(parseIdempotencyKey(idempotencyKey), request);
         var issuer = tokenService.getIfAvailable();
-        if (issuer != null) {
+        if (issuer != null && readinessWaiter.await(operation.operationId())) {
             try {
                 var tokens = issuer.create(operation.operationId(), request.password());
                 return ResponseEntity.status(HttpStatus.CREATED)
                         .header("Cache-Control", "no-store")
-                        .body(new TokenResponse(tokens.accessToken(), tokens.refreshToken(), "Bearer", 900, 2592000));
+                        .body(new RegisterResponse(
+                                new RegisteredUser(operation.userId(), operation.emailCanonical(), "ACTIVE"),
+                                new TokenResponse(
+                                        tokens.accessToken(), tokens.refreshToken(), "Bearer", 900, 2592000)));
             } catch (RegistrationNotReadyException ignored) {
                 // Фоновая подготовка ещё не завершилась; клиент повторяет запрос.
             }
@@ -56,13 +64,17 @@ public class RegistrationController {
         return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(body);
     }
 
+    private record RegisterResponse(RegisteredUser user, TokenResponse session) {}
+
+    private record RegisteredUser(UUID id, String email, String status) {}
+
     private record TokenResponse(
             String accessToken, String refreshToken, String tokenType, int expiresIn, int refreshExpiresIn) {}
 
     private UUID parseIdempotencyKey(String value) {
         try {
             UUID uuid = UUID.fromString(value);
-            if (uuid.version() != 4) {
+            if (!uuid.toString().equalsIgnoreCase(value) || uuid.version() != 4 || uuid.variant() != 2) {
                 throw new InvalidIdempotencyKeyException();
             }
             return uuid;

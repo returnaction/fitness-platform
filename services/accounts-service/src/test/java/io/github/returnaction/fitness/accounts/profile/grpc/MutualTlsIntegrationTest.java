@@ -21,6 +21,7 @@ import io.grpc.netty.shaded.io.netty.handler.ssl.ClientAuth;
 import io.grpc.netty.shaded.io.netty.handler.ssl.SslContextBuilder;
 import java.io.StringWriter;
 import java.math.BigInteger;
+import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -30,6 +31,7 @@ import java.security.SecureRandom;
 import java.security.cert.X509Certificate;
 import java.time.Instant;
 import java.util.Date;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
@@ -166,8 +168,28 @@ class MutualTlsIntegrationTest {
                 caKey,
                 new GeneralName(GeneralName.uniformResourceIdentifier, "spiffe://fitness.local/coins-service"),
                 false);
+        KeyPair expiredKey = keyPair();
+        X509Certificate expiredCert = certificate(
+                caName,
+                new X500Name("CN=expired"),
+                expiredKey,
+                caKey,
+                new GeneralName(GeneralName.uniformResourceIdentifier, "spiffe://fitness.local/identity-service"),
+                false,
+                Instant.now().minusSeconds(7200),
+                Instant.now().minusSeconds(3600));
+        KeyPair foreignCaKey = keyPair();
+        X500Name foreignCaName = new X500Name("CN=Foreign CA");
+        KeyPair foreignKey = keyPair();
+        X509Certificate foreignCert = certificate(
+                foreignCaName,
+                new X500Name("CN=foreign"),
+                foreignKey,
+                foreignCaKey,
+                new GeneralName(GeneralName.uniformResourceIdentifier, "spiffe://fitness.local/identity-service"),
+                false);
         ProfileProvisioningService provisioning = mock(ProfileProvisioningService.class);
-        Server server = NettyServerBuilder.forPort(0)
+        Server server = NettyServerBuilder.forAddress(new InetSocketAddress("127.0.0.1", 0))
                 .sslContext(GrpcSslContexts.configure(SslContextBuilder.forServer(serverKey.getPrivate(), serverCert))
                         .trustManager(ca)
                         .clientAuth(ClientAuth.REQUIRE)
@@ -179,6 +201,8 @@ class MutualTlsIntegrationTest {
         ManagedChannel identity = channel(server.getPort(), ca, identityKey, identityCert);
         ManagedChannel other = channel(server.getPort(), ca, otherKey, otherCert);
         ManagedChannel anonymous = channel(server.getPort(), ca, null, null);
+        ManagedChannel expired = channel(server.getPort(), ca, expiredKey, expiredCert);
+        ManagedChannel foreign = channel(server.getPort(), ca, foreignKey, foreignCert);
         try {
             UUID user = UUID.randomUUID();
             EnsureProfileRequest request = EnsureProfileRequest.newBuilder()
@@ -206,10 +230,23 @@ class MutualTlsIntegrationTest {
                     .satisfies(error ->
                             assertThat(Status.fromThrowable(error).isOk()).isFalse());
             verify(provisioning, never()).ensureProfile(anonymousUser);
+            for (ManagedChannel invalid : List.of(expired, foreign)) {
+                UUID rejectedUser = UUID.randomUUID();
+                var rejectedRequest =
+                        request.toBuilder().setUserId(rejectedUser.toString()).build();
+                assertThatThrownBy(() -> AccountsProvisioningServiceGrpc.newBlockingStub(invalid)
+                                .withDeadlineAfter(5, TimeUnit.SECONDS)
+                                .ensureProfile(rejectedRequest))
+                        .satisfies(error ->
+                                assertThat(Status.fromThrowable(error).isOk()).isFalse());
+                verify(provisioning, never()).ensureProfile(rejectedUser);
+            }
         } finally {
             identity.shutdownNow();
             other.shutdownNow();
             anonymous.shutdownNow();
+            expired.shutdownNow();
+            foreign.shutdownNow();
             server.shutdownNow();
             server.awaitTermination(5, TimeUnit.SECONDS);
         }
@@ -236,11 +273,25 @@ class MutualTlsIntegrationTest {
             X500Name issuer, X500Name subject, KeyPair subjectKey, KeyPair issuerKey, GeneralName san, boolean ca)
             throws Exception {
         Instant now = Instant.now();
+        return certificate(
+                issuer, subject, subjectKey, issuerKey, san, ca, now.minusSeconds(60), now.plusSeconds(3600));
+    }
+
+    private static X509Certificate certificate(
+            X500Name issuer,
+            X500Name subject,
+            KeyPair subjectKey,
+            KeyPair issuerKey,
+            GeneralName san,
+            boolean ca,
+            Instant validFrom,
+            Instant validUntil)
+            throws Exception {
         var builder = new JcaX509v3CertificateBuilder(
                 issuer,
                 new BigInteger(128, new SecureRandom()).abs(),
-                Date.from(now.minusSeconds(60)),
-                Date.from(now.plusSeconds(3600)),
+                Date.from(validFrom),
+                Date.from(validUntil),
                 subject,
                 subjectKey.getPublic());
         builder.addExtension(Extension.basicConstraints, true, new BasicConstraints(ca));
