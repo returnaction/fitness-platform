@@ -50,6 +50,32 @@ public class RegistrationSessionService {
                 UPDATE auth_sessions SET revoked_at = clock_timestamp()
                 WHERE registration_operation_id = :operationId AND revoked_at IS NULL
                 """).param("operationId", operationId).update();
+        return issueSession(row.userId(), operationId);
+    }
+
+    @Transactional
+    public IssuedSession createLogin(UUID userId, String expectedHash, String upgradedHash) {
+        boolean available =
+                jdbc.sql("""
+                SELECT EXISTS (SELECT 1 FROM users WHERE id=:id AND status='ACTIVE' FOR UPDATE)
+                """).param("id", userId).query(Boolean.class).single();
+        if (!available) throw new LoginCredentialsChangedException();
+        var currentHash = jdbc.sql("SELECT password_hash FROM user_credentials WHERE user_id=:id FOR UPDATE")
+                .param("id", userId)
+                .query(String.class)
+                .optional()
+                .orElse(null);
+        if (currentHash == null || !currentHash.equals(expectedHash)) throw new LoginCredentialsChangedException();
+        if (upgradedHash != null) {
+            jdbc.sql("UPDATE user_credentials SET password_hash=:hash, updated_at=clock_timestamp() WHERE user_id=:id")
+                    .param("id", userId)
+                    .param("hash", upgradedHash)
+                    .update();
+        }
+        return issueSession(userId, null);
+    }
+
+    private IssuedSession issueSession(UUID userId, UUID operationId) {
         UUID sessionId = UUID.randomUUID();
         UUID tokenId = UUID.randomUUID();
         byte[] secret = new byte[32];
@@ -61,7 +87,7 @@ public class RegistrationSessionService {
                 RETURNING expires_at
                 """)
                 .param("id", sessionId)
-                .param("userId", row.userId())
+                .param("userId", userId)
                 .param("operationId", operationId)
                 .query((rs, index) ->
                         rs.getObject("expires_at", OffsetDateTime.class).toInstant())
@@ -74,7 +100,7 @@ public class RegistrationSessionService {
                 .param("hash", sha256(secret))
                 .param("sessionId", sessionId)
                 .update();
-        return new IssuedSession(row.userId(), sessionId, expiresAt, tokenId + "." + encodedSecret);
+        return new IssuedSession(userId, sessionId, expiresAt, tokenId + "." + encodedSecret);
     }
 
     private byte[] sha256(byte[] value) {

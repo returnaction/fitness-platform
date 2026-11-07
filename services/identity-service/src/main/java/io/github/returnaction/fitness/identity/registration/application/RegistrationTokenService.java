@@ -24,6 +24,13 @@ public class RegistrationTokenService {
         return new Tokens(access, session.refreshToken());
     }
 
+    @Transactional
+    public Tokens createLogin(UUID userId, String passwordHash, String upgradedHash) {
+        var session = sessions.createLogin(userId, passwordHash, upgradedHash);
+        String access = signer.sign(session.userId(), session.sessionId(), session.expiresAt());
+        return new Tokens(access, session.refreshToken());
+    }
+
     public static final class Tokens {
         private final String accessToken;
         private final String refreshToken;

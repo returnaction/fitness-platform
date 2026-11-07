@@ -202,4 +202,82 @@ class RegistrationTokenHttpIntegrationTest {
                 .param("role", role)
                 .update();
     }
+
+    @Test
+    void activeLoginCreatesIndependentSessionsAndRejectsWrongCredentials() throws Exception {
+        String email = "login-" + UUID.randomUUID() + "@example.com";
+        var operation = registration.start(UUID.randomUUID(), new RegisterUserRequest(email, "a"));
+        jdbc.sql("UPDATE registration_operations SET profile_ready=true, wallet_ready=true, status='COMPLETED', "
+                        + "completed_at=clock_timestamp() WHERE id=:id")
+                .param("id", operation.operationId())
+                .update();
+        jdbc.sql("UPDATE users SET status='ACTIVE' WHERE id=:id")
+                .param("id", operation.userId())
+                .update();
+        String oldHash =
+                new org.springframework.security.crypto.argon2.Argon2PasswordEncoder(16, 32, 1, 8192, 1).encode("a");
+        jdbc.sql("UPDATE user_credentials SET password_hash=:hash WHERE user_id=:id")
+                .param("hash", oldHash)
+                .param("id", operation.userId())
+                .update();
+        String body = "{\"email\":\"" + email + "\",\"password\":\"a\"}";
+        mvc.perform(post("/api/v1/auth/login")
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"email\":\"" + email + "\",\"password\":\"wrong\"}"))
+                .andExpect(status().isUnauthorized());
+        var gate = new java.util.concurrent.CountDownLatch(1);
+        try (var executor = java.util.concurrent.Executors.newFixedThreadPool(2)) {
+            var first = executor.submit(() -> {
+                gate.await();
+                return mvc.perform(post("/api/v1/auth/login")
+                                .contentType(APPLICATION_JSON)
+                                .content(body))
+                        .andExpect(status().isOk())
+                        .andExpect(header().string("Cache-Control", "no-store"))
+                        .andReturn()
+                        .getResponse()
+                        .getContentAsString();
+            });
+            var second = executor.submit(() -> {
+                gate.await();
+                return mvc.perform(post("/api/v1/auth/login")
+                                .contentType(APPLICATION_JSON)
+                                .content(body))
+                        .andExpect(status().isOk())
+                        .andReturn()
+                        .getResponse()
+                        .getContentAsString();
+            });
+            gate.countDown();
+            var mapper = JsonMapper.builder().build();
+            var one = mapper.readTree(first.get());
+            var two = mapper.readTree(second.get());
+            assertThat(one.get("refresh_token").asString())
+                    .isNotEqualTo(two.get("refresh_token").asString());
+            var jwt = SignedJWT.parse(one.get("access_token").asString());
+            assertThat(jwt.getJWTClaimsSet().getSubject())
+                    .isEqualTo(operation.userId().toString());
+        }
+        assertThat(jdbc.sql(
+                                "SELECT count(*) FROM auth_sessions WHERE user_id=:id AND registration_operation_id IS NULL AND revoked_at IS NULL")
+                        .param("id", operation.userId())
+                        .query(Integer.class)
+                        .single())
+                .isEqualTo(2);
+        String newHash = jdbc.sql("SELECT password_hash FROM user_credentials WHERE user_id=:id")
+                .param("id", operation.userId())
+                .query(String.class)
+                .single();
+        assertThat(newHash).isNotEqualTo(oldHash);
+        jdbc.sql("UPDATE users SET status='SUSPENDED' WHERE id=:id")
+                .param("id", operation.userId())
+                .update();
+        mvc.perform(post("/api/v1/auth/login").contentType(APPLICATION_JSON).content(body))
+                .andExpect(status().isForbidden());
+        assertThat(jdbc.sql("SELECT count(*) FROM auth_sessions WHERE user_id=:id")
+                        .param("id", operation.userId())
+                        .query(Integer.class)
+                        .single())
+                .isEqualTo(2);
+    }
 }
