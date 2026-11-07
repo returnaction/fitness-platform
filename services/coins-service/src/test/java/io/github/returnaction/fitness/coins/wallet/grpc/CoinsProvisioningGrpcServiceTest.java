@@ -57,6 +57,7 @@ class CoinsProvisioningGrpcServiceTest {
         ArgumentCaptor<Throwable> error = ArgumentCaptor.forClass(Throwable.class);
         verify(observer).onError(error.capture());
         assertThat(Status.fromThrowable(error.getValue()).getCode()).isEqualTo(Status.Code.INTERNAL);
+        assertThat(error.getValue().getMessage()).doesNotContain("private detail", user.toString());
         verify(observer, never()).onNext(any());
         verify(observer, never()).onCompleted();
     }

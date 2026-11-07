@@ -20,9 +20,12 @@ import java.security.spec.ECGenParameterSpec;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -59,6 +62,9 @@ class RegistrationTokenHttpIntegrationTest {
     @Autowired
     private RegistrationService registration;
 
+    @Value("${identity.registration.response-wait-ms}")
+    private long responseWaitMillis;
+
     @DynamicPropertySource
     static void properties(DynamicPropertyRegistry registry) throws Exception {
         temporaryDirectory = Files.createTempDirectory("fitness-jwt-test-");
@@ -94,14 +100,72 @@ class RegistrationTokenHttpIntegrationTest {
     }
 
     @Test
+    void pendingAccountCannotObtainTokensThroughRegistrationLoginOrRefresh() throws Exception {
+        String email = "pending-token-" + UUID.randomUUID() + "@example.com";
+        UUID key = UUID.randomUUID();
+        String body = "{\"email\":\"" + email + "\",\"password\":\"a\"}";
+        var operation = registration.start(key, new RegisterUserRequest(email, "a"));
+        String registrationResponse = mvc.perform(post("/api/v1/auth/register")
+                        .header("Idempotency-Key", key.toString())
+                        .contentType(APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isServiceUnavailable())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+        String loginResponse = mvc.perform(
+                        post("/api/v1/auth/login").contentType(APPLICATION_JSON).content(body))
+                .andExpect(status().isServiceUnavailable())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+        assertThat(registrationResponse).doesNotContain("access_token", "refresh_token");
+        assertThat(loginResponse).doesNotContain("access_token", "refresh_token");
+        assertThat(jdbc.sql("SELECT count(*) FROM auth_sessions WHERE user_id=:id")
+                        .param("id", operation.userId())
+                        .query(Integer.class)
+                        .single())
+                .isZero();
+
+        jdbc.sql("UPDATE users SET status='ACTIVE' WHERE id=:id")
+                .param("id", operation.userId())
+                .update();
+        String activeLogin = mvc.perform(
+                        post("/api/v1/auth/login").contentType(APPLICATION_JSON).content(body))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+        String refresh = JsonMapper.builder()
+                .build()
+                .readTree(activeLogin)
+                .get("refresh_token")
+                .asString();
+        jdbc.sql("UPDATE users SET status='PENDING' WHERE id=:id")
+                .param("id", operation.userId())
+                .update();
+        String refreshResponse = mvc.perform(post("/api/v1/auth/refresh")
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"refresh_token\":\"" + refresh + "\"}"))
+                .andExpect(status().isForbidden())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+        assertThat(refreshResponse).doesNotContain("access_token", "refresh_token", refresh);
+    }
+
+    @Test
     void registrationReturnsVerifiableTokensOnlyAfterProvisioning() throws Exception {
         String key = UUID.randomUUID().toString();
-        String body = "{\"email\":\"jwt-http@example.com\",\"password\":\"a\"}";
+        String body = "{\"email\":\" JWT-HTTP@example.com \",\"password\":\"a\"}";
+        long started = System.nanoTime();
         mvc.perform(post("/api/v1/auth/register")
                         .header("Idempotency-Key", key)
                         .contentType(APPLICATION_JSON)
                         .content(body))
                 .andExpect(status().isServiceUnavailable());
+        assertThat(TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started))
+                .isGreaterThanOrEqualTo(responseWaitMillis);
         jdbc.sql("UPDATE registration_operations SET profile_ready = TRUE, wallet_ready = TRUE, "
                         + "status = 'COMPLETED', completed_at = clock_timestamp() WHERE user_id = "
                         + "(SELECT id FROM users WHERE email_canonical = 'jwt-http@example.com')")
@@ -118,7 +182,16 @@ class RegistrationTokenHttpIntegrationTest {
                 .getResponse()
                 .getContentAsString();
         var response = JsonMapper.builder().build().readTree(content);
-        var jwt = SignedJWT.parse(response.get("access_token").asString());
+        assertThat(response.size()).isEqualTo(2);
+        assertThat(response.get("user").size()).isEqualTo(3);
+        assertThat(response.get("user").get("email").asString()).isEqualTo("jwt-http@example.com");
+        assertThat(response.get("user").get("status").asString()).isEqualTo("ACTIVE");
+        var session = response.get("session");
+        assertThat(session.size()).isEqualTo(5);
+        assertThat(session.get("token_type").asString()).isEqualTo("Bearer");
+        assertThat(session.get("expires_in").asInt()).isEqualTo(900);
+        assertThat(session.get("refresh_expires_in").asInt()).isEqualTo(2592000);
+        var jwt = SignedJWT.parse(session.get("access_token").asString());
         String jwks = mvc.perform(get("/.well-known/jwks.json"))
                 .andExpect(status().isOk())
                 .andReturn()
@@ -128,12 +201,45 @@ class RegistrationTokenHttpIntegrationTest {
         assertThat(publicJwk.isPrivate()).isFalse();
         assertThat(jwt.verify(new ECDSAVerifier(publicJwk))).isTrue();
         assertThat(jwt.getJWTClaimsSet().getIssuer()).isEqualTo("https://identity.test");
-        assertThat(response.get("refresh_token").asString()).isNotBlank();
+        assertThat(session.get("refresh_token").asString()).isNotBlank();
+        assertThat(response.get("user").get("id").asString())
+                .isEqualTo(jwt.getJWTClaimsSet().getSubject());
         assertThat(jdbc.sql("SELECT count(*) FROM auth_sessions WHERE revoked_at IS NULL AND id=:id")
                         .param("id", UUID.fromString(jwt.getJWTClaimsSet().getStringClaim("sid")))
                         .query(Integer.class)
                         .single())
                 .isEqualTo(1);
+    }
+
+    @Test
+    void firstRequestWaitsForProvisioningAndReturnsCreated() throws Exception {
+        String email = "wait-" + UUID.randomUUID() + "@example.com";
+        UUID key = UUID.randomUUID();
+        var operation = registration.start(key, new RegisterUserRequest(email, "a"));
+        var request = CompletableFuture.supplyAsync(() -> {
+            try {
+                return mvc.perform(post("/api/v1/auth/register")
+                                .header("Idempotency-Key", key.toString())
+                                .contentType(APPLICATION_JSON)
+                                .content("{\"email\":\"" + email + "\",\"password\":\"a\"}"))
+                        .andReturn();
+            } catch (Exception exception) {
+                throw new IllegalStateException(exception);
+            }
+        });
+        Thread.sleep(1000);
+        assertThat(request).isNotDone();
+        jdbc.sql("UPDATE users SET status='ACTIVE' WHERE id=:id")
+                .param("id", operation.userId())
+                .update();
+        jdbc.sql("UPDATE registration_operations SET profile_ready=TRUE, wallet_ready=TRUE, "
+                        + "status='COMPLETED', completed_at=clock_timestamp() WHERE id=:id")
+                .param("id", operation.operationId())
+                .update();
+        assertThat(request.get(responseWaitMillis + 5000, TimeUnit.MILLISECONDS)
+                        .getResponse()
+                        .getStatus())
+                .isEqualTo(201);
     }
 
     @Test

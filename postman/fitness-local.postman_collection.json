@@ -1,0 +1,93 @@
+{
+  "info": {
+    "name": "Fitness Platform — локальная авторизация",
+    "description": "Коллекция для локальной проверки. Запустите Identity, Accounts и Coins. Сначала выполните регистрацию, затем вход. Email и ключ идемпотентности создаются автоматически и сохраняются в переменных коллекции. Для нового пользователя очистите переменные email и idempotency_key. При ответе 503 повторите регистрацию с теми же значениями. Logout пока не реализован.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:8080", "type": "string" },
+    { "key": "email", "value": "", "type": "string" },
+    { "key": "password", "value": "a", "type": "string" },
+    { "key": "idempotency_key", "value": "", "type": "string" },
+    { "key": "access_token", "value": "", "type": "string" },
+    { "key": "refresh_token", "value": "", "type": "string" },
+    { "key": "logout_url", "value": "", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "1. Регистрация",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "if (!pm.collectionVariables.get('email')) {",
+              "  pm.collectionVariables.set('email', 'postman-' + pm.variables.replaceIn('{{$guid}}') + '@example.com');",
+              "}",
+              "if (!pm.collectionVariables.get('idempotency_key')) {",
+              "  pm.collectionVariables.set('idempotency_key', pm.variables.replaceIn('{{$guid}}'));",
+              "}"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "if (pm.response.code === 201) {",
+              "  const session = pm.response.json().session;",
+              "  pm.collectionVariables.set('access_token', session.access_token);",
+              "  pm.collectionVariables.set('refresh_token', session.refresh_token);",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Idempotency-Key", "value": "{{idempotency_key}}" }
+        ],
+        "body": { "mode": "raw", "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}", "options": { "raw": { "language": "json" } } },
+        "url": "{{base_url}}/api/v1/auth/register",
+        "description": "Создаёт пользователя, профиль, кошелёк и сессию. При 503 повторите запрос с тем же email, паролем и ключом. При 201 токены сохраняются в переменных коллекции."
+      }
+    },
+    {
+      "name": "2. Вход",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "if (pm.response.code === 200) {",
+              "  const session = pm.response.json();",
+              "  pm.collectionVariables.set('access_token', session.access_token);",
+              "  pm.collectionVariables.set('refresh_token', session.refresh_token);",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}", "options": { "raw": { "language": "json" } } },
+        "url": "{{base_url}}/api/v1/auth/login",
+        "description": "Использует сохранённые email и пароль. При ответе 200 обновляет токены в переменных коллекции."
+      }
+    },
+    {
+      "name": "3. Выход — пока не реализован",
+      "request": {
+        "method": "POST",
+        "url": "{{logout_url}}",
+        "description": "В Identity пока нет HTTP-контракта и реализации logout. Адрес и формат запроса специально не заданы; после реализации их нужно добавить в коллекцию."
+      }
+    }
+  ]
+}

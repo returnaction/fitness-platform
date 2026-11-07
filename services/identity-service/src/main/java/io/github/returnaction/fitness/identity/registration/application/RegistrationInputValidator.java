@@ -28,15 +28,18 @@ public class RegistrationInputValidator {
             violations.add(new RegistrationValidationException.Violation("email", "required"));
             return null;
         }
-        String email = source.strip().toLowerCase(Locale.ROOT);
-        if (email.length() < 3 || email.length() > 254 || !hasValidEmailStructure(email)) {
+        String trimmed = source.strip();
+        if (trimmed.length() < 3 || trimmed.length() > 254 || !hasValidEmailStructure(trimmed)) {
             violations.add(new RegistrationValidationException.Violation("email", "invalid_format"));
         }
-        return email;
+        return trimmed.toLowerCase(Locale.ROOT);
     }
 
     private boolean hasValidEmailStructure(String email) {
-        return email.chars().filter(character -> character == '@').count() == 1
+        int separator = email.indexOf('@');
+        return separator > 0
+                && separator < email.length() - 1
+                && separator == email.lastIndexOf('@')
                 && email.chars().allMatch(character -> character >= '!' && character <= '~');
     }
 

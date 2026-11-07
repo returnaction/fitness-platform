@@ -98,7 +98,7 @@ public class RegistrationService {
 
         RegistrationOperationEntity operation = new RegistrationOperationEntity(UUID.randomUUID(), digest, userId);
         operationRepository.save(operation);
-        return new RegistrationStartResult(operation.getId(), userId);
+        return new RegistrationStartResult(operation.getId(), userId, input.emailCanonical());
     }
 
     private RegistrationStartResult resolveWriteConflict(
@@ -128,7 +128,7 @@ public class RegistrationService {
                 || !passwordEncoder.matches(input.password(), credentials.getPasswordHash())) {
             throw new RegistrationConflictException("idempotency_key_conflict");
         }
-        return new RegistrationStartResult(operation.getId(), user.getId());
+        return new RegistrationStartResult(operation.getId(), user.getId(), user.getEmailCanonical());
     }
 
     private byte[] sha256(String value) {
@@ -139,5 +139,5 @@ public class RegistrationService {
         }
     }
 
-    public record RegistrationStartResult(UUID operationId, UUID userId) {}
+    public record RegistrationStartResult(UUID operationId, UUID userId, String emailCanonical) {}
 }

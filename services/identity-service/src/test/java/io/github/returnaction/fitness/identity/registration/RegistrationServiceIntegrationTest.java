@@ -8,6 +8,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import io.github.returnaction.fitness.identity.registration.application.AccessTokenSigner;
 import io.github.returnaction.fitness.identity.registration.application.LoginCredentialsChangedException;
 import io.github.returnaction.fitness.identity.registration.application.RegistrationConflictException;
@@ -28,23 +31,31 @@ import io.github.returnaction.fitness.identity.registration.repository.UserRepos
 import io.github.returnaction.fitness.identity.registration.worker.AccountsProvisioningProcessor;
 import io.github.returnaction.fitness.identity.registration.worker.AccountsProvisioningScheduler;
 import io.github.returnaction.fitness.identity.registration.worker.CoinsProvisioningProcessor;
+import io.github.returnaction.fitness.identity.registration.worker.ProvisioningBatchRunner;
 import io.github.returnaction.fitness.identity.registration.worker.RegistrationLeaseRepository;
 import io.github.returnaction.fitness.identity.session.RefreshTokenService;
 import io.github.returnaction.fitness.identity.session.SessionVerificationRepository;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.testcontainers.containers.PostgreSQLContainer;
@@ -75,7 +86,7 @@ class RegistrationServiceIntegrationTest {
     @Autowired
     private UserCredentialRepository userCredentialRepository;
 
-    @Autowired
+    @MockitoSpyBean
     private PasswordEncoder passwordEncoder;
 
     @Autowired
@@ -117,25 +128,76 @@ class RegistrationServiceIntegrationTest {
                         org.mockito.ArgumentMatchers.any(),
                         org.mockito.ArgumentMatchers.any());
         var processor = new AccountsProvisioningProcessor(client, leases);
-        var scheduler = new AccountsProvisioningScheduler(leases, processor, 4, 30);
-        for (int attempt = 0; attempt < 10; attempt++) {
-            scheduler.poll();
-            boolean ready = jdbcClient
-                    .sql("SELECT profile_ready FROM registration_operations WHERE id = :id")
-                    .param("id", operation.operationId())
-                    .query(Boolean.class)
-                    .single();
-            if (ready) {
-                assertThat(jdbcClient
-                                .sql("SELECT status FROM users WHERE id = :id")
-                                .param("id", operation.userId())
-                                .query(String.class)
-                                .single())
-                        .isEqualTo("PENDING");
-                return;
+        try (var runner = new ProvisioningBatchRunner(4, 4)) {
+            var scheduler = new AccountsProvisioningScheduler(leases, processor, runner, 30);
+            for (int attempt = 0; attempt < 10; attempt++) {
+                scheduler.poll();
+                boolean ready = jdbcClient
+                        .sql("SELECT profile_ready FROM registration_operations WHERE id = :id")
+                        .param("id", operation.operationId())
+                        .query(Boolean.class)
+                        .single();
+                if (ready) {
+                    assertThat(jdbcClient
+                                    .sql("SELECT status FROM users WHERE id = :id")
+                                    .param("id", operation.userId())
+                                    .query(String.class)
+                                    .single())
+                            .isEqualTo("PENDING");
+                    return;
+                }
             }
         }
         throw new AssertionError("Worker did not mark the profile ready");
+    }
+
+    @Test
+    void workerProcessesDistinctLeasesConcurrentlyWithoutNetworkTransaction() {
+        var operations = new java.util.ArrayList<RegistrationService.RegistrationStartResult>();
+        for (int index = 0; index < 8; index++) {
+            var operation = registrationService.start(
+                    UUID.randomUUID(),
+                    new RegisterUserRequest("parallel-worker-" + UUID.randomUUID() + "@example.com", "a"));
+            operations.add(operation);
+            jdbcClient
+                    .sql(
+                            "UPDATE registration_operations SET next_retry_at=clock_timestamp()-interval '10 days' WHERE id=:id")
+                    .param("id", operation.operationId())
+                    .update();
+        }
+        var started = new CountDownLatch(4);
+        var users = ConcurrentHashMap.<UUID>newKeySet();
+        var client = org.mockito.Mockito.mock(AccountsProvisioningClient.class);
+        org.mockito.Mockito.doAnswer(invocation -> {
+                    assertThat(org.springframework.transaction.support.TransactionSynchronizationManager
+                                    .isActualTransactionActive())
+                            .isFalse();
+                    users.add(invocation.getArgument(2));
+                    started.countDown();
+                    assertThat(started.await(10, TimeUnit.SECONDS)).isTrue();
+                    return null;
+                })
+                .when(client)
+                .ensureProfile(
+                        org.mockito.ArgumentMatchers.any(),
+                        org.mockito.ArgumentMatchers.any(),
+                        org.mockito.ArgumentMatchers.any());
+        try (var runner = new ProvisioningBatchRunner(8, 4)) {
+            new AccountsProvisioningScheduler(leases, new AccountsProvisioningProcessor(client, leases), runner, 30)
+                    .poll();
+        }
+        assertThat(users)
+                .containsExactlyInAnyOrderElementsOf(operations.stream()
+                        .map(RegistrationService.RegistrationStartResult::userId)
+                        .toList());
+        for (var operation : operations) {
+            assertThat(jdbcClient
+                            .sql("SELECT profile_ready FROM registration_operations WHERE id=:id")
+                            .param("id", operation.operationId())
+                            .query(Boolean.class)
+                            .single())
+                    .isTrue();
+        }
     }
 
     @Test
@@ -767,8 +829,37 @@ class RegistrationServiceIntegrationTest {
     }
 
     @Test
-    void rejectsEmailWithMultipleAtSigns() throws Exception {
-        for (String email : List.of("a@@b", "a@b@c")) {
+    void rejectsNonCanonicalOrWrongVariantIdempotencyKeys() throws Exception {
+        long usersBefore = userRepository.count();
+        for (String key : List.of("1-1-4000-8000-1", "00000000-0000-4000-c000-000000000000")) {
+            mockMvc.perform(post("/api/v1/auth/register")
+                            .header("Idempotency-Key", key)
+                            .contentType(APPLICATION_JSON)
+                            .content("{\"email\":\"key-test@example.com\",\"password\":\"a\"}"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.error.code").value("invalid_request"));
+        }
+        assertThat(userRepository.count()).isEqualTo(usersBefore);
+    }
+
+    @Test
+    void acceptsUppercaseCanonicalUuidAndReusesSameOperation() throws Exception {
+        String key = UUID.randomUUID().toString();
+        String body = "{\"email\":\"uppercase-key@example.com\",\"password\":\"a\"}";
+        for (String value : List.of(key.toUpperCase(java.util.Locale.ROOT), key)) {
+            mockMvc.perform(post("/api/v1/auth/register")
+                            .header("Idempotency-Key", value)
+                            .contentType(APPLICATION_JSON)
+                            .content(body))
+                    .andExpect(status().isServiceUnavailable());
+        }
+        assertThat(userCount("uppercase-key@example.com")).isEqualTo(1);
+    }
+
+    @Test
+    void rejectsMalformedAndNonAsciiEmailWithoutCreatingUsers() throws Exception {
+        long usersBefore = userRepository.count();
+        for (String email : List.of("a@@b", "a@b@c", "@ab", "ab@", "\u212a@a")) {
             mockMvc.perform(post("/api/v1/auth/register")
                             .header("Idempotency-Key", UUID.randomUUID().toString())
                             .contentType(APPLICATION_JSON)
@@ -777,17 +868,45 @@ class RegistrationServiceIntegrationTest {
                     .andExpect(jsonPath("$.error.code").value("validation_error"))
                     .andExpect(jsonPath("$.error.details[0].field").value("email"));
         }
+        assertThat(userRepository.count()).isEqualTo(usersBefore);
+    }
+
+    @Test
+    void duplicateEmailDatabaseErrorDoesNotExposeEmailInHibernateLog() {
+        String email = "privacy-" + UUID.randomUUID() + "@example.com";
+        registrationService.start(UUID.randomUUID(), new RegisterUserRequest(email, "a"));
+
+        Logger logger = (Logger) LoggerFactory.getLogger("org.hibernate.orm.jdbc.error");
+        var appender = new ListAppender<ILoggingEvent>();
+        appender.start();
+        logger.addAppender(appender);
+        try {
+            assertThatThrownBy(() ->
+                            userRepository.saveAndFlush(new UserEntity(UUID.randomUUID(), email, UserStatus.PENDING)))
+                    .isInstanceOf(DataIntegrityViolationException.class);
+
+            assertThat(appender.list)
+                    .extracting(ILoggingEvent::getFormattedMessage)
+                    .anyMatch(message -> message.contains("users_email_canonical_unique"))
+                    .noneMatch(message -> message.contains(email));
+        } finally {
+            logger.detachAppender(appender);
+            appender.stop();
+        }
     }
 
     @Test
     void handlesConcurrentRequestsWithSameKeyWithoutDuplicate() throws Exception {
         UUID key = UUID.randomUUID();
+        synchronizePasswordEncoding();
         try (ExecutorService executor = Executors.newFixedThreadPool(2)) {
             CompletableFuture<RegistrationService.RegistrationStartResult> first = CompletableFuture.supplyAsync(
-                    () -> registrationService.start(key, new RegisterUserRequest("same-key@example.com", "a")),
+                    () -> registrationService.start(
+                            key, new RegisterUserRequest("same-key@example.com", "race-password")),
                     executor);
             CompletableFuture<RegistrationService.RegistrationStartResult> second = CompletableFuture.supplyAsync(
-                    () -> registrationService.start(key, new RegisterUserRequest("same-key@example.com", "a")),
+                    () -> registrationService.start(
+                            key, new RegisterUserRequest("same-key@example.com", "race-password")),
                     executor);
 
             assertThat(first.get()).isEqualTo(second.get());
@@ -797,14 +916,15 @@ class RegistrationServiceIntegrationTest {
 
     @Test
     void handlesConcurrentRequestsWithDifferentKeysAndSameEmail() throws Exception {
+        synchronizePasswordEncoding();
         try (ExecutorService executor = Executors.newFixedThreadPool(2)) {
             CompletableFuture<RegistrationService.RegistrationStartResult> first = CompletableFuture.supplyAsync(
                     () -> registrationService.start(
-                            UUID.randomUUID(), new RegisterUserRequest("same-email@example.com", "a")),
+                            UUID.randomUUID(), new RegisterUserRequest("same-email@example.com", "race-password")),
                     executor);
             CompletableFuture<RegistrationService.RegistrationStartResult> second = CompletableFuture.supplyAsync(
                     () -> registrationService.start(
-                            UUID.randomUUID(), new RegisterUserRequest("same-email@example.com", "a")),
+                            UUID.randomUUID(), new RegisterUserRequest("same-email@example.com", "race-password")),
                     executor);
 
             List<CompletableFuture<RegistrationService.RegistrationStartResult>> results = List.of(first, second);
@@ -823,6 +943,16 @@ class RegistrationServiceIntegrationTest {
             assertThat(conflictingRequests).isEqualTo(1);
         }
         assertThat(userCount("same-email@example.com")).isEqualTo(1);
+    }
+
+    private void synchronizePasswordEncoding() {
+        var barrier = new CyclicBarrier(2);
+        org.mockito.Mockito.doAnswer(invocation -> {
+                    barrier.await(15, TimeUnit.SECONDS);
+                    return invocation.callRealMethod();
+                })
+                .when(passwordEncoder)
+                .encode("race-password");
     }
 
     private int userRoleCount(UUID userId) {

@@ -1,10 +1,42 @@
 # Instructions for the New Java Project
 
-This file applies to the [System Design documentation](system-design/README.md).
-To apply
-these rules to the entire future repository, place these instructions in that
-repository's root `AGENTS.md` as well. More specific instructions in nested
-directories supplement the root instructions.
+This root file applies to the entire repository, including the
+[System Design documentation](system-design/README.md). More specific
+instructions in nested directories supplement the root instructions.
+
+## Active SDD Scope: 001-user-registration
+
+Until the user explicitly changes the scope, a request to continue development
+means continuing [001-user-registration](specs/001-user-registration/spec.md).
+Do not start implementing another feature or a system-design roadmap item just
+because it exists in the documentation. When the specification is complete or
+all remaining tasks are blocked, report the status and ask the user what to do
+next rather than choosing a different feature.
+
+Before each development step:
+
+1. Read the current [task list](specs/001-user-registration/tasks.md),
+   [specification](specs/001-user-registration/spec.md), and
+   [plan](specs/001-user-registration/plan.md). Identify an open task, its
+   acceptance criteria, and any dependencies. Respect an explicit user request
+   and the current branch; do not assume the first unchecked item is always
+   actionable.
+2. Tell the user which task is being addressed and why. Inspect the relevant
+   code, tests, contracts, configuration, and migrations before editing.
+3. Consult `system-design` when it provides context or a referenced decision
+   for that task. It is not an independent queue of implementation tasks.
+   Do not expand scope based on it. Explain contradictions, propose a
+   resolution, and ask the user when a material product decision is needed.
+4. Implement and verify the selected task and its necessary dependencies.
+   Record meaningful newly discovered gaps in the task list; do not silently
+   treat them as completed or launch unrelated work.
+5. Update the task list using evidence: check an item only when its whole scope
+   has been implemented and verified. Keep partial, skipped, or unverified work
+   open, splitting tasks where useful. Keep linked PR statuses accurate when
+   their state can be verified.
+6. Report the changes, checks and their limitations, remaining work, and the
+   next task tied to the specification. Continue with another in-scope task
+   when the user has authorized continued work and no intervention is needed.
 
 ## Project and Technology
 
@@ -67,7 +99,8 @@ server does not make separate servers fault tolerant.
 
 ## Documentation
 
-Start with [the System Design README](system-design/README.md) and the
+For architecture context outside the active SDD workflow, start with
+[the System Design README](system-design/README.md) and the
 [readiness map](system-design/overview/37-service-contracts-worklist.md).
 Requirements are in `system-design/requirements/`; DDD and the glossary are in
 `system-design/domain/`; services are in `system-design/services/`;

@@ -2,8 +2,33 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
-    <modelVersion>4.0.0</modelVersion>
+  <!-- ====================================================================== -->
+  <!-- ШПАРГАЛКА: ДОЧЕРНИЙ POM.XML                                            -->
+  <!-- ====================================================================== -->
+  <!--
+  ЧТО ЭТО ТАКОЕ?
+  Это pom.xml конкретного микросервиса (accounts-service).
+  В отличие от корневого pom.xml, который только управляет, этот файл
+  ОПИСЫВАЕТ САМ СЕРВИС: какие библиотеки ему нужны и как его собрать.
 
+  ГЛАВНОЕ ПРАВИЛО: Мы НЕ ПИШЕМ ВЕРСИИ БИБЛИОТЕК ЗДЕСЬ (почти всегда).
+  Версии берутся из корневого pom.xml (тег <parent>), где настроен
+  "Центральный склад версий" (dependencyManagement).
+  -->
+  <modelVersion>4.0.0</modelVersion>
+
+  <!-- ====================================================================== -->
+  <!-- РОДИТЕЛЬ (Ссылка на Штаб-квартиру)                                     -->
+  <!-- ====================================================================== -->
+  <!--
+  Что это: Мы говорим Maven: "Я не самостоятельный проект. Я часть
+  большого проекта fitness-platform. Применяй ко мне все правила оттуда".
+
+  <relativePath>../../pom.xml</relativePath> —
+  Это физический путь к корневому pom.xml.
+  ../../ означает: "поднимись на две папки вверх".
+  (Из services/accounts-service/ -> в services/ -> в корень myappproject).
+  -->
     <parent>
         <groupId>io.github.returnaction.fitness</groupId>
         <artifactId>fitness-platform</artifactId>
@@ -11,78 +36,105 @@
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
+  <!-- ====================================================================== -->
+  <!-- КООРДИНАТЫ СЕРВИСА (Кто мы такие)                                      -->
+  <!-- ====================================================================== -->
+  <!--
+  Обрати внимание: тут НЕТ тега <groupId>, потому что мы его наследуем
+  от родителя (io.github.returnaction.fitness).
+
+  <artifactId> — имя нашего конкретного сервиса.
+  <packaging> — по умолчанию это jar (поэтому тег не пишем). Мы создаем
+  запускаемый файл.
+  -->
     <artifactId>accounts-service</artifactId>
     <name>Accounts Service</name>
     <description>Profile ownership service for the Fitness Platform.</description>
 
     <dependencies>
+      <!-- Тестовая библиотека BouncyCastle для проверки SSL-сертификатов -->
         <dependency>
             <groupId>org.bouncycastle</groupId>
             <artifactId>bcpkix-jdk18on</artifactId>
             <version>${bouncycastle.version}</version>
             <scope>test</scope>
         </dependency>
+      <!-- Сетевой движок (транспорт) для gRPC-запросов -->
         <dependency>
             <groupId>io.grpc</groupId>
             <artifactId>grpc-netty-shaded</artifactId>
         </dependency>
+      <!-- Наши собственные сгенерированные gRPC-контракты (из папки contracts) -->
         <dependency>
             <groupId>io.github.returnaction.fitness</groupId>
             <artifactId>fitness-grpc-contracts</artifactId>
             <version>${project.version}</version>
         </dependency>
+      <!-- Spring Web (MVC): создание REST API (контроллеры, эндпоинты) -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-webmvc</artifactId>
         </dependency>
+      <!-- Spring Validation: проверка входящих данных (аннотации @Valid, @NotNull и т.д.) -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-validation</artifactId>
         </dependency>
+      <!-- Spring Security: аутентификация (вход) и авторизация (права доступа) -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-security</artifactId>
         </dependency>
+      <!-- Spring Data JPA: работа с базой данных через Hibernate (репозитории) -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-jpa</artifactId>
         </dependency>
+      <!-- Liquibase: управление миграциями БД (создание/изменение таблиц через SQL) -->
         <dependency>
             <groupId>org.liquibase</groupId>
             <artifactId>liquibase-core</artifactId>
         </dependency>
+      <!-- Интеграция Liquibase со Spring Boot (автозапуск миграций при старте) -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-liquibase</artifactId>
         </dependency>
+      <!-- Драйвер для подключения к базе данных PostgreSQL (нужен только в рантайме) -->
         <dependency>
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>
             <scope>runtime</scope>
         </dependency>
+      <!-- Spring Actuator: "датчики" приложения (health-check, метрики, /actuator) -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-actuator</artifactId>
         </dependency>
+      <!-- Prometheus: экспорт метрик для мониторинга (Grafana, Prometheus) -->
         <dependency>
             <groupId>io.micrometer</groupId>
             <artifactId>micrometer-registry-prometheus</artifactId>
         </dependency>
+      <!-- Spring Test: базовые инструменты для написания тестов (JUnit, Mockito) -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
+      <!-- Spring WebMvc Test: инструменты для тестирования REST-контроллеров (MockMvc) -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-webmvc-test</artifactId>
             <scope>test</scope>
         </dependency>
+      <!-- Testcontainers: поднимает настоящую PostgreSQL в Docker для интеграционных тестов -->
         <dependency>
             <groupId>org.testcontainers</groupId>
             <artifactId>testcontainers-postgresql</artifactId>
             <scope>test</scope>
         </dependency>
+      <!-- Интеграция Testcontainers с JUnit 5 (аннотация @Testcontainers) -->
         <dependency>
             <groupId>org.testcontainers</groupId>
             <artifactId>testcontainers-junit-jupiter</artifactId>

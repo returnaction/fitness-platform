@@ -8,11 +8,15 @@
 docker compose -f platform/step-ca/compose.yaml up -d
 ```
 
-При первом старте образ инициализирует CA и создаёт пароль provisioner внутри
-volume. Доступ к Docker и volume означает доступ к секретам CA. Не удаляйте
+При первом старте образ инициализирует CA. Доступ к Docker и volume означает
+доступ к секретам CA. Не удаляйте
 volume командой `docker compose down -v`: вместе с ним исчезнет CA и придётся
-переиздать сертификаты. Для выпуска сертификатов и обновления настроек сервисов
-ещё требуется проверенный процесс; включать gRPC до этого не нужно.
+переиздать сертификаты.
+
+Для текущей локальной CA provisioner `fitness-local` настроен на максимальный
+и стандартный срок сертификата 720 часов (30 суток). Настройка хранится в
+volume CA; при создании новой CA её нужно настроить заново. Это настройка
+для разработки, а не правило для сервера.
 
 ## Зачем обновлять сертификаты
 
@@ -31,9 +35,10 @@ Accounts и Coins подтверждают свои имена отдельны�
 ```powershell
 docker compose -f platform/step-ca/compose.yaml ps
 docker compose -f platform/step-ca/compose.yaml exec -T step-ca step ca health --ca-url https://localhost:9000 --root /home/step/certs/root_ca.crt
-docker compose -f platform/step-ca/compose.yaml exec -T step-ca step certificate inspect /tmp/fitness-accounts.crt --short
-docker compose -f platform/step-ca/compose.yaml exec -T step-ca step certificate inspect /tmp/fitness-identity.crt --short
-docker compose -f platform/step-ca/compose.yaml exec -T step-ca step certificate inspect /tmp/fitness-coins.crt --short
+$openssl = 'C:\Program Files\PostgreSQL\17\bin\openssl.exe'
+& $openssl x509 -in secrets/identity-client.crt -noout -enddate
+& $openssl x509 -in secrets/accounts-server.crt -noout -enddate
+& $openssl x509 -in secrets/coins-server.crt -noout -enddate
 ```
 
 Файлы в `/tmp` контейнера временные и могут пропасть при его пересоздании.
@@ -54,17 +59,35 @@ docker compose -f platform/step-ca/compose.yaml exec -T step-ca step certificate
 При утечке ключа или необходимости его сменить требуется перевыпуск с новым
 ключом, а не простое продление.
 
-Практическая автоматизация продления для этого проекта **ещё не готова**:
-нужно безопасно хранить provisioner credentials и проверить выпуск,
-копирование и обновление обеих пар. Для Java gRPC локально проверен формат
+Автоматическое продление для этого проекта **ещё не настроено**. В локальной
+CA выпущены сертификаты на 719 часов для имеющихся ключей. Для нового выпуска
+нужны доступный provisioner и безопасное хранение его пароля; пароль, лежащий
+в `/tmp` контейнера, временный и может исчезнуть при пересоздании контейнера.
+Для Java gRPC локально проверен формат
 незашифрованного PEM PKCS#8: исходный `EC PRIVATE KEY` нужно преобразовать
 в отдельный файл командой `openssl pkcs8 -topk8 -nocrypt`. Такой файл содержит
 незашифрованный ключ, поэтому доступ к папке необходимо ограничить.
-Не заменяйте файлы вручную до проверки процесса и не включайте gRPC с
-непроверенными сертификатами. После обновления файлов оба приложения сейчас
-нужно перезапустить: их TLS-контексты создаются при запуске и не перечитывают
-файлы автоматически. Это относится также к сертификату Coins. На сервере потребуется отдельная автоматизация и
-мониторинг срока действия до развёртывания.
+Проверяйте цепочку доверия, имена сертификатов и соответствие ключам перед
+заменой файлов. После обновления файлов нужно перезапустить Identity, Accounts
+и Coins: их TLS-контексты создаются при запуске и не перечитывают файлы
+автоматически. На сервере потребуется отдельная автоматизация и мониторинг
+срока действия до развёртывания.
+
+### Повторяемое обновление локальных сертификатов
+
+До истечения срока запустите Docker и локальную CA, затем из корня проекта в
+PowerShell выполните:
+
+```powershell
+.\scripts\renew-local-certificates.ps1 -CheckOnly  # проверка без замены
+.\scripts\renew-local-certificates.ps1             # обновление файлов
+```
+
+Скрипт использует существующие сертификаты и ключи для авторизации, проверяет
+цепочку, имена и соответствие ключей, а перед заменой сохраняет старые
+сертификаты в игнорируемую Git папку `secrets/cert-backup-*`. Закрытые ключи
+не заменяются. Затем перезапустите все три сервиса вручную. Истёкшие
+сертификаты этот способ не перевыпускает; для них нужен отдельный выпуск.
 
 Справка Smallstep: [запуск step-ca в Docker](https://smallstep.com/docs/tutorials/docker-tls-certificate-authority/),
 [обновление сертификата](https://smallstep.com/docs/step-cli/reference/ca/renew/),

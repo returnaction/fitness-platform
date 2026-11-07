@@ -1,5 +1,6 @@
 package io.github.returnaction.fitness.identity.registration.web;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -7,6 +8,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import io.github.returnaction.fitness.identity.registration.application.PendingLoginService;
+import io.github.returnaction.fitness.identity.registration.application.RegistrationReadinessWaiter;
 import io.github.returnaction.fitness.identity.registration.application.RegistrationSessionService;
 import io.github.returnaction.fitness.identity.registration.recovery.RegistrationRecoveryService;
 import io.github.returnaction.fitness.identity.registration.repository.RegistrationOperationRepository;
@@ -65,6 +67,9 @@ class RegistrationRateLimitHttpTest {
 
     @MockitoBean
     private RegistrationSessionService sessions;
+
+    @MockitoBean
+    private RegistrationReadinessWaiter readinessWaiter;
 
     @MockitoBean
     private TransactionTemplate transactions;
@@ -136,18 +141,24 @@ class RegistrationRateLimitHttpTest {
                             .content("{"))
                     .andExpect(status().isBadRequest());
         }
-        mvc.perform(post("/api/v1/auth/register")
+        String response = mvc.perform(post("/api/v1/auth/register")
                         .with(request -> {
                             request.setRemoteAddr("192.0.2.10");
                             return request;
                         })
                         .header("X-Forwarded-For", "198.51.100.99")
+                        .header("Idempotency-Key", "f46ac10b-58cc-4372-a567-0e02b2c3d479")
                         .contentType(APPLICATION_JSON)
-                        .content("{"))
+                        .content("{\"email\":\"private@example.com\",\"password\":\"private-password\"}"))
                 .andExpect(status().isTooManyRequests())
                 .andExpect(header().exists("Retry-After"))
                 .andExpect(header().exists("X-Request-Id"))
-                .andExpect(jsonPath("$.error.code").value("rate_limited"));
+                .andExpect(jsonPath("$.error.code").value("rate_limited"))
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+        assertThat(response)
+                .doesNotContain("private@example.com", "private-password", "f46ac10b-58cc-4372-a567-0e02b2c3d479");
         mvc.perform(post("/api/v1/auth/register")
                         .with(request -> {
                             request.setRemoteAddr("192.0.2.11");

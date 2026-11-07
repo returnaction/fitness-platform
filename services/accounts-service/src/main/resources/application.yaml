@@ -11,6 +11,9 @@ spring:
     username: ${DATABASE_USERNAME}
     password: ${DATABASE_PASSWORD}
     hikari:
+      # Не включать значения строк из подробностей ошибок PostgreSQL в логи.
+      data-source-properties:
+        logServerErrorDetail: false
       # Значения задаются явно в .env локальной среды или в переменных окружения
       # сервера. У них нет скрытого значения по умолчанию.
       minimum-idle: ${DATABASE_POOL_MIN_IDLE}
