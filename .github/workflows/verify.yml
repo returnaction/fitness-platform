@@ -1,45 +1,153 @@
-# GitHub Actions запускает этот workflow для каждой ветки и Pull Request.
-# Он не выкатывает приложение: только проверяет документацию и Maven-сборку.
-name: Verify
+# ==============================================================================
+#       ШПАРГАЛКА ПО GITHUB ACTIONS (CI - НЕПРЕРЫВНАЯ ИНТЕГРАЦИЯ)
+# ==============================================================================
 
+# ЧТО ЭТО ТАКОЕ?
+# Это файл-инструкция для "Робота-проверяльщика", который живет на серверах GitHub.
+# Он не запускает ваш сайт и не выкатывает его на сервер (это делает CD - Delivery).
+# Он нужен только для того, чтобы ПРОВЕРИТЬ качество кода перед тем, как
+# изменения вольются в основную ветку.
+
+# СЦЕНАРИЙ (Андрей и Вася):
+# 1. Андрей написал код и отправил его на GitHub (сделал push или Pull Request).
+# 2. На серверах GitHub просыпается Робот.
+# 3. Робот берет чистый, пустой компьютер (виртуальную машину с Ubuntu).
+# 4. Робот скачивает туда код Андрея.
+# 5. Робот проверяет: "А не сломал ли Андрей ссылки в документации?" и
+#    "А собирается ли проект с помощью Maven?".
+# 6. Если всё ок — Андрей и Вася видят зеленую галочку. Если нет — красный крестик
+#    с логом ошибки. Вася даже не начнет скачивать сломанный код.
+# ==============================================================================
+
+name: Verify # Название проверки, будет отображаться на GitHub
+
+# КОГДА ЗАПУСКАТЬ РОБОТА?
 on:
-  pull_request:
+  pull_request: # Запускать, если кто-то предлагает изменения (Pull Request)
   push:
     branches:
-      - "**"
-  workflow_dispatch:
+      - "**"    # Запускать при любом пуше в любую ветку
+  workflow_dispatch: # Позволяет запустить проверку вручную кнопкой на GitHub
 
 permissions:
-  contents: read
+  contents: read # Роботу разрешено только читать код (нельзя ничего удалить)
 
+# СПИСОК ЗАДАЧ (JOBS), КОТОРЫЕ ВЫПОЛНЯЕТ РОБОТ
 jobs:
-  # Проверяет, что Markdown-ссылки внутри репозитория не ведут к отсутствующим файлам.
+  # ЗАДАЧА 1: Проверка документации
   documentation:
     name: Validate documentation links
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest # Робот возьмет свежую виртуальную машину с Ubuntu
     steps:
       - name: Check out source
-        uses: actions/checkout@v7
-      - name: Validate local Markdown links
-        shell: pwsh
-        run: ./scripts/verify-markdown-links.ps1
+        uses: actions/checkout@v7 # Шаг 1: Скачать код Андрея на эту машину
 
-  # Собирает Maven-проект, проверяет форматирование и статический анализ в JDK 25.
+      - name: Validate local Markdown links
+        shell: pwsh # Шаг 2: Запустить скрипт на PowerShell, который проверит,
+        run: ./scripts/verify-markdown-links.ps1 # не ведут ли ссылки в README.md в никуда
+
+  # ЗАДАЧА 2: Проверка сборки Maven
   build:
-    # Имя сохранено: оно уже может быть обязательным check в GitHub Ruleset для main.
     name: Verify Maven build
-    # Временно не запускаем долгую Maven-проверку. Job останется skipped с тем же
-    # именем для GitHub Ruleset; перед первым deployment вернуть `${{ true }}`.
+    # ВНИМАНИЕ! Сейчас эта задача ОТКЛЮЧЕНА (if: ${{ false }}), чтобы робот не
+    # тратил время и ресурсы на долгую сборку, пока проект в разработке.
+    # Когда проект будет готов к деплою, нужно будет поставить if: ${{ true }}.
     if: ${{ false }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest # Робот снова берет виртуальную машину на Ubuntu
     steps:
       - name: Check out source
-        uses: actions/checkout@v7
+        uses: actions/checkout@v7 # Шаг 1: Скачать код
+
       - name: Set up Temurin JDK 25
-        uses: actions/setup-java@v6
+        uses: actions/setup-java@v6 # Шаг 2: Установить на эту машину Java 25
         with:
           distribution: temurin
           java-version: "25.0.5"
-          cache: maven
+          cache: maven # Закэшировать Maven, чтобы в следующий раз качать быстрее
+
       - name: Verify Maven build, formatting, and static analysis
+        # Шаг 3: Запустить тот самый mvnw (Maven Wrapper), о котором мы говорили ранее!
+        # Флаг --batch-mode отключает лишние цветные символы в логах (чтобы робот не путался).
+        # Команда verify запускает компиляцию, тесты и проверку стиля кода.
         run: bash ./mvnw --batch-mode --no-transfer-progress verify
+
+
+  # ==============================================================================
+  #       ПРИМЕРЫ ДРУГИХ ЗАДАЧ (JOBS), КОТОРЫЕ МОЖНО ДОБАВИТЬ В БУДУЩЕМ
+  # ==============================================================================
+  #
+  # Сейчас у нас две задачи (jobs): документация и сборка.
+  # Если вы хотите, чтобы робот делал еще что-то, вы просто добавляете новую
+  # задачу под словом "jobs:" на том же уровне, что и "documentation:" или "build:".
+  #
+  # Ниже примеры. Они закомментированы решеткой #, чтобы GitHub их не запускал.
+  # Чтобы включить любую из них, просто уберите # в начале каждой строки.
+  # ------------------------------------------------------------------------------
+
+
+  # ПРИМЕР 1: Сборка Docker-образа (для accounts-service).
+  # Зачем: У вас в проекте уже есть Dockerfile. Этот job проверит, что образ
+  # вообще собирается, и не сломал ли Андрей Dockerfile.
+  #
+  # docker-build:
+  #   name: Build Docker Image
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v7
+  #     - name: Build the Docker image
+  #       # Робот заходит в папку сервиса и собирает образ
+  #       run: docker build -t my-app:latest ./services/accounts-service
+
+
+  # ПРИМЕР 2: Проверка на уязвимости (Security Scanning).
+  # Зачем: Робот проверяет все библиотеки, которые вы используете (в pom.xml).
+  # Если Андрей подключил какую-то старую библиотеку с вирусами, робот
+  # поставит красный крестик и напишет: "Опасная зависимость!".
+  #
+  # security-scan:
+  #   name: Check for vulnerabilities
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v7
+  #     - name: Run Dependency Check
+  #       # Пример использования готового действия от GitHub
+  #       uses: dependency-check/Dependency-Check_Action@main
+  #       with:
+  #         project: "myappproject"
+  #         path: "."
+
+
+  # ПРИМЕР 3: Запуск только определенных тестов (Integration Tests).
+  # Зачем: Если у вас есть долгие тесты, которые работают с базой данных,
+  # их можно вынести в отдельную задачу и запускать только по расписанию
+  # или вручную, чтобы они не тормозили обычную проверку.
+  #
+  # integration-tests:
+  #   name: Run Integration Tests
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v7
+  #     - name: Set up JDK
+  #       uses: actions/setup-java@v6
+  #       with:
+  #         distribution: temurin
+  #         java-version: "25.0.5"
+  #     - name: Run integration tests
+  #       # Запускаем mvnw с профилем интеграционных тестов (если он у вас настроен)
+  #       run: ./mvnw verify -P integration-tests
+
+
+  # ПРИМЕР 4: Деплой (Выкатка на сервер).
+  # Зачем: Это уже не CI (проверка), а CD (Доставка). Этот job запустится
+  # только тогда, когда код вольют в главную ветку (main), и отправит проект на сервер.
+  # (Пока мы это не используем, но на будущее).
+  #
+  # deploy-to-server:
+  #   name: Deploy to Production
+  #   runs-on: ubuntu-latest
+  #   if: github.ref == 'refs/heads/main' # Только для ветки main!
+  #   steps:
+  #     - name: Deploy via SSH
+  #       run: |
+  #         echo "Здесь будут команды для подключения к серверу и обновления приложения"
+  #         # ssh user@yourserver "cd /app && docker-compose up -d"

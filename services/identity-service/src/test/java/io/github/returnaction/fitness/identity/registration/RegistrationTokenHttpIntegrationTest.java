@@ -204,6 +204,127 @@ class RegistrationTokenHttpIntegrationTest {
     }
 
     @Test
+    void refreshRotatesAndCorrectReplayRevokesButWrongSecretDoesNot() throws Exception {
+        String email = "refresh-" + UUID.randomUUID() + "@example.com";
+        var operation = registration.start(UUID.randomUUID(), new RegisterUserRequest(email, "a"));
+        jdbc.sql("UPDATE users SET status='ACTIVE' WHERE id=:id")
+                .param("id", operation.userId())
+                .update();
+        var mapper = JsonMapper.builder().build();
+        String login = mvc.perform(post("/api/v1/auth/login")
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"email\":\"" + email + "\",\"password\":\"a\"}"))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+        var original = mapper.readTree(login);
+        String oldToken = original.get("refresh_token").asString();
+        UUID sessionId =
+                UUID.fromString(SignedJWT.parse(original.get("access_token").asString())
+                        .getJWTClaimsSet()
+                        .getStringClaim("sid"));
+        String wrong = oldToken.substring(0, 37) + "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+        mvc.perform(post("/api/v1/auth/refresh")
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"refresh_token\":\"" + wrong + "\"}"))
+                .andExpect(status().isUnauthorized());
+        assertThat(jdbc.sql("SELECT revoked_at IS NULL FROM auth_sessions WHERE id=:id")
+                        .param("id", sessionId)
+                        .query(Boolean.class)
+                        .single())
+                .isTrue();
+        String rotated = mvc.perform(post("/api/v1/auth/refresh")
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"refresh_token\":\"" + oldToken + "\"}"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Cache-Control", "no-store"))
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+        var fresh = mapper.readTree(rotated);
+        String newToken = fresh.get("refresh_token").asString();
+        assertThat(newToken).isNotEqualTo(oldToken);
+        assertThat(SignedJWT.parse(fresh.get("access_token").asString())
+                        .getJWTClaimsSet()
+                        .getStringClaim("sid"))
+                .isEqualTo(sessionId.toString());
+        assertThat(fresh.get("refresh_expires_in").asLong()).isBetween(1L, 2592000L);
+        assertThat(jdbc.sql(
+                                "SELECT used_at IS NOT NULL AND replaced_by_token_id IS NOT NULL FROM refresh_tokens WHERE id=:id")
+                        .param("id", UUID.fromString(oldToken.substring(0, 36)))
+                        .query(Boolean.class)
+                        .single())
+                .isTrue();
+        mvc.perform(post("/api/v1/auth/refresh")
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"refresh_token\":\"" + wrong + "\"}"))
+                .andExpect(status().isUnauthorized());
+        assertThat(jdbc.sql("SELECT revoked_at IS NULL FROM auth_sessions WHERE id=:id")
+                        .param("id", sessionId)
+                        .query(Boolean.class)
+                        .single())
+                .isTrue();
+        mvc.perform(post("/api/v1/auth/refresh")
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"refresh_token\":\"" + oldToken + "\"}"))
+                .andExpect(status().isUnauthorized());
+        assertThat(jdbc.sql("SELECT revoked_at IS NOT NULL FROM auth_sessions WHERE id=:id")
+                        .param("id", sessionId)
+                        .query(Boolean.class)
+                        .single())
+                .isTrue();
+        mvc.perform(post("/api/v1/auth/refresh")
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"refresh_token\":\"" + newToken + "\"}"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void simultaneousRefreshesHaveOneSuccessAndRevokeSession() throws Exception {
+        String email = "parallel-refresh-" + UUID.randomUUID() + "@example.com";
+        var operation = registration.start(UUID.randomUUID(), new RegisterUserRequest(email, "a"));
+        jdbc.sql("UPDATE users SET status='ACTIVE' WHERE id=:id")
+                .param("id", operation.userId())
+                .update();
+        var mapper = JsonMapper.builder().build();
+        var login = mvc.perform(post("/api/v1/auth/login")
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"email\":\"" + email + "\",\"password\":\"a\"}"))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+        var response = mapper.readTree(login);
+        String token = response.get("refresh_token").asString();
+        UUID sessionId =
+                UUID.fromString(SignedJWT.parse(response.get("access_token").asString())
+                        .getJWTClaimsSet()
+                        .getStringClaim("sid"));
+        var gate = new java.util.concurrent.CountDownLatch(1);
+        try (var executor = java.util.concurrent.Executors.newFixedThreadPool(2)) {
+            java.util.concurrent.Callable<Integer> call = () -> {
+                gate.await();
+                return mvc.perform(post("/api/v1/auth/refresh")
+                                .contentType(APPLICATION_JSON)
+                                .content("{\"refresh_token\":\"" + token + "\"}"))
+                        .andReturn()
+                        .getResponse()
+                        .getStatus();
+            };
+            var one = executor.submit(call);
+            var two = executor.submit(call);
+            gate.countDown();
+            assertThat(java.util.List.of(one.get(), two.get())).containsExactlyInAnyOrder(200, 401);
+        }
+        assertThat(jdbc.sql("SELECT revoked_at IS NOT NULL FROM auth_sessions WHERE id=:id")
+                        .param("id", sessionId)
+                        .query(Boolean.class)
+                        .single())
+                .isTrue();
+    }
+
+    @Test
     void activeLoginCreatesIndependentSessionsAndRejectsWrongCredentials() throws Exception {
         String email = "login-" + UUID.randomUUID() + "@example.com";
         var operation = registration.start(UUID.randomUUID(), new RegisterUserRequest(email, "a"));

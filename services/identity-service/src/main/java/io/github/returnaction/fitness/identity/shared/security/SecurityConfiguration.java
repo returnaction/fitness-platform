@@ -32,6 +32,8 @@ public class SecurityConfiguration {
                         .permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/login")
                         .permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/auth/refresh")
+                        .permitAll()
                         .requestMatchers(HttpMethod.GET, "/.well-known/jwks.json")
                         .permitAll()
                         .requestMatchers("/api/v1/admin/identity/registration-operations/**")

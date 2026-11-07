@@ -29,6 +29,7 @@ import io.github.returnaction.fitness.identity.registration.worker.AccountsProvi
 import io.github.returnaction.fitness.identity.registration.worker.AccountsProvisioningScheduler;
 import io.github.returnaction.fitness.identity.registration.worker.CoinsProvisioningProcessor;
 import io.github.returnaction.fitness.identity.registration.worker.RegistrationLeaseRepository;
+import io.github.returnaction.fitness.identity.session.RefreshTokenService;
 import io.github.returnaction.fitness.identity.session.SessionVerificationRepository;
 import java.util.List;
 import java.util.UUID;
@@ -590,6 +591,46 @@ class RegistrationServiceIntegrationTest {
                 .update();
         assertThatThrownBy(() -> sessionService.createLogin(operation.userId(), hash, null))
                 .isInstanceOf(LoginCredentialsChangedException.class);
+    }
+
+    @Test
+    void refreshSigningFailureRollsBackAndExpiredSessionIsRejected() {
+        var operation = registrationService.start(
+                UUID.randomUUID(),
+                new RegisterUserRequest("refresh-rollback-" + UUID.randomUUID() + "@example.com", "a"));
+        jdbcClient
+                .sql("UPDATE users SET status='ACTIVE' WHERE id=:id")
+                .param("id", operation.userId())
+                .update();
+        String hash = jdbcClient
+                .sql("SELECT password_hash FROM user_credentials WHERE user_id=:id")
+                .param("id", operation.userId())
+                .query(String.class)
+                .single();
+        var session = sessionService.createLogin(operation.userId(), hash, null);
+        var signer = org.mockito.Mockito.mock(AccessTokenSigner.class);
+        org.mockito.Mockito.when(signer.sign(
+                        org.mockito.ArgumentMatchers.any(),
+                        org.mockito.ArgumentMatchers.any(),
+                        org.mockito.ArgumentMatchers.any()))
+                .thenThrow(new IllegalStateException("signing failed"));
+        var refresh = new RefreshTokenService(jdbcClient, signer);
+        assertThatThrownBy(() -> transactionTemplate.execute(status -> refresh.refresh(session.refreshToken())))
+                .isInstanceOf(IllegalStateException.class);
+        assertThat(jdbcClient
+                        .sql("SELECT count(*) FROM refresh_tokens WHERE session_id=:id AND used_at IS NULL")
+                        .param("id", session.sessionId())
+                        .query(Integer.class)
+                        .single())
+                .isEqualTo(1);
+        jdbcClient
+                .sql("UPDATE auth_sessions SET created_at=clock_timestamp()-interval '2 days', "
+                        + "expires_at=clock_timestamp()-interval '1 day' WHERE id=:id")
+                .param("id", session.sessionId())
+                .update();
+        var result = transactionTemplate.execute(status -> refresh.refresh(session.refreshToken()));
+        assertThat(result).isNotNull();
+        assertThat(result.code()).isEqualTo("invalid_refresh_token");
     }
 
     @Test
