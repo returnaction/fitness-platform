@@ -61,6 +61,7 @@ identity:
       cache-size: ${IDENTITY_REGISTRATION_RATE_CACHE_SIZE}
       cache-expiry-seconds: ${IDENTITY_REGISTRATION_RATE_CACHE_EXPIRY_SECONDS}
       trusted-proxy-ip: ${IDENTITY_REGISTRATION_TRUSTED_PROXY_IP}
+    login-rate-capacity: ${IDENTITY_LOGIN_RATE_CAPACITY}
     worker:
       enabled: ${IDENTITY_REGISTRATION_WORKER_ENABLED}
       poll-ms: ${IDENTITY_REGISTRATION_WORKER_POLL_MS}

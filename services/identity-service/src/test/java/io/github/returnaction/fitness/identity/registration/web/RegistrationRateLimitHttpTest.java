@@ -6,6 +6,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import io.github.returnaction.fitness.identity.registration.application.PendingLoginService;
 import io.github.returnaction.fitness.identity.registration.application.RegistrationSessionService;
 import io.github.returnaction.fitness.identity.registration.recovery.RegistrationRecoveryService;
 import io.github.returnaction.fitness.identity.registration.repository.RegistrationOperationRepository;
@@ -60,10 +61,44 @@ class RegistrationRateLimitHttpTest {
     private RegistrationRecoveryService registrationRecoveryService;
 
     @MockitoBean
+    private PendingLoginService pendingLoginService;
+
+    @MockitoBean
     private RegistrationSessionService sessions;
 
     @MockitoBean
     private TransactionTemplate transactions;
+
+    @Test
+    void loginHasSeparateTenRequestLimit() throws Exception {
+        for (int i = 0; i < 10; i++) {
+            mvc.perform(post("/api/v1/auth/login")
+                            .with(request -> {
+                                request.setRemoteAddr("192.0.2.20");
+                                return request;
+                            })
+                            .contentType(APPLICATION_JSON)
+                            .content("{"))
+                    .andExpect(status().isBadRequest());
+        }
+        mvc.perform(post("/api/v1/auth/login")
+                        .with(request -> {
+                            request.setRemoteAddr("192.0.2.20");
+                            return request;
+                        })
+                        .contentType(APPLICATION_JSON)
+                        .content("{"))
+                .andExpect(status().isTooManyRequests())
+                .andExpect(header().exists("Retry-After"));
+        mvc.perform(post("/api/v1/auth/register")
+                        .with(request -> {
+                            request.setRemoteAddr("192.0.2.20");
+                            return request;
+                        })
+                        .contentType(APPLICATION_JSON)
+                        .content("{"))
+                .andExpect(status().isBadRequest());
+    }
 
     @Test
     void rejectsSixthRequestAndIgnoresForgedForwardedHeaders() throws Exception {
