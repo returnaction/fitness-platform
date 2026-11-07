@@ -24,6 +24,8 @@ public class SecurityConfiguration {
                         .permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/register")
                         .permitAll()
+                        .requestMatchers(HttpMethod.GET, "/.well-known/jwks.json")
+                        .permitAll()
                         .anyRequest()
                         .denyAll())
                 .build();

@@ -25,6 +25,20 @@ spring:
     change-log: classpath:db/changelog/db.changelog-master.yaml
 
 identity:
+  jwt:
+    enabled: ${IDENTITY_JWT_ENABLED}
+    private-key: ${IDENTITY_JWT_PRIVATE_KEY}
+    public-key: ${IDENTITY_JWT_PUBLIC_KEY}
+    key-id: ${IDENTITY_JWT_KEY_ID}
+    issuer: ${IDENTITY_JWT_ISSUER}
+    audience: ${IDENTITY_JWT_AUDIENCE}
+  coins-grpc:
+    enabled: ${IDENTITY_COINS_GRPC_ENABLED}
+    host: ${IDENTITY_COINS_GRPC_HOST}
+    port: ${IDENTITY_COINS_GRPC_PORT}
+    certificate: ${IDENTITY_COINS_GRPC_CERTIFICATE}
+    private-key: ${IDENTITY_COINS_GRPC_PRIVATE_KEY}
+    trust-certificate: ${IDENTITY_COINS_GRPC_TRUST_CERTIFICATE}
   accounts-grpc:
     enabled: ${IDENTITY_ACCOUNTS_GRPC_ENABLED}
     host: ${IDENTITY_ACCOUNTS_GRPC_HOST}

@@ -1,0 +1,10 @@
+databaseChangeLog:
+  - changeSet:
+      id: 001-create-coin-wallets
+      author: returnaction
+      dbms: postgresql
+      changes:
+        - sqlFile:
+            path: 001-create-coin-wallets.sql
+            relativeToChangelogFile: true
+            stripComments: false

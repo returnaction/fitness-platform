@@ -17,6 +17,11 @@
 
     <dependencies>
         <dependency>
+            <groupId>com.nimbusds</groupId>
+            <artifactId>nimbus-jose-jwt</artifactId>
+            <version>${nimbus-jose-jwt.version}</version>
+        </dependency>
+        <dependency>
             <groupId>io.github.returnaction.fitness</groupId>
             <artifactId>fitness-grpc-contracts</artifactId>
             <version>${project.version}</version>

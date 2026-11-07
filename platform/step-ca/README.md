@@ -16,7 +16,7 @@ volume командой `docker compose down -v`: вместе с ним исч�
 
 ## Зачем обновлять сертификаты
 
-Accounts подтверждает своё имя серверным сертификатом; Identity подтверждает
+Accounts и Coins подтверждают свои имена отдельными серверными сертификатами; Identity подтверждает
 свою service identity клиентским сертификатом с URI SAN
 `spiffe://fitness.local/identity-service`. Сертификаты имеют ограниченный срок;
 после окончания срока mTLS-соединение не установится. Тестовые сертификаты,
@@ -33,9 +33,14 @@ docker compose -f platform/step-ca/compose.yaml ps
 docker compose -f platform/step-ca/compose.yaml exec -T step-ca step ca health --ca-url https://localhost:9000 --root /home/step/certs/root_ca.crt
 docker compose -f platform/step-ca/compose.yaml exec -T step-ca step certificate inspect /tmp/fitness-accounts.crt --short
 docker compose -f platform/step-ca/compose.yaml exec -T step-ca step certificate inspect /tmp/fitness-identity.crt --short
+docker compose -f platform/step-ca/compose.yaml exec -T step-ca step certificate inspect /tmp/fitness-coins.crt --short
 ```
 
 Файлы в `/tmp` контейнера временные и могут пропасть при его пересоздании.
+Локальный сертификат Coins и его ключ для Java находятся в игнорируемых Git
+файлах `secrets/coins-server.crt` и `secrets/coins-server-pkcs8.key`.
+Для соединения с `localhost` серверный сертификат должен содержать этот DNS SAN;
+при использовании другого имени нужен сертификат с соответствующим SAN.
 Папка `secrets/` локального проекта игнорируется Git и Docker build context;
 доступ к ней должен быть ограничен пользователем компьютера. Не копируйте
 туда ключи CA и не отправляйте ключи сервисов в чат, Git или логи.
@@ -58,7 +63,7 @@ docker compose -f platform/step-ca/compose.yaml exec -T step-ca step certificate
 Не заменяйте файлы вручную до проверки процесса и не включайте gRPC с
 непроверенными сертификатами. После обновления файлов оба приложения сейчас
 нужно перезапустить: их TLS-контексты создаются при запуске и не перечитывают
-файлы автоматически. На сервере потребуется отдельная автоматизация и
+файлы автоматически. Это относится также к сертификату Coins. На сервере потребуется отдельная автоматизация и
 мониторинг срока действия до развёртывания.
 
 Справка Smallstep: [запуск step-ca в Docker](https://smallstep.com/docs/tutorials/docker-tls-certificate-authority/),

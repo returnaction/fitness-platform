@@ -28,6 +28,15 @@ public class RegistrationLeaseRepository {
 
     @Transactional
     public List<Lease> claim(UUID owner, int limit, int leaseSeconds) {
+        return claimStage(owner, limit, leaseSeconds, false);
+    }
+
+    @Transactional
+    public List<Lease> claimWallet(UUID owner, int limit, int leaseSeconds) {
+        return claimStage(owner, limit, leaseSeconds, true);
+    }
+
+    private List<Lease> claimStage(UUID owner, int limit, int leaseSeconds, boolean walletStage) {
         if (owner == null || limit < 1 || leaseSeconds < 1) {
             throw new IllegalArgumentException("Invalid lease configuration");
         }
@@ -35,7 +44,9 @@ public class RegistrationLeaseRepository {
                 WITH candidates AS (
                     SELECT id FROM registration_operations
                     WHERE status = 'PENDING' AND recovery_blocked_at IS NULL
-                      AND NOT profile_ready AND next_retry_at <= clock_timestamp()
+                      AND ((:walletStage = FALSE AND NOT profile_ready)
+                           OR (:walletStage = TRUE AND profile_ready AND NOT wallet_ready))
+                      AND next_retry_at <= clock_timestamp()
                       AND (lease_until IS NULL OR lease_until <= clock_timestamp())
                     ORDER BY next_retry_at, id FOR UPDATE SKIP LOCKED LIMIT :limit
                 )
@@ -48,6 +59,7 @@ public class RegistrationLeaseRepository {
                 .param("owner", owner)
                 .param("limit", limit)
                 .param("seconds", leaseSeconds)
+                .param("walletStage", walletStage)
                 .query((row, index) -> new Lease(
                         row.getObject("id", UUID.class),
                         row.getObject("user_id", UUID.class),
@@ -69,6 +81,33 @@ public class RegistrationLeaseRepository {
                         .param("version", lease.version())
                         .update()
                 == 1;
+    }
+
+    @Transactional
+    public boolean markWalletReady(Lease lease) {
+        int updated = jdbc.sql("""
+                UPDATE registration_operations
+                SET wallet_ready = TRUE, status = 'COMPLETED', completed_at = clock_timestamp(),
+                    lease_owner = NULL, lease_until = NULL, updated_at = clock_timestamp()
+                WHERE id = :id AND user_id = :userId AND status = 'PENDING' AND profile_ready AND lease_owner = :owner
+                  AND lease_version = :version AND lease_until > clock_timestamp()
+                """)
+                .param("id", lease.operationId())
+                .param("userId", lease.userId())
+                .param("owner", lease.owner())
+                .param("version", lease.version())
+                .update();
+        if (updated == 0) {
+            return false;
+        }
+        int activated = jdbc.sql("""
+                UPDATE users SET status = 'ACTIVE', updated_at = clock_timestamp()
+                WHERE id = :userId AND status = 'PENDING'
+                """).param("userId", lease.userId()).update();
+        if (activated != 1) {
+            throw new IllegalStateException("Registration user cannot be activated");
+        }
+        return true;
     }
 
     @Transactional
