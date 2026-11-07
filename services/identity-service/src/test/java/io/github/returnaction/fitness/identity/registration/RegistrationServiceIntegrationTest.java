@@ -468,6 +468,91 @@ class RegistrationServiceIntegrationTest {
     }
 
     @Test
+    void pendingLoginChecksPasswordAndAcceleratesOnlyUnblockedUnleasedOperation() throws Exception {
+        String email = "pending-" + UUID.randomUUID() + "@example.com";
+        var operation = registrationService.start(UUID.randomUUID(), new RegisterUserRequest(email, "a"));
+        jdbcClient
+                .sql(
+                        "UPDATE registration_operations SET next_retry_at=clock_timestamp()+interval '1 hour' WHERE id=:id")
+                .param("id", operation.operationId())
+                .update();
+        var before = jdbcClient
+                .sql("SELECT encode(idempotency_key_digest,'hex') FROM registration_operations WHERE id=:id")
+                .param("id", operation.operationId())
+                .query(String.class)
+                .single();
+        mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"email\":\"" + email + "\",\"password\":\"wrong\"}"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error.code").value("invalid_credentials"));
+        mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"email\":\"unknown@example.com\",\"password\":\"wrong\"}"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error.code").value("invalid_credentials"));
+        assertThat(jdbcClient
+                        .sql(
+                                "SELECT next_retry_at > clock_timestamp()+interval '30 minutes' FROM registration_operations WHERE id=:id")
+                        .param("id", operation.operationId())
+                        .query(Boolean.class)
+                        .single())
+                .isTrue();
+        mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"email\":\"" + email + "\",\"password\":\"a\"}"))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.error.code").value("registration_pending"))
+                .andExpect(jsonPath("$.access_token").doesNotExist());
+        assertThat(jdbcClient
+                        .sql("SELECT next_retry_at <= clock_timestamp() FROM registration_operations WHERE id=:id")
+                        .param("id", operation.operationId())
+                        .query(Boolean.class)
+                        .single())
+                .isTrue();
+        assertThat(jdbcClient
+                        .sql("SELECT encode(idempotency_key_digest,'hex') FROM registration_operations WHERE id=:id")
+                        .param("id", operation.operationId())
+                        .query(String.class)
+                        .single())
+                .isEqualTo(before);
+        jdbcClient
+                .sql("UPDATE registration_operations SET next_retry_at=clock_timestamp()+interval '1 hour', "
+                        + "recovery_blocked_at=clock_timestamp() WHERE id=:id")
+                .param("id", operation.operationId())
+                .update();
+        mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"email\":\"" + email + "\",\"password\":\"a\"}"))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.error.code").value("registration_pending"));
+        assertThat(jdbcClient
+                        .sql(
+                                "SELECT next_retry_at > clock_timestamp()+interval '30 minutes' FROM registration_operations WHERE id=:id")
+                        .param("id", operation.operationId())
+                        .query(Boolean.class)
+                        .single())
+                .isTrue();
+        jdbcClient
+                .sql("UPDATE registration_operations SET recovery_blocked_at=NULL, lease_owner=:owner, "
+                        + "lease_until=clock_timestamp()+interval '1 minute' WHERE id=:id")
+                .param("owner", UUID.randomUUID())
+                .param("id", operation.operationId())
+                .update();
+        mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"email\":\"" + email + "\",\"password\":\"a\"}"))
+                .andExpect(status().isServiceUnavailable());
+        assertThat(jdbcClient
+                        .sql(
+                                "SELECT next_retry_at > clock_timestamp()+interval '30 minutes' FROM registration_operations WHERE id=:id")
+                        .param("id", operation.operationId())
+                        .query(Boolean.class)
+                        .single())
+                .isTrue();
+    }
+
+    @Test
     void retryAndPermanentFailureRespectLeaseAndScheduling() {
         var operation = registrationService.start(
                 UUID.randomUUID(), new RegisterUserRequest("retry-" + UUID.randomUUID() + "@example.com", "a"));

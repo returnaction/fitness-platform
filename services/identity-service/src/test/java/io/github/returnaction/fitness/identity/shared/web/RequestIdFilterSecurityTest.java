@@ -4,6 +4,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import io.github.returnaction.fitness.identity.registration.application.PendingLoginService;
 import io.github.returnaction.fitness.identity.registration.application.RegistrationSessionService;
 import io.github.returnaction.fitness.identity.registration.recovery.RegistrationRecoveryService;
 import io.github.returnaction.fitness.identity.registration.repository.RegistrationOperationRepository;
@@ -58,6 +59,9 @@ class RequestIdFilterSecurityTest {
 
     @MockitoBean
     private RegistrationRecoveryService registrationRecoveryService;
+
+    @MockitoBean
+    private PendingLoginService pendingLoginService;
 
     @MockitoBean
     private RegistrationSessionService registrationSessionService;
