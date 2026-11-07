@@ -6,3 +6,8 @@ spring:
 
 server:
   port: 0
+
+identity:
+  registration:
+    rate-limit:
+      capacity: 1000

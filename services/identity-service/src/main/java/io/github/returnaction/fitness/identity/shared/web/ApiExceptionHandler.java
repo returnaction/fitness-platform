@@ -3,6 +3,7 @@ package io.github.returnaction.fitness.identity.shared.web;
 import io.github.returnaction.fitness.identity.registration.application.InvalidIdempotencyKeyException;
 import io.github.returnaction.fitness.identity.registration.application.RegistrationConflictException;
 import io.github.returnaction.fitness.identity.registration.application.RegistrationValidationException;
+import io.github.returnaction.fitness.identity.registration.web.RegistrationRateLimitException;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.List;
 import org.slf4j.Logger;
@@ -20,6 +21,16 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 public class ApiExceptionHandler {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ApiExceptionHandler.class);
+
+    @ExceptionHandler(RegistrationRateLimitException.class)
+    ResponseEntity<ApiErrorResponse> handleRateLimit(
+            RegistrationRateLimitException exception, HttpServletRequest request) {
+        var body = response(HttpStatus.TOO_MANY_REQUESTS, "rate_limited", "Try again later.", List.of(), request)
+                .getBody();
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .header("Retry-After", Long.toString(exception.retryAfterSeconds()))
+                .body(body);
+    }
 
     @ExceptionHandler(HttpMessageNotReadableException.class)
     ResponseEntity<ApiErrorResponse> handleUnreadableRequest(HttpServletRequest request) {
