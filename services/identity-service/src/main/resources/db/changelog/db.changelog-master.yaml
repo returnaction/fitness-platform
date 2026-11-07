@@ -2,3 +2,6 @@ databaseChangeLog:
   - include:
       file: changes/001-initial-identity-schema.yaml
       relativeToChangelogFile: true
+  - include:
+      file: changes/002-registration-recovery-audit.yaml
+      relativeToChangelogFile: true

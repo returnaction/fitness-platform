@@ -3,6 +3,7 @@ package io.github.returnaction.fitness.identity.shared.web;
 import io.github.returnaction.fitness.identity.registration.application.InvalidIdempotencyKeyException;
 import io.github.returnaction.fitness.identity.registration.application.RegistrationConflictException;
 import io.github.returnaction.fitness.identity.registration.application.RegistrationValidationException;
+import io.github.returnaction.fitness.identity.registration.recovery.RecoveryConflictException;
 import io.github.returnaction.fitness.identity.registration.web.RegistrationRateLimitException;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.List;
@@ -21,6 +22,31 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 public class ApiExceptionHandler {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ApiExceptionHandler.class);
+
+    @ExceptionHandler(org.springframework.web.method.annotation.MethodArgumentTypeMismatchException.class)
+    ResponseEntity<ApiErrorResponse> handleInvalidArgument(HttpServletRequest request) {
+        return response(HttpStatus.BAD_REQUEST, "invalid_request", "Check the request format.", List.of(), request);
+    }
+
+    @ExceptionHandler(RecoveryConflictException.class)
+    ResponseEntity<ApiErrorResponse> handleRecoveryConflict(
+            RecoveryConflictException exception, HttpServletRequest request) {
+        HttpStatus status = "not_found".equals(exception.code()) ? HttpStatus.NOT_FOUND : HttpStatus.CONFLICT;
+        return response(status, exception.code(), "Registration recovery could not be completed.", List.of(), request);
+    }
+
+    @ExceptionHandler({
+        org.springframework.dao.DataAccessException.class,
+        org.springframework.transaction.TransactionException.class
+    })
+    ResponseEntity<ApiErrorResponse> handleDatabaseFailure(Exception exception, HttpServletRequest request) {
+        return response(
+                HttpStatus.SERVICE_UNAVAILABLE,
+                "identity_unavailable",
+                "Identity service is unavailable.",
+                List.of(),
+                request);
+    }
 
     @ExceptionHandler(RegistrationRateLimitException.class)
     ResponseEntity<ApiErrorResponse> handleRateLimit(

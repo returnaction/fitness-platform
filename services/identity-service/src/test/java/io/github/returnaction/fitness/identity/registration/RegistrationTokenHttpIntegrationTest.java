@@ -10,10 +10,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.nimbusds.jose.crypto.ECDSAVerifier;
 import com.nimbusds.jose.jwk.JWKSet;
 import com.nimbusds.jwt.SignedJWT;
+import io.github.returnaction.fitness.identity.registration.application.AccessTokenSigner;
+import io.github.returnaction.fitness.identity.registration.application.RegistrationService;
+import io.github.returnaction.fitness.identity.registration.dto.RegisterUserRequest;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.KeyPairGenerator;
 import java.security.spec.ECGenParameterSpec;
+import java.time.Instant;
 import java.util.Base64;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterAll;
@@ -48,6 +52,12 @@ class RegistrationTokenHttpIntegrationTest {
 
     @Autowired
     private JdbcClient jdbc;
+
+    @Autowired
+    private AccessTokenSigner signer;
+
+    @Autowired
+    private RegistrationService registration;
 
     @DynamicPropertySource
     static void properties(DynamicPropertyRegistry registry) throws Exception {
@@ -119,9 +129,77 @@ class RegistrationTokenHttpIntegrationTest {
         assertThat(jwt.verify(new ECDSAVerifier(publicJwk))).isTrue();
         assertThat(jwt.getJWTClaimsSet().getIssuer()).isEqualTo("https://identity.test");
         assertThat(response.get("refresh_token").asString()).isNotBlank();
-        assertThat(jdbc.sql("SELECT count(*) FROM auth_sessions WHERE revoked_at IS NULL")
+        assertThat(jdbc.sql("SELECT count(*) FROM auth_sessions WHERE revoked_at IS NULL AND id=:id")
+                        .param("id", UUID.fromString(jwt.getJWTClaimsSet().getStringClaim("sid")))
                         .query(Integer.class)
                         .single())
                 .isEqualTo(1);
+    }
+
+    @Test
+    void recoveryRequiresActiveSuperAdminAndRecordsActor() throws Exception {
+        var operation = registration.start(UUID.randomUUID(), new RegisterUserRequest("blocked@example.com", "a"));
+        jdbc.sql("UPDATE registration_operations SET recovery_blocked_at=clock_timestamp(), "
+                        + "last_error_code='COINS_PERMISSION_DENIED' WHERE id=:id")
+                .param("id", operation.operationId())
+                .update();
+        UUID admin = UUID.randomUUID();
+        UUID regular = UUID.randomUUID();
+        UUID adminSession = UUID.randomUUID();
+        UUID regularSession = UUID.randomUUID();
+        createActor(admin, adminSession, "SUPER_ADMIN");
+        createActor(regular, regularSession, "USER");
+        String adminJwt = signer.sign(admin, adminSession, Instant.now().plusSeconds(3600));
+        String regularJwt = signer.sign(regular, regularSession, Instant.now().plusSeconds(3600));
+        String path = "/api/v1/admin/identity/registration-operations/" + operation.operationId();
+        mvc.perform(get(path)).andExpect(status().isUnauthorized());
+        mvc.perform(get(path).header("Authorization", "Bearer invalid")).andExpect(status().isUnauthorized());
+        mvc.perform(get(path).header("Authorization", "Bearer " + adminJwt + "x"))
+                .andExpect(status().isUnauthorized());
+        mvc.perform(get(path).header("Authorization", "Bearer " + regularJwt)).andExpect(status().isForbidden());
+        mvc.perform(get(path).header("Authorization", "Bearer " + adminJwt)).andExpect(status().isOk());
+        mvc.perform(get("/api/v1/admin/identity/registration-operations/" + UUID.randomUUID())
+                        .header("Authorization", "Bearer " + adminJwt))
+                .andExpect(status().isNotFound());
+        mvc.perform(get("/api/v1/admin/identity/registration-operations/not-a-uuid")
+                        .header("Authorization", "Bearer " + adminJwt))
+                .andExpect(status().isBadRequest());
+        mvc.perform(post(path + "/resume")
+                        .header("Authorization", "Bearer " + adminJwt)
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"expected_version\":1,\"reason\":\"Fixed access\"}"))
+                .andExpect(status().isOk());
+        mvc.perform(post(path + "/resume")
+                        .header("Authorization", "Bearer " + adminJwt)
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"expected_version\":1,\"reason\":\"Fixed access\"}"))
+                .andExpect(status().isConflict());
+        assertThat(jdbc.sql(
+                                "SELECT count(*) FROM registration_recovery_audit WHERE operation_id=:id AND actor_user_id=:actor")
+                        .param("id", operation.operationId())
+                        .param("actor", admin)
+                        .query(Integer.class)
+                        .single())
+                .isEqualTo(1);
+        jdbc.sql("UPDATE auth_sessions SET revoked_at=clock_timestamp() WHERE id=:id")
+                .param("id", adminSession)
+                .update();
+        mvc.perform(get(path).header("Authorization", "Bearer " + adminJwt)).andExpect(status().isUnauthorized());
+    }
+
+    private void createActor(UUID user, UUID session, String role) {
+        jdbc.sql("INSERT INTO users (id,email_canonical,status) VALUES (:id,:email,'ACTIVE')")
+                .param("id", user)
+                .param("email", user + "@example.com")
+                .update();
+        jdbc.sql(
+                        "INSERT INTO auth_sessions (id,user_id,expires_at) VALUES (:id,:user,clock_timestamp()+interval '1 day')")
+                .param("id", session)
+                .param("user", user)
+                .update();
+        jdbc.sql("INSERT INTO user_roles (user_id,role_id) SELECT :user,id FROM roles WHERE code=:role")
+                .param("user", user)
+                .param("role", role)
+                .update();
     }
 }

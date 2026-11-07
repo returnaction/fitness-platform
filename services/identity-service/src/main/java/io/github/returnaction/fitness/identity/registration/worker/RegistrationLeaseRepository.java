@@ -52,7 +52,8 @@ public class RegistrationLeaseRepository {
                 )
                 UPDATE registration_operations operation
                 SET lease_owner = :owner, lease_until = clock_timestamp() + make_interval(secs => :seconds),
-                    lease_version = operation.lease_version + 1, updated_at = clock_timestamp()
+                    lease_version = operation.lease_version + 1, version = operation.version + 1,
+                    updated_at = clock_timestamp()
                 FROM candidates WHERE operation.id = candidates.id
                 RETURNING operation.id, operation.user_id, operation.lease_version
                 """)
@@ -72,7 +73,8 @@ public class RegistrationLeaseRepository {
     public boolean markProfileReady(Lease lease) {
         return jdbc.sql("""
                 UPDATE registration_operations
-                SET profile_ready = TRUE, lease_owner = NULL, lease_until = NULL, updated_at = clock_timestamp()
+                SET profile_ready = TRUE, lease_owner = NULL, lease_until = NULL, version = version + 1,
+                    updated_at = clock_timestamp()
                 WHERE id = :id AND status = 'PENDING' AND lease_owner = :owner
                   AND lease_version = :version AND lease_until > clock_timestamp()
                 """)
@@ -88,7 +90,7 @@ public class RegistrationLeaseRepository {
         int updated = jdbc.sql("""
                 UPDATE registration_operations
                 SET wallet_ready = TRUE, status = 'COMPLETED', completed_at = clock_timestamp(),
-                    lease_owner = NULL, lease_until = NULL, updated_at = clock_timestamp()
+                    lease_owner = NULL, lease_until = NULL, version = version + 1, updated_at = clock_timestamp()
                 WHERE id = :id AND user_id = :userId AND status = 'PENDING' AND profile_ready AND lease_owner = :owner
                   AND lease_version = :version AND lease_until > clock_timestamp()
                 """)
@@ -125,7 +127,7 @@ public class RegistrationLeaseRepository {
                         + make_interval(secs => LEAST(:retryMax, :retryInitial * power(2.0, LEAST(retry_count, 30))
                             * (1.0 + random() * :jitter))) ELSE next_retry_at END,
                     recovery_blocked_at = CASE WHEN :retryable THEN NULL ELSE clock_timestamp() END,
-                    last_error_code = :errorCode, lease_owner = NULL, lease_until = NULL,
+                    last_error_code = :errorCode, lease_owner = NULL, lease_until = NULL, version = version + 1,
                     updated_at = clock_timestamp()
                 WHERE id = :id AND status = 'PENDING' AND lease_owner = :owner
                   AND lease_version = :version AND lease_until > clock_timestamp()

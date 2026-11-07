@@ -20,6 +20,8 @@ import io.github.returnaction.fitness.identity.registration.entity.UserEntity;
 import io.github.returnaction.fitness.identity.registration.entity.UserStatus;
 import io.github.returnaction.fitness.identity.registration.grpc.AccountsProvisioningClient;
 import io.github.returnaction.fitness.identity.registration.grpc.CoinsProvisioningClient;
+import io.github.returnaction.fitness.identity.registration.recovery.RecoveryConflictException;
+import io.github.returnaction.fitness.identity.registration.recovery.RegistrationRecoveryService;
 import io.github.returnaction.fitness.identity.registration.repository.UserCredentialRepository;
 import io.github.returnaction.fitness.identity.registration.repository.UserRepository;
 import io.github.returnaction.fitness.identity.registration.worker.AccountsProvisioningProcessor;
@@ -82,6 +84,9 @@ class RegistrationServiceIntegrationTest {
 
     @Autowired
     private SessionVerificationRepository sessionVerification;
+
+    @Autowired
+    private RegistrationRecoveryService recovery;
 
     @Autowired
     private MockMvc mockMvc;
@@ -387,6 +392,79 @@ class RegistrationServiceIntegrationTest {
                 .update();
         assertThat(sessionVerification.check(operation.userId(), session).active())
                 .isFalse();
+    }
+
+    @Test
+    void blockedRegistrationCanBeResumedOnlyOnceWithAudit() throws Exception {
+        var operation = registrationService.start(
+                UUID.randomUUID(), new RegisterUserRequest("recover-" + UUID.randomUUID() + "@example.com", "a"));
+        var lease = leases.claim(UUID.randomUUID(), 100, 30).stream()
+                .filter(item -> item.operationId().equals(operation.operationId()))
+                .findFirst()
+                .orElseThrow();
+        assertThat(leases.recordFailure(lease, false, "COINS_PERMISSION_DENIED"))
+                .isTrue();
+        var blocked = recovery.read(operation.operationId());
+        assertThat(blocked.recoveryBlockedAt()).isNotNull();
+        assertThat(blocked.version()).isGreaterThan(1);
+        UUID actor = UUID.randomUUID();
+        var gate = new java.util.concurrent.CountDownLatch(1);
+        try (var executor = Executors.newFixedThreadPool(2)) {
+            var first = executor.submit(() -> {
+                gate.await();
+                try {
+                    recovery.resume(operation.operationId(), actor, blocked.version(), "Исправлены права сервиса");
+                    return "ok";
+                } catch (RecoveryConflictException error) {
+                    return error.code();
+                }
+            });
+            var second = executor.submit(() -> {
+                gate.await();
+                try {
+                    recovery.resume(operation.operationId(), actor, blocked.version(), "Исправлены права сервиса");
+                    return "ok";
+                } catch (RecoveryConflictException error) {
+                    return error.code();
+                }
+            });
+            gate.countDown();
+            assertThat(List.of(first.get(), second.get())).containsExactlyInAnyOrder("ok", "version_conflict");
+        }
+        var restored = recovery.read(operation.operationId());
+        assertThat(restored.recoveryBlockedAt()).isNull();
+        assertThat(restored.lastErrorCode()).isNull();
+        assertThat(restored.version()).isEqualTo(blocked.version() + 1);
+        assertThat(jdbcClient
+                        .sql("SELECT count(*) FROM registration_recovery_audit WHERE operation_id=:id "
+                                + "AND actor_user_id=:actor AND previous_error_code='COINS_PERMISSION_DENIED'")
+                        .param("id", operation.operationId())
+                        .param("actor", actor)
+                        .query(Integer.class)
+                        .single())
+                .isEqualTo(1);
+        assertThat(leases.markProfileReady(lease)).isFalse();
+        assertThatThrownBy(() -> recovery.resume(operation.operationId(), actor, restored.version(), " "))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void auditFailureRollsBackRecovery() {
+        var operation = registrationService.start(
+                UUID.randomUUID(), new RegisterUserRequest("audit-" + UUID.randomUUID() + "@example.com", "a"));
+        var lease = leases.claim(UUID.randomUUID(), 100, 30).stream()
+                .filter(item -> item.operationId().equals(operation.operationId()))
+                .findFirst()
+                .orElseThrow();
+        leases.recordFailure(lease, false, "ACCOUNTS_PERMISSION_DENIED");
+        var before = recovery.read(operation.operationId());
+        assertThatThrownBy(() -> recovery.resume(
+                        operation.operationId(), UUID.randomUUID(), before.version(), "invalid\u0000text"))
+                .isInstanceOf(org.springframework.dao.DataAccessException.class);
+        var after = recovery.read(operation.operationId());
+        assertThat(after.recoveryBlockedAt()).isEqualTo(before.recoveryBlockedAt());
+        assertThat(after.version()).isEqualTo(before.version());
+        assertThat(after.lastErrorCode()).isEqualTo("ACCOUNTS_PERMISSION_DENIED");
     }
 
     @Test

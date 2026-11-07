@@ -1,0 +1,10 @@
+databaseChangeLog:
+  - changeSet:
+      id: 002-registration-recovery-audit
+      author: returnaction
+      dbms: postgresql
+      changes:
+        - sqlFile:
+            path: 002-registration-recovery-audit.sql
+            relativeToChangelogFile: true
+            stripComments: false
