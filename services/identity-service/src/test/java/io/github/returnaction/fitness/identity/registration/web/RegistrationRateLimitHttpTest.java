@@ -70,6 +70,29 @@ class RegistrationRateLimitHttpTest {
     private TransactionTemplate transactions;
 
     @Test
+    void refreshHasSeparateThirtyRequestLimit() throws Exception {
+        for (int i = 0; i < 30; i++) {
+            mvc.perform(post("/api/v1/auth/refresh")
+                            .with(request -> {
+                                request.setRemoteAddr("192.0.2.21");
+                                return request;
+                            })
+                            .contentType(APPLICATION_JSON)
+                            .content("{"))
+                    .andExpect(status().isBadRequest());
+        }
+        mvc.perform(post("/api/v1/auth/refresh")
+                        .with(request -> {
+                            request.setRemoteAddr("192.0.2.21");
+                            return request;
+                        })
+                        .contentType(APPLICATION_JSON)
+                        .content("{"))
+                .andExpect(status().isTooManyRequests())
+                .andExpect(header().exists("Retry-After"));
+    }
+
+    @Test
     void loginHasSeparateTenRequestLimit() throws Exception {
         for (int i = 0; i < 10; i++) {
             mvc.perform(post("/api/v1/auth/login")
