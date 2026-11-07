@@ -47,6 +47,12 @@ identity:
     private-key: ${IDENTITY_ACCOUNTS_GRPC_PRIVATE_KEY}
     trust-certificate: ${IDENTITY_ACCOUNTS_GRPC_TRUST_CERTIFICATE}
   registration:
+    rate-limit:
+      capacity: ${IDENTITY_REGISTRATION_RATE_CAPACITY}
+      period-seconds: ${IDENTITY_REGISTRATION_RATE_PERIOD_SECONDS}
+      cache-size: ${IDENTITY_REGISTRATION_RATE_CACHE_SIZE}
+      cache-expiry-seconds: ${IDENTITY_REGISTRATION_RATE_CACHE_EXPIRY_SECONDS}
+      trusted-proxy-ip: ${IDENTITY_REGISTRATION_TRUSTED_PROXY_IP}
     worker:
       enabled: ${IDENTITY_REGISTRATION_WORKER_ENABLED}
       poll-ms: ${IDENTITY_REGISTRATION_WORKER_POLL_MS}

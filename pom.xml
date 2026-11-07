@@ -42,6 +42,7 @@
         <protobuf.maven.plugin.version>5.1.12</protobuf.maven.plugin.version>
         <javax.annotation.api.version>1.3.2</javax.annotation.api.version>
         <nimbus-jose-jwt.version>10.5</nimbus-jose-jwt.version>
+        <bucket4j.version>8.16.0</bucket4j.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 
