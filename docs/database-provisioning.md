@@ -157,12 +157,81 @@ FROM information_schema.tables
 WHERE table_schema = 'public';
 ```
 
+## Coins Service
+
+### 1. Создать роль и базу
+
+Подключиться SQL-редактором от имени администратора PostgreSQL, например
+`postgres`. Для новой локальной или серверной среды выполнить команды ниже.
+Пароль заменить на собственный уникальный пароль; не записывать его в Git.
+
+```sql
+CREATE ROLE fitness_coins_app
+  LOGIN
+  NOSUPERUSER
+  NOCREATEDB
+  NOCREATEROLE
+  NOINHERIT
+  PASSWORD '<длинный-уникальный-пароль>';
+```
+
+`CREATE DATABASE` выполнить отдельной командой вне транзакции. Если редактор
+использует ручной commit, включить auto-commit для этой команды:
+
+```sql
+CREATE DATABASE fitness_coins
+  OWNER fitness_coins_app
+  ENCODING 'UTF8'
+  TEMPLATE template0;
+```
+
+```sql
+REVOKE ALL ON DATABASE fitness_coins FROM PUBLIC;
+```
+
+Затем переключить соединение SQL-редактора именно на базу `fitness_coins`,
+оставив пользователя-администратора, и выполнить:
+
+```sql
+REVOKE ALL ON SCHEMA public FROM PUBLIC;
+GRANT USAGE, CREATE ON SCHEMA public TO fitness_coins_app;
+```
+
+### 2. Проверить базу и роль
+
+```sql
+SELECT datname, pg_get_userbyid(datdba) AS owner
+FROM pg_database
+WHERE datname = 'fitness_coins';
+
+SELECT rolname, rolcanlogin, rolsuper, rolcreatedb, rolcreaterole
+FROM pg_roles
+WHERE rolname = 'fitness_coins_app';
+
+SELECT has_schema_privilege('fitness_coins_app', 'public', 'USAGE') AS can_use,
+       has_schema_privilege('fitness_coins_app', 'public', 'CREATE') AS can_create;
+```
+
+Последний запрос выполнять при подключении к `fitness_coins`. Ожидается
+владелец `fitness_coins_app`, `rolcanlogin = true`, три административных
+права `false`, а оба права на схему — `true`.
+
+### 3. Передать параметры и запустить сервис
+
+Скопировать `services/coins-service/.env.example` в `services/coins-service/.env`
+и указать в `DATABASE_PASSWORD` пароль роли. Файл `.env` игнорируется Git.
+В нём также явно указаны URL базы, имя роли, размеры пула и порт приложения.
+На сервере эти значения передаются через защищённую конфигурацию процесса.
+
+При первом запуске Coins Liquibase создаёт `coin_wallets` и служебные таблицы
+`databasechangelog` и `databasechangeloglock` внутри уже созданной базы. Проверка
+доступности: `http://localhost:8082/actuator/health`.
+
 ## Правило для следующих сервисов
 
-Перед первым запуском Coins повторяется тот же шаблон с собственными именами:
-`fitness_coins` / `fitness_coins_app`. Схема каждой базы создаётся
-исключительно Liquibase-миграциями сервиса-владельца; другой сервис не читает
-и не изменяет эти таблицы напрямую.
+Каждый сервис получает собственные базу и роль. Схема каждой базы создаётся
+Liquibase-миграциями сервиса-владельца; другой сервис не читает и не изменяет
+эти таблицы напрямую.
 
 Резервное копирование и восстановление PostgreSQL описаны в
 [плане резервного копирования](../system-design/architecture/recovery/56-postgresql-backup-plan.md).

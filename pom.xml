@@ -23,6 +23,7 @@
         <module>contracts/grpc-contracts</module>
         <module>services/identity-service</module>
         <module>services/accounts-service</module>
+        <module>services/coins-service</module>
     </modules>
 
     <properties>
@@ -40,6 +41,7 @@
         <grpc.version>1.85.0</grpc.version>
         <protobuf.maven.plugin.version>5.1.12</protobuf.maven.plugin.version>
         <javax.annotation.api.version>1.3.2</javax.annotation.api.version>
+        <nimbus-jose-jwt.version>10.5</nimbus-jose-jwt.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 

@@ -6,6 +6,7 @@ COPY mvnw pom.xml ./
 COPY contracts/grpc-contracts/pom.xml contracts/grpc-contracts/pom.xml
 COPY services/identity-service/pom.xml services/identity-service/pom.xml
 COPY services/accounts-service/pom.xml services/accounts-service/pom.xml
+COPY services/coins-service/pom.xml services/coins-service/pom.xml
 COPY contracts/proto contracts/proto
 COPY contracts/grpc-contracts contracts/grpc-contracts
 RUN bash ./mvnw --batch-mode --no-transfer-progress -pl services/accounts-service -am dependency:go-offline
