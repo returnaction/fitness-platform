@@ -25,6 +25,14 @@ spring:
     change-log: classpath:db/changelog/db.changelog-master.yaml
 
 identity:
+  session-grpc:
+    enabled: ${IDENTITY_SESSION_GRPC_ENABLED}
+    address: ${IDENTITY_SESSION_GRPC_ADDRESS}
+    port: ${IDENTITY_SESSION_GRPC_PORT}
+    certificate: ${IDENTITY_SESSION_GRPC_CERTIFICATE}
+    private-key: ${IDENTITY_SESSION_GRPC_PRIVATE_KEY}
+    trust-certificate: ${IDENTITY_SESSION_GRPC_TRUST_CERTIFICATE}
+    allowed-caller: ${IDENTITY_SESSION_GRPC_ALLOWED_CALLER}
   jwt:
     enabled: ${IDENTITY_JWT_ENABLED}
     private-key: ${IDENTITY_JWT_PRIVATE_KEY}

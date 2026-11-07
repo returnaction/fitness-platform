@@ -6,10 +6,18 @@ import io.github.returnaction.fitness.contracts.accounts.provisioning.v1.Account
 import io.github.returnaction.fitness.contracts.accounts.provisioning.v1.EnsureProfileRequest;
 import io.github.returnaction.fitness.contracts.coins.provisioning.v1.CoinsProvisioningServiceGrpc;
 import io.github.returnaction.fitness.contracts.coins.provisioning.v1.EnsureWalletRequest;
+import io.github.returnaction.fitness.contracts.identity.session.v1.IdentitySessionServiceGrpc;
 import org.junit.jupiter.api.Test;
 
 /** Проверяет, что исходные .proto создают ожидаемые Java message и gRPC service stubs. */
 class GrpcContractsGenerationTest {
+
+    @Test
+    void generatesIdentitySessionContract() {
+        assertEquals(
+                "fitness.identity.session.v1.IdentitySessionService/CheckSession",
+                IdentitySessionServiceGrpc.getCheckSessionMethod().getFullMethodName());
+    }
 
     @Test
     void generatesAccountsProvisioningContract() {

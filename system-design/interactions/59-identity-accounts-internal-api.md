@@ -1,6 +1,7 @@
 # Identity и Accounts: внутренние контракты v1
 
-Проект будущих Java / Spring-сервисов, не действующий gRPC API. Таблицы Identity
+Внутренние контракты Java / Spring-сервисов. Проверка сессии реализована в
+Identity; остальные описания ниже могут оставаться проектными. Таблицы Identity
 определены в [регистрации](../services/identity/30-identity-registration.md) и [сессиях](../services/identity/31-identity-login-sessions.md),
 таблица Accounts — в [профиле](../services/accounts/32-accounts-profile.md); здесь нет дублирования.
 Методы предназначены сервисам, а не мобильному приложению.
@@ -28,6 +29,14 @@ UUID задаются строками lowercase, даты RFC 3339 UTC; proto-�
 
 ## Проверка сессии: сервис → Identity
 
+Контракт метода определён в [identity-session-v1.proto](../../contracts/proto/identity-session-v1.proto).
+Сервер Identity включается явно и принимает только одну service identity,
+заданную в `IDENTITY_SESSION_GRPC_ALLOWED_CALLER`. Значение задаёт разрешённого
+вызывающего для `identity.session.verify`; пустая или некорректная URI не
+позволяет включить сервер. На текущем этапе конкретная identity Gateway и его
+клиент ещё не настроены. Сертификат сервера и CA передаются отдельно через
+переменные `IDENTITY_SESSION_GRPC_*`, а порт не публикуется в интернет.
+
 `CheckSession` требует service permission `identity.session.verify`:
 
 ```text
@@ -46,7 +55,8 @@ token согласно [контракту сессий](../services/identity/31
 прошедший проверку до logout, может завершиться после него.
 
 Это read-only вызов: повтор с теми же параметрами не меняет состояние, но
-ответ может измениться после отзыва сессии. Batch и подписки не входят в v1.
+ответ может измениться после отзыва сессии. Время `checked_at` берётся из
+PostgreSQL в том же запросе, что и проверка. Batch и подписки не входят в v1.
 Ограничение на вступление и срочная полная блокировка имеют разные смыслы;
 `CheckSession` сам по себе не разрешает новую бизнес-операцию Challenge.
 
