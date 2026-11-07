@@ -22,29 +22,42 @@ public class PendingLoginController {
     }
 
     @PostMapping("/api/v1/auth/login")
-    ResponseEntity<ApiErrorResponse> login(
-            @RequestBody RegisterUserRequest request, HttpServletRequest servletRequest) {
-        var outcome = login.login(request);
+    ResponseEntity<?> login(@RequestBody RegisterUserRequest request, HttpServletRequest servletRequest) {
+        var result = login.login(request);
+        var outcome = result.outcome();
+        if (outcome == PendingLoginService.Outcome.ACTIVE) {
+            var tokens = result.tokens();
+            return ResponseEntity.ok()
+                    .header("Cache-Control", "no-store")
+                    .body(new TokenResponse(tokens.accessToken(), tokens.refreshToken(), "Bearer", 900, 2592000));
+        }
         String code = switch (outcome) {
             case INVALID -> "invalid_credentials";
+            case ACCOUNT_UNAVAILABLE -> "account_unavailable";
             case PENDING -> "registration_pending";
             case ACTIVE_LOGIN_UNAVAILABLE -> "identity_unavailable";
+            case ACTIVE -> throw new IllegalStateException("Unexpected active login outcome");
         };
         String message = switch (outcome) {
             case INVALID -> "Invalid email or password.";
+            case ACCOUNT_UNAVAILABLE -> "Account is unavailable.";
             case PENDING -> "Registration is being prepared. Try again later.";
             case ACTIVE_LOGIN_UNAVAILABLE -> "Login is temporarily unavailable.";
+            case ACTIVE -> throw new IllegalStateException("Unexpected active login outcome");
         };
         Object attribute = servletRequest.getAttribute(RequestIdFilter.REQUEST_ID_ATTRIBUTE);
         String requestId = attribute instanceof String value
                 ? value
                 : RequestIdResolver.resolve(null).toString();
         var body = new ApiErrorResponse(new ApiErrorResponse.Error(code, message, List.of(), requestId));
-        return ResponseEntity.status(
-                        outcome == PendingLoginService.Outcome.INVALID
-                                ? HttpStatus.UNAUTHORIZED
-                                : HttpStatus.SERVICE_UNAVAILABLE)
-                .header("Cache-Control", "no-store")
-                .body(body);
+        HttpStatus status = switch (outcome) {
+            case INVALID -> HttpStatus.UNAUTHORIZED;
+            case ACCOUNT_UNAVAILABLE -> HttpStatus.FORBIDDEN;
+            default -> HttpStatus.SERVICE_UNAVAILABLE;
+        };
+        return ResponseEntity.status(status).header("Cache-Control", "no-store").body(body);
     }
+
+    private record TokenResponse(
+            String accessToken, String refreshToken, String tokenType, int expiresIn, int refreshExpiresIn) {}
 }

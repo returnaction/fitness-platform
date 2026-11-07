@@ -9,6 +9,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import io.github.returnaction.fitness.identity.registration.application.AccessTokenSigner;
+import io.github.returnaction.fitness.identity.registration.application.LoginCredentialsChangedException;
 import io.github.returnaction.fitness.identity.registration.application.RegistrationConflictException;
 import io.github.returnaction.fitness.identity.registration.application.RegistrationNotReadyException;
 import io.github.returnaction.fitness.identity.registration.application.RegistrationService;
@@ -550,6 +551,45 @@ class RegistrationServiceIntegrationTest {
                         .query(Boolean.class)
                         .single())
                 .isTrue();
+    }
+
+    @Test
+    void loginSessionRejectsChangedCredentialsAndRollsBackWhenSigningFails() {
+        var operation = registrationService.start(
+                UUID.randomUUID(), new RegisterUserRequest("login-race-" + UUID.randomUUID() + "@example.com", "a"));
+        jdbcClient
+                .sql("UPDATE users SET status='ACTIVE' WHERE id=:id")
+                .param("id", operation.userId())
+                .update();
+        String hash = jdbcClient
+                .sql("SELECT password_hash FROM user_credentials WHERE user_id=:id")
+                .param("id", operation.userId())
+                .query(String.class)
+                .single();
+        assertThatThrownBy(() -> sessionService.createLogin(operation.userId(), "stale-hash", null))
+                .isInstanceOf(LoginCredentialsChangedException.class);
+        var signer = org.mockito.Mockito.mock(AccessTokenSigner.class);
+        org.mockito.Mockito.when(signer.sign(
+                        org.mockito.ArgumentMatchers.any(),
+                        org.mockito.ArgumentMatchers.any(),
+                        org.mockito.ArgumentMatchers.any()))
+                .thenThrow(new IllegalStateException("signing failed"));
+        var service = new RegistrationTokenService(sessionService, signer);
+        assertThatThrownBy(() ->
+                        transactionTemplate.execute(status -> service.createLogin(operation.userId(), hash, null)))
+                .isInstanceOf(IllegalStateException.class);
+        assertThat(jdbcClient
+                        .sql("SELECT count(*) FROM auth_sessions WHERE user_id=:id")
+                        .param("id", operation.userId())
+                        .query(Integer.class)
+                        .single())
+                .isZero();
+        jdbcClient
+                .sql("UPDATE users SET status='DISABLED' WHERE id=:id")
+                .param("id", operation.userId())
+                .update();
+        assertThatThrownBy(() -> sessionService.createLogin(operation.userId(), hash, null))
+                .isInstanceOf(LoginCredentialsChangedException.class);
     }
 
     @Test
