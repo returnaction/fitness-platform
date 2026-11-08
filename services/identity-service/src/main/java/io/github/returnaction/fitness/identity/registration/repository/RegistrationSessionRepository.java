@@ -16,6 +16,17 @@ public class RegistrationSessionRepository {
     }
 
     public Credentials lockRegistration(UUID operationId) {
+        var userIds = entityManager.createNativeQuery("SELECT user_id FROM registration_operations WHERE id=:id")
+                .setParameter("id", operationId)
+                .getResultList();
+        if (userIds.isEmpty())
+            throw new IllegalArgumentException("Registration is unavailable");
+        // Единый порядок: пользователь, затем операция регистрации.
+        var users = entityManager.createNativeQuery("SELECT id FROM users WHERE id=:id FOR UPDATE")
+                .setParameter("id", userIds.getFirst())
+                .getResultList();
+        if (users.isEmpty())
+            throw new IllegalArgumentException("Registration is unavailable");
         var rows = entityManager
                 .createNativeQuery("""
                         SELECT u.id, u.status AS user_status, o.status AS operation_status, c.password_hash
@@ -23,7 +34,7 @@ public class RegistrationSessionRepository {
                         JOIN users u ON u.id = o.user_id
                         JOIN user_credentials c ON c.user_id = u.id
                         WHERE o.id = :operationId
-                        FOR UPDATE OF u, o
+                        FOR UPDATE OF o
                         """)
                 .setParameter("operationId", operationId)
                 .getResultList();

@@ -1,6 +1,7 @@
 package io.github.returnaction.fitness.identity.registration.security;
 
 import io.github.returnaction.fitness.identity.registration.exception.RecoveryAccessException;
+import io.github.returnaction.fitness.identity.shared.exception.InvalidAccessTokenException;
 import io.github.returnaction.fitness.identity.shared.web.RequestIdFilter;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -49,6 +50,9 @@ public final class RecoveryAuthenticationFilter extends OncePerRequestFilter {
             var auth = new UsernamePasswordAuthenticationToken(
                     userId, null, List.of(new SimpleGrantedAuthority("identity.registration.recover")));
             SecurityContextHolder.getContext().setAuthentication(auth);
+        } catch (InvalidAccessTokenException exception) {
+            fail(request, response, 401, "invalid_access_token", "Authentication required.");
+            return;
         } catch (RecoveryAccessException exception) {
             boolean forbidden = "forbidden".equals(exception.code());
             fail(

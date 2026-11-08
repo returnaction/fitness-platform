@@ -73,6 +73,9 @@ class RegistrationRateLimitHttpTest {
     private SessionVerificationRepository sessionVerificationRepository;
 
     @MockitoBean
+    private io.github.returnaction.fitness.identity.session.repository.RefreshTokenRepository refreshTokenRepository;
+
+    @MockitoBean
     private RegistrationRecoveryService registrationRecoveryService;
 
     @MockitoBean
@@ -86,6 +89,82 @@ class RegistrationRateLimitHttpTest {
 
     @MockitoBean
     private TransactionTemplate transactions;
+
+    @Test
+    void logoutAllReturns503WhenTokenVerifierIsUnavailable() throws Exception {
+        mvc.perform(post("/api/v1/auth/logout-all")
+                .with(request -> {
+                    request.setRemoteAddr("192.0.2.62");
+                    return request;
+                })
+                .header("Authorization", "Bearer invalid"))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.error.code").value("identity_unavailable"))
+                .andExpect(header().exists("X-Request-Id"));
+    }
+
+    @Test
+    void logoutDatabaseFailureReturnsSafe503() throws Exception {
+        String secret = "private@example.com secret-token SELECT password";
+        doThrow(new org.springframework.dao.DataAccessResourceFailureException(secret))
+                .when(refreshTokenRepository)
+                .findLocation(any());
+        String token = "e436670d-252f-47dd-a536-6200f9ac4144." + "A".repeat(43);
+        String response = mvc.perform(post("/api/v1/auth/logout").contentType(APPLICATION_JSON)
+                .content("{\"refresh_token\":\"" + token + "\"}"))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.error.code").value("identity_unavailable"))
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+        assertThat(response).doesNotContain("private@example.com", "secret-token", "SELECT", "password", token);
+    }
+
+    @Test
+    void logoutRejectsInvalidHttpRequests() throws Exception {
+        mvc.perform(post("/api/v1/auth/logout").contentType(APPLICATION_JSON).content("{"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("invalid_request"));
+        mvc.perform(post("/api/v1/auth/logout").contentType(APPLICATION_JSON).content("{}"))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.error.code").value("validation_error"));
+        mvc.perform(post("/api/v1/auth/logout").contentType("text/plain").content("token"))
+                .andExpect(status().isUnsupportedMediaType());
+        mvc.perform(post("/api/v1/auth/logout-all"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error.code").value("invalid_access_token"));
+    }
+
+    @Test
+    void logoutEndpointsHaveIndependentLimits() throws Exception {
+        for (int i = 0; i < 30; i++) {
+            mvc.perform(post("/api/v1/auth/logout")
+                    .with(request -> {
+                        request.setRemoteAddr("192.0.2.61");
+                        return request;
+                    })
+                    .contentType(APPLICATION_JSON)
+                    .content("{\"refresh_token\":\"a\"}"))
+                    .andExpect(status().isNoContent());
+            mvc.perform(post("/api/v1/auth/logout-all")
+                    .with(request -> {
+                        request.setRemoteAddr("192.0.2.61");
+                        return request;
+                    }))
+                    .andExpect(status().isUnauthorized());
+        }
+        for (String path : java.util.List.of("/api/v1/auth/logout", "/api/v1/auth/logout-all")) {
+            mvc.perform(post(path)
+                    .with(request -> {
+                        request.setRemoteAddr("192.0.2.61");
+                        return request;
+                    })
+                    .contentType(APPLICATION_JSON)
+                    .content("{\"refresh_token\":\"a\"}"))
+                    .andExpect(status().isTooManyRequests())
+                    .andExpect(header().exists("Retry-After"));
+        }
+    }
 
     @Test
     void databaseFailureReturnsSafeStructured503() throws Exception {

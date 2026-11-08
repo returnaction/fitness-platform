@@ -91,6 +91,13 @@ public class RegistrationLeaseRepository {
 
     @Transactional
     public boolean markWalletReady(Lease lease) {
+        // Сначала блокируем пользователя, как при выдаче и отзыве сессии.
+        var users = entityManager.createNativeQuery("SELECT id FROM users WHERE id=:userId FOR UPDATE")
+                .setParameter("userId", lease.userId())
+                .getResultList();
+        if (users.isEmpty()) {
+            return false;
+        }
         int updated = entityManager
                 .createNativeQuery(
                         """

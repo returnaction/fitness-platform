@@ -193,6 +193,23 @@ def login(port, email, password):
         return error.code, json.load(error)
 
 
+def post_auth(port, path, body=None, bearer=None):
+    headers = {}
+    data = b""
+    if body is not None:
+        headers["Content-Type"] = "application/json"
+        data = json.dumps(body).encode()
+    if bearer is not None:
+        headers["Authorization"] = "Bearer " + bearer
+    request = urllib.request.Request(f"http://127.0.0.1:{port}/api/v1/auth/{path}",
+                                     data=data, headers=headers, method="POST")
+    try:
+        with urllib.request.urlopen(request, timeout=25) as response:
+            return response.status
+    except urllib.error.HTTPError as error:
+        return error.code
+
+
 def sql(container, database, statement):
     return run("docker", "exec", container, "psql", "-U", "postgres", "-d", database,
                "-At", "-v", "ON_ERROR_STOP=1", "-c", statement)
@@ -465,6 +482,15 @@ def main():
                 serialized = json.dumps(error_body)
                 for private in (str(error_key), error_email, password, "SELECT ", "Exception"):
                     assert private not in serialized, "Sensitive input or internal detail leaked in an error"
+            fresh_status, fresh = login(ports["identity"], direct_email, TEST_PASSWORD)
+            assert fresh_status == 200
+            direct_refresh = direct["session"]["refresh_token"]
+            assert post_auth(ports["identity"], "logout", {"refresh_token": direct_refresh}) == 204
+            assert post_auth(ports["identity"], "refresh", {"refresh_token": direct_refresh}) == 401
+            assert post_auth(ports["identity"], "logout-all", bearer=fresh["access_token"]) == 204
+            assert post_auth(ports["identity"], "logout-all", bearer=fresh["access_token"]) == 401
+            assert post_auth(ports["identity"], "refresh", {"refresh_token": fresh["refresh_token"]}) == 401
+            print("OK: logout and logout-all revoke sessions and refresh tokens", flush=True)
             sensitive_values = {
                 "email": email,
                 "password": TEST_PASSWORD,
@@ -473,6 +499,9 @@ def main():
                 "refresh token": body["session"]["refresh_token"],
                 "invalid email": invalid_email,
                 "incorrect password": wrong_password,
+                "logout refresh token": direct_refresh,
+                "logout-all access token": fresh["access_token"],
+                "logout-all refresh token": fresh["refresh_token"],
             }
             for service in ("identity-service", "accounts-service", "coins-service"):
                 log_contents = (directory / (service + ".log")).read_text(encoding="utf-8", errors="replace")
