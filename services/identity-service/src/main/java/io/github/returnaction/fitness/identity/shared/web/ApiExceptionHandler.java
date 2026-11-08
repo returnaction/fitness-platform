@@ -1,6 +1,7 @@
 package io.github.returnaction.fitness.identity.shared.web;
 
 import io.github.returnaction.fitness.identity.registration.exception.InvalidIdempotencyKeyException;
+import io.github.returnaction.fitness.identity.shared.exception.InvalidAccessTokenException;
 import io.github.returnaction.fitness.identity.registration.exception.RecoveryConflictException;
 import io.github.returnaction.fitness.identity.registration.exception.RegistrationConflictException;
 import io.github.returnaction.fitness.identity.registration.exception.RegistrationRateLimitException;
@@ -58,6 +59,13 @@ public class ApiExceptionHandler {
     @ExceptionHandler(HttpMediaTypeNotAcceptableException.class)
     ResponseEntity<Void> handleNotAcceptable() {
         return ResponseEntity.status(HttpStatus.NOT_ACCEPTABLE).build();
+    }
+
+    @ExceptionHandler(InvalidAccessTokenException.class)
+    ResponseEntity<ApiErrorResponse> handleInvalidAccess(InvalidAccessTokenException exception,
+                                                         HttpServletRequest request) {
+        return response(HttpStatus.UNAUTHORIZED, "invalid_access_token", "Authentication required.", List.of(),
+                request);
     }
 
     @ExceptionHandler(RecoveryConflictException.class)

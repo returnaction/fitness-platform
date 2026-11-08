@@ -15,11 +15,13 @@ public class RegistrationRateLimitConfiguration implements WebMvcConfigurer {
     private final RegistrationClientAddress clientAddress;
     private final RegistrationRateLimiter loginLimiter;
     private final RegistrationRateLimiter refreshLimiter;
+    private final RegistrationRateLimiter logoutLimiter;
 
     public RegistrationRateLimitConfiguration(RegistrationRateLimiter limiter,
                                               RegistrationClientAddress clientAddress,
                                               @Value("${identity.registration.login-rate-capacity}") long loginCapacity,
                                               @Value("${identity.registration.refresh-rate-capacity}") long refreshCapacity,
+                                              @Value("${identity.registration.logout-rate-capacity}") long logoutCapacity,
                                               @Value("${identity.registration.rate-limit.period-seconds}") long period,
                                               @Value("${identity.registration.rate-limit.cache-size}") long cacheSize,
                                               @Value("${identity.registration.rate-limit.cache-expiry-seconds}") long expiry) {
@@ -27,6 +29,7 @@ public class RegistrationRateLimitConfiguration implements WebMvcConfigurer {
         this.clientAddress = clientAddress;
         this.loginLimiter = new RegistrationRateLimiter(loginCapacity, period, cacheSize, expiry);
         this.refreshLimiter = new RegistrationRateLimiter(refreshCapacity, period, cacheSize, expiry);
+        this.logoutLimiter = new RegistrationRateLimiter(logoutCapacity, period, cacheSize, expiry);
     }
 
     @Override
@@ -59,5 +62,17 @@ public class RegistrationRateLimitConfiguration implements WebMvcConfigurer {
             }
         })
                 .addPathPatterns("/api/v1/auth/refresh");
+        addLimit(registry, "/api/v1/auth/logout", logoutLimiter);
+    }
+
+    private void addLimit(InterceptorRegistry registry, String path, RegistrationRateLimiter rateLimiter) {
+        registry.addInterceptor(new HandlerInterceptor() {
+            @Override
+            public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {
+                if ("POST".equals(request.getMethod()))
+                    rateLimiter.check(clientAddress.resolve(request));
+                return true;
+            }
+        }).addPathPatterns(path);
     }
 }

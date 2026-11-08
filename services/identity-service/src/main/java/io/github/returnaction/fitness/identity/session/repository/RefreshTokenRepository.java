@@ -72,6 +72,13 @@ public class RefreshTokenRepository {
                 .executeUpdate();
     }
 
+    public void revokeAllSessions(UUID userId) {
+        entityManager.createNativeQuery("UPDATE auth_sessions SET revoked_at=clock_timestamp() "
+                + "WHERE user_id=:userId AND revoked_at IS NULL AND expires_at > clock_timestamp()")
+                .setParameter("userId", userId)
+                .executeUpdate();
+    }
+
     public void insertToken(UUID id, UUID sessionId, byte[] hash, Instant expires) {
         entityManager
                 .createNativeQuery("""

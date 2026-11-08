@@ -40,7 +40,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import tools.jackson.databind.json.JsonMapper;
 
 @Testcontainers(disabledWithoutDocker = true)
-@SpringBootTest
+@SpringBootTest(properties = "identity.registration.login-rate-capacity=1000")
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 class RegistrationTokenHttpIntegrationTest {
@@ -61,7 +61,22 @@ class RegistrationTokenHttpIntegrationTest {
     private AccessTokenSigner signer;
 
     @Autowired
+    private io.github.returnaction.fitness.identity.security.jwt.AccessTokenVerifier accessVerifier;
+
+    @Autowired
+    private io.github.returnaction.fitness.identity.session.repository.SessionVerificationRepository sessions;
+
+    @Autowired
+    private io.github.returnaction.fitness.identity.session.grpc.SessionVerificationGrpcService sessionGrpc;
+
+    @Autowired
     private RegistrationService registration;
+
+    @Autowired
+    private io.github.returnaction.fitness.identity.registration.service.RegistrationSessionService registrationSessions;
+
+    @Autowired
+    private io.github.returnaction.fitness.identity.registration.repository.RegistrationLeaseRepository leases;
 
     @Value("${identity.registration.response-wait-ms}")
     private long responseWaitMillis;
@@ -101,6 +116,361 @@ class RegistrationTokenHttpIntegrationTest {
             Files.deleteIfExists(publicKey);
         if (temporaryDirectory != null)
             Files.deleteIfExists(temporaryDirectory);
+    }
+
+    @Test
+    void logoutAllRejectsAccessTokenThatExpiresWhileWaitingForLock() throws Exception {
+        UUID user = UUID.randomUUID();
+        UUID session = UUID.randomUUID();
+        createActor(user, session, "USER");
+        Instant expiresAt = Instant.now().plusSeconds(5).truncatedTo(java.time.temporal.ChronoUnit.SECONDS);
+        String token = signer.sign(user, session, expiresAt);
+        try (var connection = POSTGRES.createConnection("");
+                var executor = java.util.concurrent.Executors.newSingleThreadExecutor()) {
+            connection.setAutoCommit(false);
+            try (var statement = connection.prepareStatement("SELECT id FROM users WHERE id=? FOR UPDATE")) {
+                statement.setObject(1, user);
+                statement.executeQuery().close();
+            }
+            var result = executor.submit(() -> mvc.perform(post("/api/v1/auth/logout-all")
+                    .header("Authorization", "Bearer " + token)).andReturn().getResponse().getStatus());
+            awaitBlockedConnections(1);
+            long waitMillis = java.time.Duration.between(Instant.now(), expiresAt).toMillis();
+            if (waitMillis > 0)
+                Thread.sleep(waitMillis + 100);
+            connection.commit();
+            assertThat(result.get(15, TimeUnit.SECONDS)).isEqualTo(401);
+            assertThat(sessions.check(user, session).active()).isTrue();
+        }
+    }
+
+    @Test
+    void grpcCheckSessionReportsRevocationAfterLogoutAll() throws Exception {
+        UUID user = UUID.randomUUID();
+        UUID session = UUID.randomUUID();
+        createActor(user, session, "USER");
+        String token = signer.sign(user, session, Instant.now().plusSeconds(3600));
+        var server = io.grpc.netty.shaded.io.grpc.netty.NettyServerBuilder
+                .forAddress(new java.net.InetSocketAddress("127.0.0.1", 0))
+                .addService(sessionGrpc)
+                .build()
+                .start();
+        var channel = io.grpc.netty.shaded.io.grpc.netty.NettyChannelBuilder.forAddress("localhost", server.getPort())
+                .usePlaintext()
+                .build();
+        try {
+            var client = io.github.returnaction.fitness.contracts.identity.session.v1.IdentitySessionServiceGrpc
+                    .newBlockingStub(channel)
+                    .withDeadlineAfter(10, TimeUnit.SECONDS);
+            var request = io.github.returnaction.fitness.contracts.identity.session.v1.CheckSessionRequest.newBuilder()
+                    .setRequestId(UUID.randomUUID().toString())
+                    .setUserId(user.toString())
+                    .setSessionId(session.toString())
+                    .build();
+            assertThat(client.checkSession(request).getStatus()).isEqualTo(
+                    io.github.returnaction.fitness.contracts.identity.session.v1.SessionStatus.SESSION_STATUS_ACTIVE);
+            mvc.perform(post("/api/v1/auth/logout-all").header("Authorization", "Bearer " + token))
+                    .andExpect(status().isNoContent());
+            assertThat(client.checkSession(request).getStatus()).isEqualTo(
+                    io.github.returnaction.fitness.contracts.identity.session.v1.SessionStatus.SESSION_STATUS_INVALID);
+        } finally {
+            channel.shutdownNow().awaitTermination(5, TimeUnit.SECONDS);
+            server.shutdownNow().awaitTermination(5, TimeUnit.SECONDS);
+        }
+    }
+
+    @Test
+    void logoutAllRejectsInvalidAndExpiredTokens() throws Exception {
+        UUID user = UUID.randomUUID();
+        UUID session = UUID.randomUUID();
+        createActor(user, session, "USER");
+        String valid = signer.sign(user, session, Instant.now().plusSeconds(3600));
+        mvc.perform(post("/api/v1/auth/logout-all").header("Authorization", "Bearer " + valid + "x"))
+                .andExpect(status().isUnauthorized());
+        String encoded = Files.readString(privateKey)
+                .replace("-----BEGIN PRIVATE KEY-----", "")
+                .replace("-----END PRIVATE KEY-----", "")
+                .replaceAll("\\s", "");
+        var key = (java.security.interfaces.ECPrivateKey) java.security.KeyFactory.getInstance("EC")
+                .generatePrivate(new java.security.spec.PKCS8EncodedKeySpec(Base64.getDecoder().decode(encoded)));
+        Instant past = Instant.now().minusSeconds(1800);
+        var expiredSigner = new AccessTokenSigner(key, "test-key", "https://identity.test", "gateway",
+                java.time.Clock.fixed(past, java.time.ZoneOffset.UTC));
+        String expired = expiredSigner.sign(user, session, past.plusSeconds(900));
+        mvc.perform(post("/api/v1/auth/logout-all").header("Authorization", "Bearer " + expired))
+                .andExpect(status().isUnauthorized());
+        assertThat(sessions.check(user, session).active()).isTrue();
+    }
+
+    @Test
+    void activationAndRegistrationSessionDoNotDeadlock() throws Exception {
+        String email = "activation-race-" + UUID.randomUUID() + "@example.com";
+        var operation = registration.start(UUID.randomUUID(), new RegisterUserRequest(email, "a"));
+        UUID owner = UUID.randomUUID();
+        jdbc.sql("UPDATE registration_operations SET profile_ready=true, lease_owner=:owner, "
+                + "lease_version=1, lease_until=clock_timestamp()+interval '1 minute' WHERE id=:id")
+                .param("owner", owner)
+                .param("id", operation.operationId())
+                .update();
+        var lease = new io.github.returnaction.fitness.identity.registration.repository.RegistrationLeaseRepository.Lease(
+                operation.operationId(), operation.userId(), owner, 1);
+        try (var connection = POSTGRES.createConnection("");
+                var executor = java.util.concurrent.Executors.newFixedThreadPool(2)) {
+            connection.setAutoCommit(false);
+            try (var statement = connection
+                    .prepareStatement("SELECT id FROM registration_operations WHERE id=? FOR UPDATE")) {
+                statement.setObject(1, operation.operationId());
+                statement.executeQuery().close();
+            }
+            var activate = executor.submit(() -> leases.markWalletReady(lease));
+            awaitBlockedConnections(1);
+            var issue = executor.submit(() -> registrationSessions.create(operation.operationId(), "a"));
+            awaitBlockedConnections(2);
+            connection.commit();
+            assertThat(activate.get(20, TimeUnit.SECONDS)).isTrue();
+            assertThat(issue.get(20, TimeUnit.SECONDS).userId()).isEqualTo(operation.userId());
+        }
+    }
+
+    @Test
+    void logoutAllAndRegistrationSessionRespectUserLockOrder() throws Exception {
+        for (boolean logoutFirst : java.util.List.of(true, false)) {
+            String email = "all-register-race-" + UUID.randomUUID() + "@example.com";
+            var operation = registration.start(UUID.randomUUID(), new RegisterUserRequest(email, "a"));
+            jdbc.sql("UPDATE users SET status='ACTIVE' WHERE id=:id").param("id", operation.userId()).update();
+            jdbc.sql("UPDATE registration_operations SET profile_ready=true, wallet_ready=true, status='COMPLETED', "
+                    + "completed_at=clock_timestamp() WHERE id=:id").param("id", operation.operationId()).update();
+            String body = "{\"email\":\"" + email + "\",\"password\":\"a\"}";
+            var mapper = JsonMapper.builder().build();
+            var login = mapper.readTree(mvc.perform(post("/api/v1/auth/login").contentType(APPLICATION_JSON)
+                    .content(body)).andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+            String access = login.get("access_token").asString();
+            try (var connection = POSTGRES.createConnection("");
+                    var executor = java.util.concurrent.Executors.newFixedThreadPool(2)) {
+                connection.setAutoCommit(false);
+                try (var statement = connection.prepareStatement("SELECT id FROM users WHERE id=? FOR UPDATE")) {
+                    statement.setObject(1, operation.userId());
+                    statement.executeQuery().close();
+                }
+                java.util.concurrent.Callable<Object> logout = () -> mvc.perform(post("/api/v1/auth/logout-all")
+                        .header("Authorization", "Bearer " + access)).andReturn();
+                java.util.concurrent.Callable<Object> issue = () -> registrationSessions.create(operation.operationId(),
+                        "a");
+                var first = executor.submit(logoutFirst ? logout : issue);
+                awaitBlockedConnections(1);
+                var second = executor.submit(logoutFirst ? issue : logout);
+                awaitBlockedConnections(2);
+                connection.commit();
+                Object firstResult = first.get(20, TimeUnit.SECONDS);
+                Object secondResult = second.get(20, TimeUnit.SECONDS);
+                var logoutResult = (org.springframework.test.web.servlet.MvcResult) (logoutFirst
+                        ? firstResult
+                        : secondResult);
+                var issued = (io.github.returnaction.fitness.identity.registration.service.RegistrationSessionService.IssuedSession) (logoutFirst
+                        ? secondResult
+                        : firstResult);
+                assertThat(logoutResult.getResponse().getStatus()).isEqualTo(204);
+                assertThat(jdbc.sql("SELECT revoked_at IS NULL FROM auth_sessions WHERE id=:id")
+                        .param("id", issued.sessionId())
+                        .query(Boolean.class)
+                        .single()).isEqualTo(logoutFirst);
+            }
+        }
+    }
+
+    @Test
+    void logoutAllAndLoginRespectUserLockOrder() throws Exception {
+        for (boolean logoutFirst : java.util.List.of(true, false)) {
+            String email = "all-login-race-" + UUID.randomUUID() + "@example.com";
+            var operation = registration.start(UUID.randomUUID(), new RegisterUserRequest(email, "a"));
+            jdbc.sql("UPDATE users SET status='ACTIVE' WHERE id=:id").param("id", operation.userId()).update();
+            String body = "{\"email\":\"" + email + "\",\"password\":\"a\"}";
+            var mapper = JsonMapper.builder().build();
+            var oldLogin = mapper.readTree(mvc.perform(post("/api/v1/auth/login").contentType(APPLICATION_JSON)
+                    .content(body)).andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+            String access = oldLogin.get("access_token").asString();
+            try (var connection = POSTGRES.createConnection("");
+                    var executor = java.util.concurrent.Executors.newFixedThreadPool(2)) {
+                connection.setAutoCommit(false);
+                try (var statement = connection.prepareStatement("SELECT id FROM users WHERE id=? FOR UPDATE")) {
+                    statement.setObject(1, operation.userId());
+                    statement.executeQuery().close();
+                }
+                java.util.concurrent.Callable<org.springframework.test.web.servlet.MvcResult> logout = () -> mvc
+                        .perform(post("/api/v1/auth/logout-all").header("Authorization", "Bearer " + access))
+                        .andReturn();
+                java.util.concurrent.Callable<org.springframework.test.web.servlet.MvcResult> login = () -> mvc
+                        .perform(post("/api/v1/auth/login").contentType(APPLICATION_JSON).content(body))
+                        .andReturn();
+                var first = executor.submit(logoutFirst ? logout : login);
+                awaitBlockedConnections(1);
+                var second = executor.submit(logoutFirst ? login : logout);
+                awaitBlockedConnections(2);
+                connection.commit();
+                var firstResult = first.get(20, TimeUnit.SECONDS);
+                var secondResult = second.get(20, TimeUnit.SECONDS);
+                var logoutResult = logoutFirst ? firstResult : secondResult;
+                var loginResult = logoutFirst ? secondResult : firstResult;
+                assertThat(logoutResult.getResponse().getStatus()).isEqualTo(204);
+                assertThat(loginResult.getResponse().getStatus()).isEqualTo(200);
+                String newAccess = mapper.readTree(loginResult.getResponse().getContentAsString())
+                        .get("access_token")
+                        .asString();
+                UUID newSession = UUID.fromString(SignedJWT.parse(newAccess).getJWTClaimsSet().getStringClaim("sid"));
+                assertThat(jdbc.sql("SELECT revoked_at IS NULL FROM auth_sessions WHERE id=:id")
+                        .param("id", newSession)
+                        .query(Boolean.class)
+                        .single()).isEqualTo(logoutFirst);
+            }
+        }
+    }
+
+    private void awaitBlockedConnections(int expected) throws InterruptedException {
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(12);
+        while (System.nanoTime() < deadline) {
+            int blocked = jdbc.sql("SELECT count(*) FROM pg_stat_activity WHERE datname=current_database() "
+                    + "AND wait_event_type='Lock' AND pid<>pg_backend_pid()")
+                    .query(Integer.class)
+                    .single();
+            if (blocked >= expected)
+                return;
+            Thread.sleep(50);
+        }
+        throw new AssertionError("Expected waiting database transactions: " + expected);
+    }
+
+    @Test
+    void simultaneousRefreshAndLogoutEndsWithRevokedSession() throws Exception {
+        String email = "logout-race-" + UUID.randomUUID() + "@example.com";
+        var operation = registration.start(UUID.randomUUID(), new RegisterUserRequest(email, "a"));
+        jdbc.sql("UPDATE users SET status='ACTIVE' WHERE id=:id").param("id", operation.userId()).update();
+        String body = "{\"email\":\"" + email + "\",\"password\":\"a\"}";
+        var mapper = JsonMapper.builder().build();
+        var login = mapper.readTree(mvc.perform(post("/api/v1/auth/login").contentType(APPLICATION_JSON)
+                .content(body)).andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+        String refresh = login.get("refresh_token").asString();
+        UUID session = UUID.fromString(SignedJWT.parse(login.get("access_token").asString())
+                .getJWTClaimsSet()
+                .getStringClaim("sid"));
+        var gate = new java.util.concurrent.CountDownLatch(1);
+        try (var executor = java.util.concurrent.Executors.newFixedThreadPool(2)) {
+            var logout = executor.submit(() -> {
+                gate.await();
+                return mvc.perform(post("/api/v1/auth/logout").contentType(APPLICATION_JSON)
+                        .content("{\"refresh_token\":\"" + refresh + "\"}"))
+                        .andReturn()
+                        .getResponse()
+                        .getStatus();
+            });
+            var rotate = executor.submit(() -> {
+                gate.await();
+                return mvc.perform(post("/api/v1/auth/refresh").contentType(APPLICATION_JSON)
+                        .content("{\"refresh_token\":\"" + refresh + "\"}"))
+                        .andReturn()
+                        .getResponse()
+                        .getStatus();
+            });
+            gate.countDown();
+            assertThat(logout.get(15, TimeUnit.SECONDS)).isEqualTo(204);
+            assertThat(rotate.get(15, TimeUnit.SECONDS)).isIn(200, 401);
+        }
+        assertThat(jdbc.sql("SELECT revoked_at IS NOT NULL FROM auth_sessions WHERE id=:id")
+                .param("id", session)
+                .query(Boolean.class)
+                .single()).isTrue();
+    }
+
+    @Test
+    void simultaneousLogoutAllAllowsOnlyOneSuccess() throws Exception {
+        UUID user = UUID.randomUUID();
+        UUID session = UUID.randomUUID();
+        createActor(user, session, "USER");
+        String token = signer.sign(user, session, Instant.now().plusSeconds(3600));
+        var gate = new java.util.concurrent.CountDownLatch(1);
+        try (var executor = java.util.concurrent.Executors.newFixedThreadPool(2)) {
+            java.util.concurrent.Callable<Integer> call = () -> {
+                gate.await();
+                return mvc.perform(post("/api/v1/auth/logout-all").header("Authorization", "Bearer " + token))
+                        .andReturn()
+                        .getResponse()
+                        .getStatus();
+            };
+            var first = executor.submit(call);
+            var second = executor.submit(call);
+            gate.countDown();
+            assertThat(java.util.List.of(first.get(15, TimeUnit.SECONDS), second.get(15, TimeUnit.SECONDS)))
+                    .containsExactlyInAnyOrder(204, 401);
+        }
+    }
+
+    @Test
+    void unsupportedAcceptDoesNotRevokeSession() throws Exception {
+        UUID user = UUID.randomUUID();
+        UUID session = UUID.randomUUID();
+        createActor(user, session, "USER");
+        String token = signer.sign(user, session, Instant.now().plusSeconds(3600));
+        mvc.perform(post("/api/v1/auth/logout-all").header("Authorization", "Bearer " + token)
+                .accept("application/xml")).andExpect(status().isNotAcceptable());
+        assertThat(jdbc.sql("SELECT revoked_at IS NULL FROM auth_sessions WHERE id=:id")
+                .param("id", session)
+                .query(Boolean.class)
+                .single()).isTrue();
+    }
+
+    @Test
+    void logoutAndLogoutAllRevokeOnlyIntendedSessions() throws Exception {
+        String email = "logout-" + UUID.randomUUID() + "@example.com";
+        var operation = registration.start(UUID.randomUUID(), new RegisterUserRequest(email, "a"));
+        jdbc.sql("UPDATE users SET status='ACTIVE' WHERE id=:id").param("id", operation.userId()).update();
+        UUID otherUser = UUID.randomUUID();
+        UUID otherSession = UUID.randomUUID();
+        createActor(otherUser, otherSession, "USER");
+        String loginBody = "{\"email\":\"" + email + "\",\"password\":\"a\"}";
+        var mapper = JsonMapper.builder().build();
+        var first = mapper.readTree(mvc.perform(post("/api/v1/auth/login").contentType(APPLICATION_JSON)
+                .content(loginBody)).andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+        var second = mapper.readTree(mvc.perform(post("/api/v1/auth/login").contentType(APPLICATION_JSON)
+                .content(loginBody)).andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+        String oldRefresh = first.get("refresh_token").asString();
+        String secondRefresh = second.get("refresh_token").asString();
+        var rotated = mapper.readTree(mvc.perform(post("/api/v1/auth/refresh").contentType(APPLICATION_JSON)
+                .content("{\"refresh_token\":\"" + oldRefresh + "\"}"))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString());
+        String rotatedRefresh = rotated.get("refresh_token").asString();
+        String wrong = oldRefresh.substring(0, 37) + "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+        mvc.perform(post("/api/v1/auth/logout").contentType(APPLICATION_JSON)
+                .content("{\"refresh_token\":\"" + wrong + "\"}")).andExpect(status().isNoContent());
+        assertThat(jdbc.sql("SELECT count(*) FROM auth_sessions WHERE user_id=:id AND revoked_at IS NULL")
+                .param("id", operation.userId())
+                .query(Integer.class)
+                .single()).isEqualTo(2);
+        mvc.perform(post("/api/v1/auth/logout").contentType(APPLICATION_JSON)
+                .content("{\"refresh_token\":\"" + oldRefresh + "\"}")).andExpect(status().isNoContent());
+        mvc.perform(post("/api/v1/auth/logout").contentType(APPLICATION_JSON)
+                .content("{\"refresh_token\":\"" + oldRefresh + "\"}")).andExpect(status().isNoContent());
+        mvc.perform(post("/api/v1/auth/refresh").contentType(APPLICATION_JSON)
+                .content("{\"refresh_token\":\"" + rotatedRefresh + "\"}")).andExpect(status().isUnauthorized());
+        assertThat(jdbc.sql("SELECT count(*) FROM auth_sessions WHERE user_id=:id AND revoked_at IS NULL")
+                .param("id", operation.userId())
+                .query(Integer.class)
+                .single()).isEqualTo(1);
+        String access = second.get("access_token").asString();
+        var identity = accessVerifier.verify(access);
+        assertThat(sessions.check(identity.userId(), identity.sessionId()).active()).isTrue();
+        mvc.perform(post("/api/v1/auth/logout-all").header("Authorization", "Bearer " + access))
+                .andExpect(status().isNoContent());
+        assertThat(sessions.check(otherUser, otherSession).active()).isTrue();
+        assertThat(sessions.check(identity.userId(), identity.sessionId()).active()).isFalse();
+        assertThat(accessVerifier.verify(access)).isEqualTo(identity);
+        mvc.perform(post("/api/v1/auth/logout-all").header("Authorization", "Bearer " + access))
+                .andExpect(status().isUnauthorized());
+        mvc.perform(post("/api/v1/auth/refresh").contentType(APPLICATION_JSON)
+                .content("{\"refresh_token\":\"" + secondRefresh + "\"}")).andExpect(status().isUnauthorized());
+        mvc.perform(post("/api/v1/auth/logout").contentType(APPLICATION_JSON).content("{}"))
+                .andExpect(status().isUnprocessableEntity());
     }
 
     @Test

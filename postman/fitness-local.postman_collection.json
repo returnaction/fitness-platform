@@ -1,17 +1,40 @@
 {
   "info": {
     "name": "Fitness Platform — локальная авторизация",
-    "description": "Коллекция для локальной проверки. Запустите Identity, Accounts и Coins. Сначала выполните регистрацию, затем вход. Email и ключ идемпотентности создаются автоматически и сохраняются в переменных коллекции. Для нового пользователя очистите переменные email и idempotency_key. При ответе 503 повторите регистрацию с теми же значениями. Logout пока не реализован.",
+    "description": "Коллекция для локальной проверки. Запустите Identity, Accounts и Coins. Сначала выполните регистрацию, затем вход. Email и ключ идемпотентности создаются автоматически и сохраняются в переменных коллекции. Для нового пользователя очистите переменные email и idempotency_key. При ответе 503 повторите регистрацию с теми же значениями. После входа доступны выход с устройства и выход со всех устройств.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
-    { "key": "base_url", "value": "http://localhost:8080", "type": "string" },
-    { "key": "email", "value": "", "type": "string" },
-    { "key": "password", "value": "a", "type": "string" },
-    { "key": "idempotency_key", "value": "", "type": "string" },
-    { "key": "access_token", "value": "", "type": "string" },
-    { "key": "refresh_token", "value": "", "type": "string" },
-    { "key": "logout_url", "value": "", "type": "string" }
+    {
+      "key": "base_url",
+      "value": "http://localhost:8080",
+      "type": "string"
+    },
+    {
+      "key": "email",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "password",
+      "value": "a",
+      "type": "string"
+    },
+    {
+      "key": "idempotency_key",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "access_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "refresh_token",
+      "value": "",
+      "type": "string"
+    }
   ],
   "item": [
     {
@@ -48,10 +71,24 @@
       "request": {
         "method": "POST",
         "header": [
-          { "key": "Content-Type", "value": "application/json" },
-          { "key": "Idempotency-Key", "value": "{{idempotency_key}}" }
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Idempotency-Key",
+            "value": "{{idempotency_key}}"
+          }
         ],
-        "body": { "mode": "raw", "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}", "options": { "raw": { "language": "json" } } },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
         "url": "{{base_url}}/api/v1/auth/register",
         "description": "Создаёт пользователя, профиль, кошелёк и сессию. При 503 повторите запрос с тем же email, паролем и ключом. При 201 токены сохраняются в переменных коллекции."
       }
@@ -75,18 +112,88 @@
       ],
       "request": {
         "method": "POST",
-        "header": [{ "key": "Content-Type", "value": "application/json" }],
-        "body": { "mode": "raw", "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}", "options": { "raw": { "language": "json" } } },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
         "url": "{{base_url}}/api/v1/auth/login",
         "description": "Использует сохранённые email и пароль. При ответе 200 обновляет токены в переменных коллекции."
       }
     },
     {
-      "name": "3. Выход — пока не реализован",
+      "name": "3. Выход с устройства",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "if (pm.response.code === 204) {",
+              "  pm.collectionVariables.unset('access_token');",
+              "  pm.collectionVariables.unset('refresh_token');",
+              "}"
+            ]
+          }
+        }
+      ],
       "request": {
         "method": "POST",
-        "url": "{{logout_url}}",
-        "description": "В Identity пока нет HTTP-контракта и реализации logout. Адрес и формат запроса специально не заданы; после реализации их нужно добавить в коллекцию."
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"refresh_token\": \"{{refresh_token}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{base_url}}/api/v1/auth/logout",
+        "description": "Отзывает сессию по refresh-токену. После 204 сохранённые токены удаляются."
+      }
+    },
+    {
+      "name": "4. Выход со всех устройств",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "if (pm.response.code === 204) {",
+              "  pm.collectionVariables.unset('access_token');",
+              "  pm.collectionVariables.unset('refresh_token');",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{access_token}}"
+          }
+        ],
+        "url": "{{base_url}}/api/v1/auth/logout-all",
+        "description": "Отзывает все активные сессии пользователя. После 204 сохранённые токены удаляются."
       }
     }
   ]
