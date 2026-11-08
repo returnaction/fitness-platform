@@ -20,7 +20,10 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 
-/** Локальная проверка Coins-клиента с сертификатами step-ca, без пользовательской БД. */
+/**
+ * Локальная проверка Coins-клиента с сертификатами step-ca, без
+ * пользовательской БД.
+ */
 @EnabledIfSystemProperty(named = "fitness.localStepCaSmoke", matches = "true")
 class CoinsProvisioningClientLocalTest {
     @Test
@@ -29,14 +32,15 @@ class CoinsProvisioningClientLocalTest {
         var calls = new AtomicInteger();
         Server server = NettyServerBuilder.forAddress(new InetSocketAddress("127.0.0.1", 0))
                 .sslContext(GrpcSslContexts.forServer(
-                                new File(secrets, "coins-server.crt"), new File(secrets, "coins-server-pkcs8.key"))
+                        new File(secrets, "coins-server.crt"), new File(secrets, "coins-server-pkcs8.key"))
                         .trustManager(new File(secrets, "ca.crt"))
                         .clientAuth(ClientAuth.REQUIRE)
                         .build())
                 .addService(new CoinsProvisioningServiceGrpc.CoinsProvisioningServiceImplBase() {
                     @Override
                     public void ensureWallet(
-                            EnsureWalletRequest request, StreamObserver<EnsureWalletResponse> observer) {
+                                             EnsureWalletRequest request,
+                                             StreamObserver<EnsureWalletResponse> observer) {
                         int call = calls.incrementAndGet();
                         observer.onNext(EnsureWalletResponse.newBuilder()
                                 .setUserId(call == 2 ? UUID.randomUUID().toString() : request.getUserId())

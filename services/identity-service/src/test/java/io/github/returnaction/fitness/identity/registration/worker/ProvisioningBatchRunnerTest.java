@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
+import io.github.returnaction.fitness.identity.registration.repository.RegistrationLeaseRepository;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
@@ -28,7 +29,8 @@ class ProvisioningBatchRunnerTest {
                     () -> {
                         throw new IllegalStateException("private@example.com");
                     },
-                    ignored -> {});
+                    ignored -> {
+                    });
             runner.runPass(() -> List.of(lease), ignored -> {
                 throw new IllegalStateException("secret-password");
             });
@@ -63,7 +65,8 @@ class ProvisioningBatchRunnerTest {
                         peak.accumulateAndGet(current, Math::max);
                         started.countDown();
                         try {
-                            if (!release.await(10, TimeUnit.SECONDS)) throw new AssertionError("Timed out");
+                            if (!release.await(10, TimeUnit.SECONDS))
+                                throw new AssertionError("Timed out");
                         } catch (InterruptedException exception) {
                             Thread.currentThread().interrupt();
                             throw new IllegalStateException(exception);
@@ -80,7 +83,8 @@ class ProvisioningBatchRunnerTest {
                             otherClaims.incrementAndGet();
                             return List.of();
                         },
-                        ignored -> {});
+                        ignored -> {
+                        });
                 assertThat(otherClaims.get()).isZero();
             } finally {
                 release.countDown();

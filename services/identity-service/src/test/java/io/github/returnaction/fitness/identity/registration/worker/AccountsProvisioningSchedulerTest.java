@@ -7,6 +7,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import io.github.returnaction.fitness.identity.registration.repository.RegistrationLeaseRepository;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;

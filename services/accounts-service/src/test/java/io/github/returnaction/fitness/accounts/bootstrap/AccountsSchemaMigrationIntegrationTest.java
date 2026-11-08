@@ -29,18 +29,18 @@ class AccountsSchemaMigrationIntegrationTest {
     void appliesProfileMigration() throws Exception {
         applyMigrations();
 
-        try (Connection connection =
-                DriverManager.getConnection(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())) {
+        try (Connection connection = DriverManager.getConnection(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(),
+                POSTGRES.getPassword())) {
             assertThat(changeSetCount(connection)).isEqualTo(1);
             assertThat(applicationTableCount(connection)).isEqualTo(1);
         }
     }
 
     private void applyMigrations() throws Exception {
-        try (Connection connection =
-                DriverManager.getConnection(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())) {
-            Database database =
-                    DatabaseFactory.getInstance().findCorrectDatabaseImplementation(new JdbcConnection(connection));
+        try (Connection connection = DriverManager.getConnection(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(),
+                POSTGRES.getPassword())) {
+            Database database = DatabaseFactory.getInstance()
+                    .findCorrectDatabaseImplementation(new JdbcConnection(connection));
             try (Liquibase liquibase = new Liquibase(
                     "db/changelog/db.changelog-master.yaml", new ClassLoaderResourceAccessor(), database)) {
                 liquibase.update(new Contexts(), new LabelExpression());
@@ -58,7 +58,7 @@ class AccountsSchemaMigrationIntegrationTest {
 
     private int applicationTableCount(Connection connection) throws SQLException {
         try (PreparedStatement statement = connection.prepareStatement("SELECT count(*) FROM information_schema.tables "
-                        + "WHERE table_schema = 'public' AND table_name NOT LIKE 'databasechangelog%'");
+                + "WHERE table_schema = 'public' AND table_name NOT LIKE 'databasechangelog%'");
                 ResultSet result = statement.executeQuery()) {
             result.next();
             return result.getInt(1);

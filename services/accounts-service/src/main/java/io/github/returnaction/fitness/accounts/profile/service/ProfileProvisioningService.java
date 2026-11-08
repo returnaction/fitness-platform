@@ -30,10 +30,10 @@ public class ProfileProvisioningService {
             String nickname = nicknameGenerator.generate();
             int inserted = jdbcClient
                     .sql("""
-                    INSERT INTO user_profiles (user_id, public_profile_id, nickname)
-                    VALUES (:userId, :publicId, :nickname)
-                    ON CONFLICT DO NOTHING
-                    """)
+                            INSERT INTO user_profiles (user_id, public_profile_id, nickname)
+                            VALUES (:userId, :publicId, :nickname)
+                            ON CONFLICT DO NOTHING
+                            """)
                     .param("userId", userId)
                     .param("publicId", publicId)
                     .param("nickname", nickname)

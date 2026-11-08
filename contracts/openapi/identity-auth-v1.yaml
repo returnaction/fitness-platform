@@ -54,8 +54,12 @@ paths:
                   refresh_expires_in: 2592000
         '400':
           $ref: '#/components/responses/InvalidRequest'
+        '406':
+          $ref: '#/components/responses/NotAcceptable'
         '409':
           $ref: '#/components/responses/Conflict'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
         '422':
           $ref: '#/components/responses/ValidationError'
         '429':
@@ -107,6 +111,10 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '406':
+          $ref: '#/components/responses/NotAcceptable'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
         '422':
           $ref: '#/components/responses/ValidationError'
         '429':
@@ -171,6 +179,10 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '406':
+          $ref: '#/components/responses/NotAcceptable'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
         '422':
           $ref: '#/components/responses/ValidationError'
         '429':
@@ -308,6 +320,20 @@ components:
               type: string
               format: uuid
   responses:
+    NotAcceptable:
+      description: Клиент не принимает application/json. Ответ без тела.
+    UnsupportedMediaType:
+      description: Неподдерживаемый Content-Type запроса.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: unsupported_media_type
+              message: Content type is not supported.
+              details: []
+              request_id: 2c160d4b-0f61-4702-99e1-99713d0c9326
     InvalidRequest:
       description: Invalid JSON or a missing/invalid Idempotency-Key.
       content:

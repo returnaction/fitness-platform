@@ -211,34 +211,30 @@ class MutualTlsIntegrationTest {
                     .setRegistrationOperationId(UUID.randomUUID().toString())
                     .build();
             assertThat(AccountsProvisioningServiceGrpc.newBlockingStub(identity)
-                            .withDeadlineAfter(5, TimeUnit.SECONDS)
-                            .ensureProfile(request)
-                            .getStatus())
+                    .withDeadlineAfter(5, TimeUnit.SECONDS)
+                    .ensureProfile(request)
+                    .getStatus())
                     .isEqualTo(ProvisioningStatus.PROVISIONING_STATUS_READY);
             verify(provisioning).ensureProfile(user);
             assertThatThrownBy(() -> AccountsProvisioningServiceGrpc.newBlockingStub(other)
-                            .withDeadlineAfter(5, TimeUnit.SECONDS)
-                            .ensureProfile(request))
-                    .satisfies(error ->
-                            assertThat(Status.fromThrowable(error).getCode()).isEqualTo(Status.Code.PERMISSION_DENIED));
+                    .withDeadlineAfter(5, TimeUnit.SECONDS)
+                    .ensureProfile(request))
+                    .satisfies(error -> assertThat(Status.fromThrowable(error).getCode())
+                            .isEqualTo(Status.Code.PERMISSION_DENIED));
             UUID anonymousUser = UUID.randomUUID();
-            EnsureProfileRequest anonymousRequest =
-                    request.toBuilder().setUserId(anonymousUser.toString()).build();
+            EnsureProfileRequest anonymousRequest = request.toBuilder().setUserId(anonymousUser.toString()).build();
             assertThatThrownBy(() -> AccountsProvisioningServiceGrpc.newBlockingStub(anonymous)
-                            .withDeadlineAfter(5, TimeUnit.SECONDS)
-                            .ensureProfile(anonymousRequest))
-                    .satisfies(error ->
-                            assertThat(Status.fromThrowable(error).isOk()).isFalse());
+                    .withDeadlineAfter(5, TimeUnit.SECONDS)
+                    .ensureProfile(anonymousRequest))
+                    .satisfies(error -> assertThat(Status.fromThrowable(error).isOk()).isFalse());
             verify(provisioning, never()).ensureProfile(anonymousUser);
             for (ManagedChannel invalid : List.of(expired, foreign)) {
                 UUID rejectedUser = UUID.randomUUID();
-                var rejectedRequest =
-                        request.toBuilder().setUserId(rejectedUser.toString()).build();
+                var rejectedRequest = request.toBuilder().setUserId(rejectedUser.toString()).build();
                 assertThatThrownBy(() -> AccountsProvisioningServiceGrpc.newBlockingStub(invalid)
-                                .withDeadlineAfter(5, TimeUnit.SECONDS)
-                                .ensureProfile(rejectedRequest))
-                        .satisfies(error ->
-                                assertThat(Status.fromThrowable(error).isOk()).isFalse());
+                        .withDeadlineAfter(5, TimeUnit.SECONDS)
+                        .ensureProfile(rejectedRequest))
+                        .satisfies(error -> assertThat(Status.fromThrowable(error).isOk()).isFalse());
                 verify(provisioning, never()).ensureProfile(rejectedUser);
             }
         } finally {
@@ -270,7 +266,8 @@ class MutualTlsIntegrationTest {
     }
 
     private static X509Certificate certificate(
-            X500Name issuer, X500Name subject, KeyPair subjectKey, KeyPair issuerKey, GeneralName san, boolean ca)
+                                               X500Name issuer, X500Name subject, KeyPair subjectKey, KeyPair issuerKey,
+                                               GeneralName san, boolean ca)
             throws Exception {
         Instant now = Instant.now();
         return certificate(
@@ -278,14 +275,14 @@ class MutualTlsIntegrationTest {
     }
 
     private static X509Certificate certificate(
-            X500Name issuer,
-            X500Name subject,
-            KeyPair subjectKey,
-            KeyPair issuerKey,
-            GeneralName san,
-            boolean ca,
-            Instant validFrom,
-            Instant validUntil)
+                                               X500Name issuer,
+                                               X500Name subject,
+                                               KeyPair subjectKey,
+                                               KeyPair issuerKey,
+                                               GeneralName san,
+                                               boolean ca,
+                                               Instant validFrom,
+                                               Instant validUntil)
             throws Exception {
         var builder = new JcaX509v3CertificateBuilder(
                 issuer,

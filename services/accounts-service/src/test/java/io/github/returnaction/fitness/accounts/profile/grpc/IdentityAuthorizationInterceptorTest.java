@@ -40,7 +40,7 @@ class IdentityAuthorizationInterceptorTest {
         ServerCallHandler<String, String> handler = handler();
         SSLSession session = mock(SSLSession.class);
         X509Certificate certificate = mock(X509Certificate.class);
-        when(session.getPeerCertificates()).thenReturn(new java.security.cert.Certificate[] {certificate});
+        when(session.getPeerCertificates()).thenReturn(new java.security.cert.Certificate[]{certificate});
         when(certificate.getSubjectAlternativeNames())
                 .thenReturn(List.of(List.of(6, "spiffe://fitness.local/identity-service")));
         when(call.getAttributes())
@@ -57,7 +57,7 @@ class IdentityAuthorizationInterceptorTest {
         ServerCallHandler<String, String> handler = handler();
         SSLSession session = mock(SSLSession.class);
         X509Certificate certificate = mock(X509Certificate.class);
-        when(session.getPeerCertificates()).thenReturn(new java.security.cert.Certificate[] {certificate});
+        when(session.getPeerCertificates()).thenReturn(new java.security.cert.Certificate[]{certificate});
         when(certificate.getSubjectAlternativeNames())
                 .thenReturn(List.of(List.of(6, "spiffe://fitness.local/coins-service")));
         when(call.getAttributes())

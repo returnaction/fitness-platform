@@ -64,7 +64,8 @@ class WalletProvisioningIntegrationTest {
                 grpcService.ensureWallet(request, new StreamObserver<>() {
                     @Override
                     public void onNext(EnsureWalletResponse response) {
-                        if (!drop) observer.onNext(response);
+                        if (!drop)
+                            observer.onNext(response);
                     }
 
                     @Override
@@ -74,8 +75,10 @@ class WalletProvisioningIntegrationTest {
 
                     @Override
                     public void onCompleted() {
-                        if (drop) observer.onError(Status.UNAVAILABLE.asRuntimeException());
-                        else observer.onCompleted();
+                        if (drop)
+                            observer.onError(Status.UNAVAILABLE.asRuntimeException());
+                        else
+                            observer.onCompleted();
                     }
                 });
             }
@@ -100,26 +103,26 @@ class WalletProvisioningIntegrationTest {
                             StatusRuntimeException.class,
                             error -> assertThat(error.getStatus().getCode()).isEqualTo(Status.Code.UNAVAILABLE));
             assertThat(jdbc.sql("SELECT count(*) FROM coin_wallets WHERE user_id=:id")
-                            .param("id", userId)
-                            .query(Long.class)
-                            .single())
+                    .param("id", userId)
+                    .query(Long.class)
+                    .single())
                     .isEqualTo(1);
             jdbc.sql("UPDATE coin_wallets SET available_balance=25 WHERE user_id=:id")
                     .param("id", userId)
                     .update();
             assertThat(stub.withDeadlineAfter(5, TimeUnit.SECONDS)
-                            .ensureWallet(request)
-                            .getStatus())
+                    .ensureWallet(request)
+                    .getStatus())
                     .isEqualTo(ProvisioningStatus.PROVISIONING_STATUS_READY);
             assertThat(jdbc.sql("SELECT available_balance FROM coin_wallets WHERE user_id=:id")
-                            .param("id", userId)
-                            .query(Long.class)
-                            .single())
+                    .param("id", userId)
+                    .query(Long.class)
+                    .single())
                     .isEqualTo(25);
             assertThat(jdbc.sql("SELECT count(*) FROM coin_wallets WHERE user_id=:id")
-                            .param("id", userId)
-                            .query(Long.class)
-                            .single())
+                    .param("id", userId)
+                    .query(Long.class)
+                    .single())
                     .isEqualTo(1);
         } finally {
             channel.shutdownNow().awaitTermination(5, TimeUnit.SECONDS);
@@ -137,27 +140,27 @@ class WalletProvisioningIntegrationTest {
             second.get();
         }
         assertThat(jdbc.sql("SELECT count(*) FROM coin_wallets WHERE user_id = :id")
-                        .param("id", userId)
-                        .query(Integer.class)
-                        .single())
+                .param("id", userId)
+                .query(Integer.class)
+                .single())
                 .isEqualTo(1);
         assertThat(jdbc.sql("SELECT available_balance + locked_balance FROM coin_wallets WHERE user_id = :id")
-                        .param("id", userId)
-                        .query(Long.class)
-                        .single())
+                .param("id", userId)
+                .query(Long.class)
+                .single())
                 .isZero();
         jdbc.sql("UPDATE coin_wallets SET available_balance = 25, locked_balance = 4 WHERE user_id = :id")
                 .param("id", userId)
                 .update();
         service.ensureWallet(userId);
         assertThat(jdbc.sql("SELECT available_balance + locked_balance FROM coin_wallets WHERE user_id = :id")
-                        .param("id", userId)
-                        .query(Long.class)
-                        .single())
+                .param("id", userId)
+                .query(Long.class)
+                .single())
                 .isEqualTo(29);
         assertThatThrownBy(() -> jdbc.sql("UPDATE coin_wallets SET available_balance = -1 WHERE user_id = :id")
-                        .param("id", userId)
-                        .update())
+                .param("id", userId)
+                .update())
                 .isInstanceOf(DataIntegrityViolationException.class)
                 .satisfies(error -> assertThat(error.getCause().getMessage()).doesNotContain(userId.toString()));
     }

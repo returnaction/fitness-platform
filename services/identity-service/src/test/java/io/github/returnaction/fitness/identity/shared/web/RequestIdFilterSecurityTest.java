@@ -4,17 +4,17 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import io.github.returnaction.fitness.identity.registration.application.PendingLoginService;
-import io.github.returnaction.fitness.identity.registration.application.RegistrationReadinessWaiter;
-import io.github.returnaction.fitness.identity.registration.application.RegistrationSessionService;
-import io.github.returnaction.fitness.identity.registration.recovery.RegistrationRecoveryService;
+import io.github.returnaction.fitness.identity.registration.repository.RegistrationLeaseRepository;
 import io.github.returnaction.fitness.identity.registration.repository.RegistrationOperationRepository;
+import io.github.returnaction.fitness.identity.registration.service.RegistrationReadinessWaiter;
+import io.github.returnaction.fitness.identity.registration.service.RegistrationRecoveryService;
+import io.github.returnaction.fitness.identity.registration.service.RegistrationSessionService;
+import io.github.returnaction.fitness.identity.session.repository.SessionVerificationRepository;
+import io.github.returnaction.fitness.identity.session.service.PendingLoginService;
 import io.github.returnaction.fitness.identity.registration.repository.RoleRepository;
 import io.github.returnaction.fitness.identity.registration.repository.UserCredentialRepository;
 import io.github.returnaction.fitness.identity.registration.repository.UserRepository;
 import io.github.returnaction.fitness.identity.registration.repository.UserRoleRepository;
-import io.github.returnaction.fitness.identity.registration.worker.RegistrationLeaseRepository;
-import io.github.returnaction.fitness.identity.session.SessionVerificationRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -25,14 +25,24 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.support.TransactionTemplate;
 
-@SpringBootTest(
-        webEnvironment = WebEnvironment.MOCK,
-        properties = {
-            "spring.autoconfigure.exclude=org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration,org.springframework.boot.security.autoconfigure.UserDetailsServiceAutoConfiguration"
-        })
+@SpringBootTest(webEnvironment = WebEnvironment.MOCK, properties = {
+        "spring.autoconfigure.exclude=org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration,org.springframework.boot.security.autoconfigure.UserDetailsServiceAutoConfiguration"
+})
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 class RequestIdFilterSecurityTest {
+
+    @MockitoBean
+    private jakarta.persistence.EntityManager entityManager;
+
+    @MockitoBean
+    private io.github.returnaction.fitness.identity.registration.repository.RecoveryAccessRepository recoveryAccessRepository;
+
+    @MockitoBean
+    private io.github.returnaction.fitness.identity.registration.repository.RegistrationReadinessRepository registrationReadinessRepository;
+
+    @MockitoBean
+    private io.github.returnaction.fitness.identity.session.repository.PendingLoginRepository pendingLoginRepository;
 
     @Autowired
     private MockMvc mockMvc;
@@ -70,13 +80,21 @@ class RequestIdFilterSecurityTest {
     @MockitoBean
     private RegistrationReadinessWaiter readinessWaiter;
 
-    // В этом тесте DataSource намеренно отключён: проверяется только порядок web/security-фильтров.
+    // В этом тесте DataSource намеренно отключён: проверяется только порядок
+    // web/security-фильтров.
     @MockitoBean
     private TransactionTemplate transactionTemplate;
 
     @Test
     void addsRequestIdToRequestRejectedBySecurity() throws Exception {
         mockMvc.perform(get("/not-public"))
+                .andExpect(status().isForbidden())
+                .andExpect(header().exists("X-Request-Id"));
+    }
+
+    @Test
+    void wrongMethodOnRegistrationIsRejectedBySecurity() throws Exception {
+        mockMvc.perform(get("/api/v1/auth/register"))
                 .andExpect(status().isForbidden())
                 .andExpect(header().exists("X-Request-Id"));
     }

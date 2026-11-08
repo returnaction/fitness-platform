@@ -1,5 +1,6 @@
 package io.github.returnaction.fitness.identity.registration.worker;
 
+import io.github.returnaction.fitness.identity.registration.repository.RegistrationLeaseRepository;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -10,9 +11,8 @@ import org.springframework.stereotype.Component;
 /** Запускает обработку кошельков в общем ограниченном пуле. */
 @Component
 @EnableScheduling
-@ConditionalOnProperty(
-        name = {"identity.registration.worker.enabled", "identity.coins-grpc.enabled"},
-        havingValue = "true")
+@ConditionalOnProperty(name = {"identity.registration.worker.enabled",
+        "identity.coins-grpc.enabled"}, havingValue = "true")
 public final class CoinsProvisioningScheduler {
     private final UUID owner = UUID.randomUUID();
     private final RegistrationLeaseRepository leases;
@@ -21,10 +21,10 @@ public final class CoinsProvisioningScheduler {
     private final int leaseSeconds;
 
     public CoinsProvisioningScheduler(
-            RegistrationLeaseRepository leases,
-            CoinsProvisioningProcessor processor,
-            ProvisioningBatchRunner batchRunner,
-            @Value("${identity.registration.worker.lease-seconds}") int leaseSeconds) {
+                                      RegistrationLeaseRepository leases,
+                                      CoinsProvisioningProcessor processor,
+                                      ProvisioningBatchRunner batchRunner,
+                                      @Value("${identity.registration.worker.lease-seconds}") int leaseSeconds) {
         if (leaseSeconds < 16) {
             throw new IllegalArgumentException("Invalid worker lease");
         }

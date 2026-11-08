@@ -15,12 +15,9 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
-@SpringBootTest(
-        classes = AccountsServiceApplication.class,
-        webEnvironment = WebEnvironment.MOCK,
-        properties = {
-            "spring.autoconfigure.exclude=org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration,org.springframework.boot.security.autoconfigure.UserDetailsServiceAutoConfiguration"
-        })
+@SpringBootTest(classes = AccountsServiceApplication.class, webEnvironment = WebEnvironment.MOCK, properties = {
+        "spring.autoconfigure.exclude=org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration,org.springframework.boot.security.autoconfigure.UserDetailsServiceAutoConfiguration"
+})
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 class RequestIdFilterSecurityTest {

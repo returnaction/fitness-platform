@@ -32,8 +32,8 @@ class LocalStepCaSmokeTest {
         ProfileProvisioningService provisioning = mock(ProfileProvisioningService.class);
         Server server = NettyServerBuilder.forAddress(new InetSocketAddress("127.0.0.1", 0))
                 .sslContext(GrpcSslContexts.forServer(
-                                new File(directory, "accounts-server.crt"),
-                                new File(directory, "accounts-server-pkcs8.key"))
+                        new File(directory, "accounts-server.crt"),
+                        new File(directory, "accounts-server-pkcs8.key"))
                         .trustManager(ca)
                         .clientAuth(ClientAuth.REQUIRE)
                         .build())
@@ -57,9 +57,9 @@ class LocalStepCaSmokeTest {
                     .setRegistrationOperationId(UUID.randomUUID().toString())
                     .build();
             assertThat(AccountsProvisioningServiceGrpc.newBlockingStub(channel)
-                            .withDeadlineAfter(5, TimeUnit.SECONDS)
-                            .ensureProfile(request)
-                            .getStatus())
+                    .withDeadlineAfter(5, TimeUnit.SECONDS)
+                    .ensureProfile(request)
+                    .getStatus())
                     .isEqualTo(ProvisioningStatus.PROVISIONING_STATUS_READY);
             verify(provisioning).ensureProfile(user);
         } finally {

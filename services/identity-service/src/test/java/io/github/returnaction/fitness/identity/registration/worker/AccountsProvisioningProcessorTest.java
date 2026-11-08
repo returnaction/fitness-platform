@@ -9,6 +9,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 import io.github.returnaction.fitness.identity.registration.grpc.AccountsProvisioningClient;
+import io.github.returnaction.fitness.identity.registration.repository.RegistrationLeaseRepository;
 import io.grpc.Status;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -19,8 +20,8 @@ class AccountsProvisioningProcessorTest {
     private final AccountsProvisioningClient client = mock(AccountsProvisioningClient.class);
     private final RegistrationLeaseRepository repository = mock(RegistrationLeaseRepository.class);
     private final AccountsProvisioningProcessor processor = new AccountsProvisioningProcessor(client, repository);
-    private final RegistrationLeaseRepository.Lease lease =
-            new RegistrationLeaseRepository.Lease(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), 1);
+    private final RegistrationLeaseRepository.Lease lease = new RegistrationLeaseRepository.Lease(UUID.randomUUID(),
+            UUID.randomUUID(), UUID.randomUUID(), 1);
 
     @Test
     void recordsReadyAfterSuccessfulCall() {
@@ -53,9 +54,8 @@ class AccountsProvisioningProcessorTest {
     }
 
     @ParameterizedTest
-    @EnumSource(
-            value = Status.Code.class,
-            names = {"UNAVAILABLE", "DEADLINE_EXCEEDED", "RESOURCE_EXHAUSTED", "ABORTED", "INTERNAL"})
+    @EnumSource(value = Status.Code.class, names = {"UNAVAILABLE", "DEADLINE_EXCEEDED", "RESOURCE_EXHAUSTED", "ABORTED",
+            "INTERNAL"})
     void retriesTransientGrpcErrors(Status.Code code) {
         doThrow(code.toStatus().asRuntimeException())
                 .when(client)
@@ -66,9 +66,8 @@ class AccountsProvisioningProcessorTest {
     }
 
     @ParameterizedTest
-    @EnumSource(
-            value = Status.Code.class,
-            names = {"INVALID_ARGUMENT", "PERMISSION_DENIED", "UNAUTHENTICATED", "FAILED_PRECONDITION"})
+    @EnumSource(value = Status.Code.class, names = {"INVALID_ARGUMENT", "PERMISSION_DENIED", "UNAUTHENTICATED",
+            "FAILED_PRECONDITION"})
     void blocksPermanentGrpcErrors(Status.Code code) {
         doThrow(code.toStatus().asRuntimeException())
                 .when(client)

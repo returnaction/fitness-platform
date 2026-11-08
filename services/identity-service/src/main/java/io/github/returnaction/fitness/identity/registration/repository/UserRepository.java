@@ -1,6 +1,6 @@
 package io.github.returnaction.fitness.identity.registration.repository;
 
-import io.github.returnaction.fitness.identity.registration.entity.UserEntity;
+import io.github.returnaction.fitness.identity.registration.entity.user.UserEntity;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;

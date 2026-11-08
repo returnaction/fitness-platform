@@ -20,7 +20,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 
-/** Локальная проверка клиента с сертификатами step-ca, без пользовательской БД. */
+/**
+ * Локальная проверка клиента с сертификатами step-ca, без пользовательской БД.
+ */
 @EnabledIfSystemProperty(named = "fitness.localStepCaSmoke", matches = "true")
 class AccountsProvisioningClientLocalTest {
     @Test
@@ -29,15 +31,16 @@ class AccountsProvisioningClientLocalTest {
         var calls = new AtomicInteger();
         Server server = NettyServerBuilder.forAddress(new InetSocketAddress("127.0.0.1", 0))
                 .sslContext(GrpcSslContexts.forServer(
-                                new File(secrets, "accounts-server.crt"),
-                                new File(secrets, "accounts-server-pkcs8.key"))
+                        new File(secrets, "accounts-server.crt"),
+                        new File(secrets, "accounts-server-pkcs8.key"))
                         .trustManager(new File(secrets, "ca.crt"))
                         .clientAuth(ClientAuth.REQUIRE)
                         .build())
                 .addService(new AccountsProvisioningServiceGrpc.AccountsProvisioningServiceImplBase() {
                     @Override
                     public void ensureProfile(
-                            EnsureProfileRequest request, StreamObserver<EnsureProfileResponse> observer) {
+                                              EnsureProfileRequest request,
+                                              StreamObserver<EnsureProfileResponse> observer) {
                         int call = calls.incrementAndGet();
                         observer.onNext(EnsureProfileResponse.newBuilder()
                                 .setUserId(call == 2 ? UUID.randomUUID().toString() : request.getUserId())

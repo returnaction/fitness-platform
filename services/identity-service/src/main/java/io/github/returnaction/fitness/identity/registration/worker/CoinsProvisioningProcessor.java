@@ -1,9 +1,11 @@
 package io.github.returnaction.fitness.identity.registration.worker;
 
 import io.github.returnaction.fitness.identity.registration.grpc.CoinsProvisioningClient;
+import io.github.returnaction.fitness.identity.registration.repository.RegistrationLeaseRepository;
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
 import java.util.UUID;
+import lombok.RequiredArgsConstructor;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -11,14 +13,10 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 /** Обрабатывает одну уже арендованную операцию без транзакции во время gRPC. */
 @Component
 @ConditionalOnProperty(name = "identity.coins-grpc.enabled", havingValue = "true")
+@RequiredArgsConstructor
 public class CoinsProvisioningProcessor {
     private final CoinsProvisioningClient client;
     private final RegistrationLeaseRepository leases;
-
-    public CoinsProvisioningProcessor(CoinsProvisioningClient client, RegistrationLeaseRepository leases) {
-        this.client = client;
-        this.leases = leases;
-    }
 
     public void process(RegistrationLeaseRepository.Lease lease) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) {

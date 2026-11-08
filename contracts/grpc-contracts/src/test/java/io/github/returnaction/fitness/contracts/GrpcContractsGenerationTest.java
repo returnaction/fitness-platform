@@ -9,7 +9,10 @@ import io.github.returnaction.fitness.contracts.coins.provisioning.v1.EnsureWall
 import io.github.returnaction.fitness.contracts.identity.session.v1.IdentitySessionServiceGrpc;
 import org.junit.jupiter.api.Test;
 
-/** Проверяет, что исходные .proto создают ожидаемые Java message и gRPC service stubs. */
+/**
+ * Проверяет, что исходные .proto создают ожидаемые Java message и gRPC service
+ * stubs.
+ */
 class GrpcContractsGenerationTest {
 
     @Test

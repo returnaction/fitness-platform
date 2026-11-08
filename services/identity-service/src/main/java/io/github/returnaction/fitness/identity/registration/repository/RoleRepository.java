@@ -1,7 +1,7 @@
 package io.github.returnaction.fitness.identity.registration.repository;
 
-import io.github.returnaction.fitness.identity.registration.entity.RoleCode;
-import io.github.returnaction.fitness.identity.registration.entity.RoleEntity;
+import io.github.returnaction.fitness.identity.registration.entity.role.RoleCode;
+import io.github.returnaction.fitness.identity.registration.entity.role.RoleEntity;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 
