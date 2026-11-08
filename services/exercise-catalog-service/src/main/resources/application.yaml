@@ -1,0 +1,19 @@
+spring:
+  application:
+    name: exercise-catalog-service
+  profiles:
+    default: local
+  autoconfigure:
+    exclude: org.springframework.boot.security.autoconfigure.UserDetailsServiceAutoConfiguration
+server:
+  port: ${SERVER_PORT}
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: never

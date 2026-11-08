@@ -1,0 +1,7 @@
+spring:
+  config:
+    import:
+      - optional:file:./.env.example[.properties]
+      - optional:file:./services/video-proof-service/.env.example[.properties]
+      - optional:file:./.env[.properties]
+      - optional:file:./services/video-proof-service/.env[.properties]
