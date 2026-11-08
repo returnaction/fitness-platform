@@ -11,6 +11,24 @@ import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
+/**
+ * Добавляет идентификатор к каждому входящему HTTP-запросу.
+ *
+ * Простой пример:
+ *
+ * 1. Клиент отправляет запрос на регистрацию. 2. Фильтр получает или создаёт
+ * requestId, например: 550e8400-e29b-41d4-a716-446655440000 3. Этот же
+ * идентификатор возвращается клиенту в заголовке X-Request-Id. 4. Идентификатор
+ * сохраняется в запросе и в MDC — контексте логирования. 5. Если при обработке
+ * возникнет ошибка, её можно связать с этим запросом.
+ *
+ * Зачем это нужно: пользователь говорит: «У меня ошибка», и присылает
+ * X-Request-Id. По этому идентификатору разработчик может искать нужный запрос
+ * в логах.
+ *
+ * Идентификатор не является паролем или токеном и не даёт доступ к аккаунту.
+ * После обработки запроса идентификатор удаляется из MDC потока.
+ */
 @Component
 @Order(Ordered.HIGHEST_PRECEDENCE)
 public class RequestIdFilter extends OncePerRequestFilter {
@@ -19,10 +37,12 @@ public class RequestIdFilter extends OncePerRequestFilter {
     private static final String REQUEST_ID_HEADER = "X-Request-Id";
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
+    protected void doFilterInternal(HttpServletRequest request,
+                                    HttpServletResponse response,
+                                    FilterChain filterChain)
             throws ServletException, IOException {
-        String requestId =
-                RequestIdResolver.resolve(request.getHeader(REQUEST_ID_HEADER)).toString();
+
+        String requestId = RequestIdResolver.resolve(request.getHeader(REQUEST_ID_HEADER)).toString();
         request.setAttribute(REQUEST_ID_ATTRIBUTE, requestId);
         response.setHeader(REQUEST_ID_HEADER, requestId);
 

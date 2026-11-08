@@ -3,6 +3,7 @@ package io.github.returnaction.fitness.identity.registration.web;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import io.github.returnaction.fitness.identity.registration.exception.RegistrationRateLimitException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -12,7 +13,8 @@ class RegistrationRateLimiterTest {
     @Test
     void allowsFiveAndRejectsSixthSeparatelyForEachAddress() {
         var limiter = new RegistrationRateLimiter(5, 60, 100, 120);
-        for (int i = 0; i < 5; i++) limiter.check("192.0.2.1");
+        for (int i = 0; i < 5; i++)
+            limiter.check("192.0.2.1");
         assertThatThrownBy(() -> limiter.check("192.0.2.1"))
                 .isInstanceOfSatisfying(
                         RegistrationRateLimitException.class,

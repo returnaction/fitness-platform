@@ -19,19 +19,24 @@ public final class RegistrationClientAddress {
 
     public String resolve(HttpServletRequest request) {
         String remote = canonical(request.getRemoteAddr());
-        if (remote == null) return "unknown";
-        if (trustedProxy == null || !trustedProxy.equals(remote)) return remote;
+        if (remote == null)
+            return "unknown";
+        if (trustedProxy == null || !trustedProxy.equals(remote))
+            return remote;
         var headers = request.getHeaders("X-Forwarded-For");
         String last = null;
-        while (headers.hasMoreElements()) last = headers.nextElement();
-        if (last == null) return remote;
+        while (headers.hasMoreElements())
+            last = headers.nextElement();
+        if (last == null)
+            return remote;
         String[] parts = last.split(",", -1);
         String client = canonical(parts[parts.length - 1].trim());
         return client == null ? remote : client;
     }
 
     private static String canonical(String value) {
-        if (value == null || value.isBlank() || value.contains("%")) return null;
+        if (value == null || value.isBlank() || value.contains("%"))
+            return null;
         try {
             return InetAddress.ofLiteral(value).getHostAddress();
         } catch (IllegalArgumentException exception) {

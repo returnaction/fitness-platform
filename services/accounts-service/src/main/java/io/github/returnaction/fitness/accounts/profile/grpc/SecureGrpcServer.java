@@ -14,7 +14,9 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.SmartLifecycle;
 import org.springframework.stereotype.Component;
 
-/** Запускает gRPC только при явно включённой конфигурации и обязательном mTLS. */
+/**
+ * Запускает gRPC только при явно включённой конфигурации и обязательном mTLS.
+ */
 @Component
 @ConditionalOnProperty(name = "accounts.grpc.enabled", havingValue = "true")
 public final class SecureGrpcServer implements SmartLifecycle {
@@ -22,12 +24,12 @@ public final class SecureGrpcServer implements SmartLifecycle {
     private volatile boolean running;
 
     public SecureGrpcServer(
-            AccountsProvisioningGrpcService service,
-            @Value("${accounts.grpc.address}") String address,
-            @Value("${accounts.grpc.port}") int port,
-            @Value("${accounts.grpc.certificate}") String certificate,
-            @Value("${accounts.grpc.private-key}") String privateKey,
-            @Value("${accounts.grpc.trust-certificate}") String trustCertificate)
+                            AccountsProvisioningGrpcService service,
+                            @Value("${accounts.grpc.address}") String address,
+                            @Value("${accounts.grpc.port}") int port,
+                            @Value("${accounts.grpc.certificate}") String certificate,
+                            @Value("${accounts.grpc.private-key}") String privateKey,
+                            @Value("${accounts.grpc.trust-certificate}") String trustCertificate)
             throws IOException {
         if (port < 1 || port > 65535 || address.isBlank()) {
             throw new IllegalArgumentException("Invalid gRPC address or port");

@@ -10,7 +10,10 @@ import io.grpc.stub.StreamObserver;
 import java.util.UUID;
 import org.springframework.stereotype.Component;
 
-/** Адаптер контракта. Не регистрировать в сетевом сервере без mTLS и авторизации. */
+/**
+ * Адаптер контракта. Не регистрировать в сетевом сервере без mTLS и
+ * авторизации.
+ */
 @Component
 public class CoinsProvisioningGrpcService extends CoinsProvisioningServiceGrpc.CoinsProvisioningServiceImplBase {
     private final WalletProvisioningService provisioning;

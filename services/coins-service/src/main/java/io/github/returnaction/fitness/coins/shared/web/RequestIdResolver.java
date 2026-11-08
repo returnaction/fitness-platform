@@ -4,7 +4,8 @@ import java.util.UUID;
 
 public final class RequestIdResolver {
 
-    private RequestIdResolver() {}
+    private RequestIdResolver() {
+    }
 
     public static UUID resolve(String requestIdHeader) {
         if (requestIdHeader == null || requestIdHeader.isBlank()) {

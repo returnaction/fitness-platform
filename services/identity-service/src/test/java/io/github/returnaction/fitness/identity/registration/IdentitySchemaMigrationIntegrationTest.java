@@ -32,8 +32,8 @@ class IdentitySchemaMigrationIntegrationTest {
     void createsIdentitySchemaAndProtectsCanonicalEmailUniqueness() throws Exception {
         applyMigrations();
 
-        try (Connection connection =
-                DriverManager.getConnection(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())) {
+        try (Connection connection = DriverManager.getConnection(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(),
+                POSTGRES.getPassword())) {
             assertThat(tableNames(connection))
                     .contains(
                             "users",
@@ -54,8 +54,8 @@ class IdentitySchemaMigrationIntegrationTest {
             assertThatThrownBy(() -> insertUser(connection, UUID.randomUUID(), "rollback@example.com"))
                     .isInstanceOf(SQLException.class);
             connection.rollback();
-            try (PreparedStatement statement =
-                    connection.prepareStatement("SELECT count(*) FROM users WHERE email_canonical = ?")) {
+            try (PreparedStatement statement = connection
+                    .prepareStatement("SELECT count(*) FROM users WHERE email_canonical = ?")) {
                 statement.setString(1, "rollback@example.com");
                 try (ResultSet result = statement.executeQuery()) {
                     result.next();
@@ -66,10 +66,10 @@ class IdentitySchemaMigrationIntegrationTest {
     }
 
     private void applyMigrations() throws Exception {
-        try (Connection connection =
-                DriverManager.getConnection(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())) {
-            Database database =
-                    DatabaseFactory.getInstance().findCorrectDatabaseImplementation(new JdbcConnection(connection));
+        try (Connection connection = DriverManager.getConnection(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(),
+                POSTGRES.getPassword())) {
+            Database database = DatabaseFactory.getInstance()
+                    .findCorrectDatabaseImplementation(new JdbcConnection(connection));
             try (Liquibase liquibase = new Liquibase(
                     "db/changelog/db.changelog-master.yaml", new ClassLoaderResourceAccessor(), database)) {
                 liquibase.update(new Contexts(), new LabelExpression());
@@ -79,7 +79,7 @@ class IdentitySchemaMigrationIntegrationTest {
 
     private Set<String> tableNames(Connection connection) throws SQLException {
         try (PreparedStatement statement = connection.prepareStatement(
-                        "SELECT table_name FROM information_schema.tables " + "WHERE table_schema = 'public'");
+                "SELECT table_name FROM information_schema.tables " + "WHERE table_schema = 'public'");
                 ResultSet resultSet = statement.executeQuery()) {
             Set<String> result = new java.util.HashSet<>();
             while (resultSet.next()) {

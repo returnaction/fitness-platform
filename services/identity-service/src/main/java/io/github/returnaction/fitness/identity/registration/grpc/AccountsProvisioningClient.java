@@ -15,18 +15,18 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
-/** Внутренний mTLS-клиент; worker подключит его в следующем инкременте. */
+/** Внутренний mTLS-клиент, используемый обработчиком регистрации. */
 @Component
 @ConditionalOnProperty(name = "identity.accounts-grpc.enabled", havingValue = "true")
 public final class AccountsProvisioningClient {
     private final ManagedChannel channel;
 
     public AccountsProvisioningClient(
-            @Value("${identity.accounts-grpc.host}") String host,
-            @Value("${identity.accounts-grpc.port}") int port,
-            @Value("${identity.accounts-grpc.certificate}") String certificate,
-            @Value("${identity.accounts-grpc.private-key}") String privateKey,
-            @Value("${identity.accounts-grpc.trust-certificate}") String trustCertificate)
+                                      @Value("${identity.accounts-grpc.host}") String host,
+                                      @Value("${identity.accounts-grpc.port}") int port,
+                                      @Value("${identity.accounts-grpc.certificate}") String certificate,
+                                      @Value("${identity.accounts-grpc.private-key}") String privateKey,
+                                      @Value("${identity.accounts-grpc.trust-certificate}") String trustCertificate)
             throws IOException {
         channel = NettyChannelBuilder.forAddress(host, port)
                 .sslContext(GrpcSslContexts.forClient()

@@ -64,6 +64,8 @@
         <!-- Версия Java. Spring Boot Parent использует её для настройки компилятора. -->
         <java.version>25</java.version>
         <mapstruct.version>1.6.3</mapstruct.version>
+        <lombok.version>1.18.48</lombok.version>
+        <lombok-mapstruct-binding.version>0.2.0</lombok-mapstruct-binding.version>
 
         <!-- === КАЧЕСТВА КОДА === -->
         <!-- Spotless: Заставляет всех писать код с одинаковыми отступами. -->
@@ -162,6 +164,12 @@
                 <groupId>org.mapstruct</groupId>
                 <artifactId>mapstruct</artifactId>
                 <version>${mapstruct.version}</version>
+            </dependency>
+            <!-- Одна версия Lombok для всех сервисов. -->
+            <dependency>
+                <groupId>org.projectlombok</groupId>
+                <artifactId>lombok</artifactId>
+                <version>${lombok.version}</version>
             </dependency>
           <!-- ============================================================== -->
           <!-- 3. bcprov-jdk18on (Криптография)                               -->
@@ -262,9 +270,10 @@
                 <configuration>
                     <java>
                         <removeUnusedImports/>
-                        <palantirJavaFormat>
-                            <version>2.102.0</version>
-                        </palantirJavaFormat>
+                        <eclipse>
+                            <version>4.37</version>
+                            <file>${maven.multiModuleProjectDirectory}/config/eclipse-java-formatter.xml</file>
+                        </eclipse>
                         <forbidWildcardImports/>
                     </java>
                 </configuration>
@@ -317,6 +326,16 @@
                 <artifactId>maven-compiler-plugin</artifactId>
                 <configuration>
                     <annotationProcessorPaths>
+                        <path>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                            <version>${lombok.version}</version>
+                        </path>
+                        <path>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok-mapstruct-binding</artifactId>
+                            <version>${lombok-mapstruct-binding.version}</version>
+                        </path>
                         <path>
                             <groupId>org.mapstruct</groupId>
                             <artifactId>mapstruct-processor</artifactId>

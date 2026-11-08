@@ -76,7 +76,8 @@ class ProfileProvisioningIntegrationTest {
                 grpcService.ensureProfile(request, new StreamObserver<>() {
                     @Override
                     public void onNext(EnsureProfileResponse response) {
-                        if (!drop) observer.onNext(response);
+                        if (!drop)
+                            observer.onNext(response);
                     }
 
                     @Override
@@ -86,8 +87,10 @@ class ProfileProvisioningIntegrationTest {
 
                     @Override
                     public void onCompleted() {
-                        if (drop) observer.onError(Status.UNAVAILABLE.asRuntimeException());
-                        else observer.onCompleted();
+                        if (drop)
+                            observer.onError(Status.UNAVAILABLE.asRuntimeException());
+                        else
+                            observer.onCompleted();
                     }
                 });
             }
@@ -116,14 +119,14 @@ class ProfileProvisioningIntegrationTest {
                     .query(String.class)
                     .single();
             assertThat(stub.withDeadlineAfter(5, TimeUnit.SECONDS)
-                            .ensureProfile(request)
-                            .getStatus())
+                    .ensureProfile(request)
+                    .getStatus())
                     .isEqualTo(ProvisioningStatus.PROVISIONING_STATUS_READY);
             assertThat(jdbc.sql("SELECT count(*) FROM user_profiles WHERE user_id=:id AND nickname=:nickname")
-                            .param("id", userId)
-                            .param("nickname", nickname)
-                            .query(Long.class)
-                            .single())
+                    .param("id", userId)
+                    .param("nickname", nickname)
+                    .query(Long.class)
+                    .single())
                     .isEqualTo(1);
         } finally {
             channel.shutdownNow().awaitTermination(5, TimeUnit.SECONDS);
@@ -164,16 +167,16 @@ class ProfileProvisioningIntegrationTest {
                         .setRegistrationOperationId(operationId.toString())
                         .setRequestId(UUID.randomUUID().toString())
                         .build();
-                var stub =
-                        AccountsProvisioningServiceGrpc.newBlockingStub(channel).withDeadlineAfter(5, TimeUnit.SECONDS);
+                var stub = AccountsProvisioningServiceGrpc.newBlockingStub(channel)
+                        .withDeadlineAfter(5, TimeUnit.SECONDS);
                 assertThat(stub.ensureProfile(request).getStatus())
                         .isEqualTo(ProvisioningStatus.PROVISIONING_STATUS_READY);
                 assertThat(stub.ensureProfile(request).getStatus())
                         .isEqualTo(ProvisioningStatus.PROVISIONING_STATUS_READY);
                 assertThat(jdbc.sql("SELECT count(*) FROM user_profiles WHERE user_id = :id")
-                                .param("id", userId)
-                                .query(Long.class)
-                                .single())
+                        .param("id", userId)
+                        .query(Long.class)
+                        .single())
                         .isEqualTo(1);
             } finally {
                 channel.shutdownNow();
@@ -197,9 +200,9 @@ class ProfileProvisioningIntegrationTest {
         UUID userId = UUID.randomUUID();
         service.ensureProfile(userId);
         assertThat(jdbc.sql("SELECT nickname FROM user_profiles WHERE user_id = :id")
-                        .param("id", userId)
-                        .query(String.class)
-                        .single())
+                .param("id", userId)
+                .query(String.class)
+                .single())
                 .isEqualTo("Player_000000000002");
     }
 
@@ -211,19 +214,19 @@ class ProfileProvisioningIntegrationTest {
                 .param("nickname", "UniqueNick")
                 .update();
         assertThatThrownBy(() -> jdbc.sql(
-                                "INSERT INTO user_profiles (user_id, public_profile_id, nickname) VALUES (:id, :publicId, :nickname)")
-                        .param("id", UUID.randomUUID())
-                        .param("publicId", UUID.randomUUID())
-                        .param("nickname", "uniquenick")
-                        .update())
+                "INSERT INTO user_profiles (user_id, public_profile_id, nickname) VALUES (:id, :publicId, :nickname)")
+                .param("id", UUID.randomUUID())
+                .param("publicId", UUID.randomUUID())
+                .param("nickname", "uniquenick")
+                .update())
                 .isInstanceOf(DataIntegrityViolationException.class)
                 .satisfies(error -> assertThat(error.getCause().getMessage()).doesNotContain("uniquenick"));
         assertThatThrownBy(() -> jdbc.sql(
-                                "INSERT INTO user_profiles (user_id, public_profile_id, nickname, visibility) VALUES (:id, :publicId, :nickname, 'INVALID')")
-                        .param("id", UUID.randomUUID())
-                        .param("publicId", UUID.randomUUID())
-                        .param("nickname", "AnotherNick")
-                        .update())
+                "INSERT INTO user_profiles (user_id, public_profile_id, nickname, visibility) VALUES (:id, :publicId, :nickname, 'INVALID')")
+                .param("id", UUID.randomUUID())
+                .param("publicId", UUID.randomUUID())
+                .param("nickname", "AnotherNick")
+                .update())
                 .isInstanceOf(DataIntegrityViolationException.class);
     }
 
@@ -243,14 +246,14 @@ class ProfileProvisioningIntegrationTest {
         assertThat(nickname).matches("Player_[0-9]{12}");
         service.ensureProfile(userId);
         assertThat(jdbc.sql("SELECT count(*) FROM user_profiles WHERE user_id = :id")
-                        .param("id", userId)
-                        .query(Long.class)
-                        .single())
+                .param("id", userId)
+                .query(Long.class)
+                .single())
                 .isEqualTo(1);
         assertThat(jdbc.sql("SELECT nickname FROM user_profiles WHERE user_id = :id")
-                        .param("id", userId)
-                        .query(String.class)
-                        .single())
+                .param("id", userId)
+                .query(String.class)
+                .single())
                 .isEqualTo(nickname);
     }
 }

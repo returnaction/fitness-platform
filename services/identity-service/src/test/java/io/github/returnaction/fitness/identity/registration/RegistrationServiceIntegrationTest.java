@@ -11,30 +11,31 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
-import io.github.returnaction.fitness.identity.registration.application.AccessTokenSigner;
-import io.github.returnaction.fitness.identity.registration.application.LoginCredentialsChangedException;
-import io.github.returnaction.fitness.identity.registration.application.RegistrationConflictException;
-import io.github.returnaction.fitness.identity.registration.application.RegistrationNotReadyException;
-import io.github.returnaction.fitness.identity.registration.application.RegistrationService;
-import io.github.returnaction.fitness.identity.registration.application.RegistrationSessionService;
-import io.github.returnaction.fitness.identity.registration.application.RegistrationTokenService;
 import io.github.returnaction.fitness.identity.registration.dto.RegisterUserRequest;
-import io.github.returnaction.fitness.identity.registration.entity.UserCredentialEntity;
-import io.github.returnaction.fitness.identity.registration.entity.UserEntity;
-import io.github.returnaction.fitness.identity.registration.entity.UserStatus;
+import io.github.returnaction.fitness.identity.registration.exception.RecoveryConflictException;
+import io.github.returnaction.fitness.identity.registration.exception.RegistrationConflictException;
+import io.github.returnaction.fitness.identity.registration.exception.RegistrationNotReadyException;
 import io.github.returnaction.fitness.identity.registration.grpc.AccountsProvisioningClient;
 import io.github.returnaction.fitness.identity.registration.grpc.CoinsProvisioningClient;
-import io.github.returnaction.fitness.identity.registration.recovery.RecoveryConflictException;
-import io.github.returnaction.fitness.identity.registration.recovery.RegistrationRecoveryService;
-import io.github.returnaction.fitness.identity.registration.repository.UserCredentialRepository;
-import io.github.returnaction.fitness.identity.registration.repository.UserRepository;
+import io.github.returnaction.fitness.identity.registration.model.RegistrationStartResult;
+import io.github.returnaction.fitness.identity.registration.repository.RegistrationLeaseRepository;
+import io.github.returnaction.fitness.identity.registration.service.RegistrationRecoveryService;
+import io.github.returnaction.fitness.identity.registration.service.RegistrationService;
+import io.github.returnaction.fitness.identity.registration.service.RegistrationSessionService;
+import io.github.returnaction.fitness.identity.registration.service.RegistrationTokenService;
 import io.github.returnaction.fitness.identity.registration.worker.AccountsProvisioningProcessor;
 import io.github.returnaction.fitness.identity.registration.worker.AccountsProvisioningScheduler;
 import io.github.returnaction.fitness.identity.registration.worker.CoinsProvisioningProcessor;
 import io.github.returnaction.fitness.identity.registration.worker.ProvisioningBatchRunner;
-import io.github.returnaction.fitness.identity.registration.worker.RegistrationLeaseRepository;
-import io.github.returnaction.fitness.identity.session.RefreshTokenService;
-import io.github.returnaction.fitness.identity.session.SessionVerificationRepository;
+import io.github.returnaction.fitness.identity.security.jwt.AccessTokenSigner;
+import io.github.returnaction.fitness.identity.session.repository.SessionVerificationRepository;
+import io.github.returnaction.fitness.identity.session.service.RefreshTokenService;
+import io.github.returnaction.fitness.identity.shared.exception.LoginCredentialsChangedException;
+import io.github.returnaction.fitness.identity.registration.entity.user.UserCredentialEntity;
+import io.github.returnaction.fitness.identity.registration.entity.user.UserEntity;
+import io.github.returnaction.fitness.identity.registration.entity.user.UserStatus;
+import io.github.returnaction.fitness.identity.registration.repository.UserCredentialRepository;
+import io.github.returnaction.fitness.identity.registration.repository.UserRepository;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -93,6 +94,9 @@ class RegistrationServiceIntegrationTest {
     private JdbcClient jdbcClient;
 
     @Autowired
+    private io.github.returnaction.fitness.identity.session.repository.RefreshTokenRepository refreshTokenRepository;
+
+    @Autowired
     private RegistrationLeaseRepository leases;
 
     @Autowired
@@ -117,11 +121,11 @@ class RegistrationServiceIntegrationTest {
                 UUID.randomUUID(), new RegisterUserRequest("worker-" + UUID.randomUUID() + "@example.com", "a"));
         var client = org.mockito.Mockito.mock(AccountsProvisioningClient.class);
         org.mockito.Mockito.doAnswer(invocation -> {
-                    assertThat(org.springframework.transaction.support.TransactionSynchronizationManager
-                                    .isActualTransactionActive())
-                            .isFalse();
-                    return null;
-                })
+            assertThat(org.springframework.transaction.support.TransactionSynchronizationManager
+                    .isActualTransactionActive())
+                    .isFalse();
+            return null;
+        })
                 .when(client)
                 .ensureProfile(
                         org.mockito.ArgumentMatchers.any(),
@@ -139,10 +143,10 @@ class RegistrationServiceIntegrationTest {
                         .single();
                 if (ready) {
                     assertThat(jdbcClient
-                                    .sql("SELECT status FROM users WHERE id = :id")
-                                    .param("id", operation.userId())
-                                    .query(String.class)
-                                    .single())
+                            .sql("SELECT status FROM users WHERE id = :id")
+                            .param("id", operation.userId())
+                            .query(String.class)
+                            .single())
                             .isEqualTo("PENDING");
                     return;
                 }
@@ -153,7 +157,7 @@ class RegistrationServiceIntegrationTest {
 
     @Test
     void workerProcessesDistinctLeasesConcurrentlyWithoutNetworkTransaction() {
-        var operations = new java.util.ArrayList<RegistrationService.RegistrationStartResult>();
+        var operations = new java.util.ArrayList<RegistrationStartResult>();
         for (int index = 0; index < 8; index++) {
             var operation = registrationService.start(
                     UUID.randomUUID(),
@@ -169,14 +173,14 @@ class RegistrationServiceIntegrationTest {
         var users = ConcurrentHashMap.<UUID>newKeySet();
         var client = org.mockito.Mockito.mock(AccountsProvisioningClient.class);
         org.mockito.Mockito.doAnswer(invocation -> {
-                    assertThat(org.springframework.transaction.support.TransactionSynchronizationManager
-                                    .isActualTransactionActive())
-                            .isFalse();
-                    users.add(invocation.getArgument(2));
-                    started.countDown();
-                    assertThat(started.await(10, TimeUnit.SECONDS)).isTrue();
-                    return null;
-                })
+            assertThat(org.springframework.transaction.support.TransactionSynchronizationManager
+                    .isActualTransactionActive())
+                    .isFalse();
+            users.add(invocation.getArgument(2));
+            started.countDown();
+            assertThat(started.await(10, TimeUnit.SECONDS)).isTrue();
+            return null;
+        })
                 .when(client)
                 .ensureProfile(
                         org.mockito.ArgumentMatchers.any(),
@@ -187,15 +191,14 @@ class RegistrationServiceIntegrationTest {
                     .poll();
         }
         assertThat(users)
-                .containsExactlyInAnyOrderElementsOf(operations.stream()
-                        .map(RegistrationService.RegistrationStartResult::userId)
-                        .toList());
+                .containsExactlyInAnyOrderElementsOf(
+                        operations.stream().map(RegistrationStartResult::userId).toList());
         for (var operation : operations) {
             assertThat(jdbcClient
-                            .sql("SELECT profile_ready FROM registration_operations WHERE id=:id")
-                            .param("id", operation.operationId())
-                            .query(Boolean.class)
-                            .single())
+                    .sql("SELECT profile_ready FROM registration_operations WHERE id=:id")
+                    .param("id", operation.operationId())
+                    .query(Boolean.class)
+                    .single())
                     .isTrue();
         }
     }
@@ -213,19 +216,20 @@ class RegistrationServiceIntegrationTest {
                         org.mockito.ArgumentMatchers.eq(operation.operationId()),
                         org.mockito.ArgumentMatchers.eq(operation.userId()));
         var processor = new AccountsProvisioningProcessor(client, leases);
-        var first = leases.claim(UUID.randomUUID(), 100, 30).stream()
+        var first = leases.claim(UUID.randomUUID(), 100, 30)
+                .stream()
                 .filter(lease -> lease.operationId().equals(operation.operationId()))
                 .findFirst()
                 .orElseThrow();
         processor.process(first);
 
         assertThat(jdbcClient
-                        .sql("SELECT retry_count = 1 AND NOT profile_ready AND recovery_blocked_at IS NULL "
-                                + "AND next_retry_at > clock_timestamp() "
-                                + "FROM registration_operations WHERE id = :id")
-                        .param("id", operation.operationId())
-                        .query(Boolean.class)
-                        .single())
+                .sql("SELECT retry_count = 1 AND NOT profile_ready AND recovery_blocked_at IS NULL "
+                        + "AND next_retry_at > clock_timestamp() "
+                        + "FROM registration_operations WHERE id = :id")
+                .param("id", operation.operationId())
+                .query(Boolean.class)
+                .single())
                 .isTrue();
         assertThat(leases.claim(UUID.randomUUID(), 100, 30))
                 .noneMatch(lease -> lease.operationId().equals(operation.operationId()));
@@ -234,16 +238,17 @@ class RegistrationServiceIntegrationTest {
                 .sql("UPDATE registration_operations SET next_retry_at = clock_timestamp() WHERE id = :id")
                 .param("id", operation.operationId())
                 .update();
-        var second = leases.claim(UUID.randomUUID(), 100, 30).stream()
+        var second = leases.claim(UUID.randomUUID(), 100, 30)
+                .stream()
                 .filter(lease -> lease.operationId().equals(operation.operationId()))
                 .findFirst()
                 .orElseThrow();
         processor.process(second);
         assertThat(jdbcClient
-                        .sql("SELECT profile_ready FROM registration_operations WHERE id = :id")
-                        .param("id", operation.operationId())
-                        .query(Boolean.class)
-                        .single())
+                .sql("SELECT profile_ready FROM registration_operations WHERE id = :id")
+                .param("id", operation.operationId())
+                .query(Boolean.class)
+                .single())
                 .isTrue();
         assertThat(userRepository.findById(operation.userId()).orElseThrow().getStatus())
                 .isEqualTo(UserStatus.PENDING);
@@ -255,22 +260,24 @@ class RegistrationServiceIntegrationTest {
                 UUID.randomUUID(), new RegisterUserRequest("wallet-" + UUID.randomUUID() + "@example.com", "a"));
         assertThat(leases.claimWallet(UUID.randomUUID(), 100, 30))
                 .noneMatch(lease -> lease.operationId().equals(operation.operationId()));
-        var profileLease = leases.claim(UUID.randomUUID(), 100, 30).stream()
+        var profileLease = leases.claim(UUID.randomUUID(), 100, 30)
+                .stream()
                 .filter(lease -> lease.operationId().equals(operation.operationId()))
                 .findFirst()
                 .orElseThrow();
         assertThat(leases.markProfileReady(profileLease)).isTrue();
-        var walletLease = leases.claimWallet(UUID.randomUUID(), 100, 30).stream()
+        var walletLease = leases.claimWallet(UUID.randomUUID(), 100, 30)
+                .stream()
                 .filter(lease -> lease.operationId().equals(operation.operationId()))
                 .findFirst()
                 .orElseThrow();
         var client = org.mockito.Mockito.mock(CoinsProvisioningClient.class);
         org.mockito.Mockito.doAnswer(invocation -> {
-                    assertThat(org.springframework.transaction.support.TransactionSynchronizationManager
-                                    .isActualTransactionActive())
-                            .isFalse();
-                    return null;
-                })
+            assertThat(org.springframework.transaction.support.TransactionSynchronizationManager
+                    .isActualTransactionActive())
+                    .isFalse();
+            return null;
+        })
                 .when(client)
                 .ensureWallet(
                         org.mockito.ArgumentMatchers.any(),
@@ -278,19 +285,19 @@ class RegistrationServiceIntegrationTest {
                         org.mockito.ArgumentMatchers.eq(operation.userId()));
         new CoinsProvisioningProcessor(client, leases).process(walletLease);
         assertThat(jdbcClient
-                        .sql("SELECT profile_ready AND wallet_ready FROM registration_operations WHERE id = :id")
-                        .param("id", operation.operationId())
-                        .query(Boolean.class)
-                        .single())
+                .sql("SELECT profile_ready AND wallet_ready FROM registration_operations WHERE id = :id")
+                .param("id", operation.operationId())
+                .query(Boolean.class)
+                .single())
                 .isTrue();
         assertThat(leases.markWalletReady(walletLease)).isFalse();
         assertThat(userRepository.findById(operation.userId()).orElseThrow().getStatus())
                 .isEqualTo(UserStatus.ACTIVE);
         assertThat(jdbcClient
-                        .sql("SELECT status FROM registration_operations WHERE id = :id")
-                        .param("id", operation.operationId())
-                        .query(String.class)
-                        .single())
+                .sql("SELECT status FROM registration_operations WHERE id = :id")
+                .param("id", operation.operationId())
+                .query(String.class)
+                .single())
                 .isEqualTo("COMPLETED");
     }
 
@@ -298,12 +305,14 @@ class RegistrationServiceIntegrationTest {
     void walletCompletionRollsBackWhenUserCannotBeActivated() {
         var operation = registrationService.start(
                 UUID.randomUUID(), new RegisterUserRequest("disabled-" + UUID.randomUUID() + "@example.com", "a"));
-        var profileLease = leases.claim(UUID.randomUUID(), 100, 30).stream()
+        var profileLease = leases.claim(UUID.randomUUID(), 100, 30)
+                .stream()
                 .filter(lease -> lease.operationId().equals(operation.operationId()))
                 .findFirst()
                 .orElseThrow();
         assertThat(leases.markProfileReady(profileLease)).isTrue();
-        var walletLease = leases.claimWallet(UUID.randomUUID(), 100, 30).stream()
+        var walletLease = leases.claimWallet(UUID.randomUUID(), 100, 30)
+                .stream()
                 .filter(lease -> lease.operationId().equals(operation.operationId()))
                 .findFirst()
                 .orElseThrow();
@@ -314,11 +323,11 @@ class RegistrationServiceIntegrationTest {
         assertThatThrownBy(() -> leases.markWalletReady(walletLease))
                 .hasRootCauseInstanceOf(IllegalStateException.class);
         assertThat(jdbcClient
-                        .sql(
-                                "SELECT status = 'PENDING' AND NOT wallet_ready FROM registration_operations WHERE id = :id")
-                        .param("id", operation.operationId())
-                        .query(Boolean.class)
-                        .single())
+                .sql(
+                        "SELECT status = 'PENDING' AND NOT wallet_ready FROM registration_operations WHERE id = :id")
+                .param("id", operation.operationId())
+                .query(Boolean.class)
+                .single())
                 .isTrue();
     }
 
@@ -328,12 +337,14 @@ class RegistrationServiceIntegrationTest {
                 UUID.randomUUID(), new RegisterUserRequest("session-" + UUID.randomUUID() + "@example.com", "a"));
         assertThatThrownBy(() -> sessionService.create(operation.operationId(), "a"))
                 .isInstanceOf(RegistrationNotReadyException.class);
-        var profileLease = leases.claim(UUID.randomUUID(), 100, 30).stream()
+        var profileLease = leases.claim(UUID.randomUUID(), 100, 30)
+                .stream()
                 .filter(lease -> lease.operationId().equals(operation.operationId()))
                 .findFirst()
                 .orElseThrow();
         leases.markProfileReady(profileLease);
-        var walletLease = leases.claimWallet(UUID.randomUUID(), 100, 30).stream()
+        var walletLease = leases.claimWallet(UUID.randomUUID(), 100, 30)
+                .stream()
                 .filter(lease -> lease.operationId().equals(operation.operationId()))
                 .findFirst()
                 .orElseThrow();
@@ -344,17 +355,17 @@ class RegistrationServiceIntegrationTest {
         var second = sessionService.create(operation.operationId(), "a");
         assertThat(first.sessionId()).isNotEqualTo(second.sessionId());
         assertThat(jdbcClient
-                        .sql(
-                                "SELECT count(*) FROM auth_sessions WHERE registration_operation_id = :id AND revoked_at IS NULL")
-                        .param("id", operation.operationId())
-                        .query(Integer.class)
-                        .single())
+                .sql(
+                        "SELECT count(*) FROM auth_sessions WHERE registration_operation_id = :id AND revoked_at IS NULL")
+                .param("id", operation.operationId())
+                .query(Integer.class)
+                .single())
                 .isEqualTo(1);
         assertThat(jdbcClient
-                        .sql("SELECT revoked_at IS NOT NULL FROM auth_sessions WHERE id = :id")
-                        .param("id", first.sessionId())
-                        .query(Boolean.class)
-                        .single())
+                .sql("SELECT revoked_at IS NOT NULL FROM auth_sessions WHERE id = :id")
+                .param("id", first.sessionId())
+                .query(Boolean.class)
+                .single())
                 .isTrue();
         String[] parts = second.refreshToken().split("\\.");
         assertThat(parts).hasSize(2);
@@ -373,12 +384,14 @@ class RegistrationServiceIntegrationTest {
     void tokenSigningFailureRollsBackSessionAndKeepsPreviousSession() {
         var operation = registrationService.start(
                 UUID.randomUUID(), new RegisterUserRequest("tokens-" + UUID.randomUUID() + "@example.com", "a"));
-        var profileLease = leases.claim(UUID.randomUUID(), 100, 30).stream()
+        var profileLease = leases.claim(UUID.randomUUID(), 100, 30)
+                .stream()
                 .filter(lease -> lease.operationId().equals(operation.operationId()))
                 .findFirst()
                 .orElseThrow();
         leases.markProfileReady(profileLease);
-        var walletLease = leases.claimWallet(UUID.randomUUID(), 100, 30).stream()
+        var walletLease = leases.claimWallet(UUID.randomUUID(), 100, 30)
+                .stream()
                 .filter(lease -> lease.operationId().equals(operation.operationId()))
                 .findFirst()
                 .orElseThrow();
@@ -386,24 +399,24 @@ class RegistrationServiceIntegrationTest {
         var previous = sessionService.create(operation.operationId(), "a");
         var signer = org.mockito.Mockito.mock(AccessTokenSigner.class);
         org.mockito.Mockito.when(signer.sign(
-                        org.mockito.ArgumentMatchers.any(),
-                        org.mockito.ArgumentMatchers.any(),
-                        org.mockito.ArgumentMatchers.any()))
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any()))
                 .thenThrow(new IllegalStateException("signing failed"));
         var service = new RegistrationTokenService(sessionService, signer);
         assertThatThrownBy(() -> transactionTemplate.execute(status -> service.create(operation.operationId(), "a")))
                 .isInstanceOf(IllegalStateException.class);
         assertThat(jdbcClient
-                        .sql("SELECT count(*) FROM auth_sessions WHERE registration_operation_id = :id")
-                        .param("id", operation.operationId())
-                        .query(Integer.class)
-                        .single())
+                .sql("SELECT count(*) FROM auth_sessions WHERE registration_operation_id = :id")
+                .param("id", operation.operationId())
+                .query(Integer.class)
+                .single())
                 .isEqualTo(1);
         assertThat(jdbcClient
-                        .sql("SELECT revoked_at IS NULL FROM auth_sessions WHERE id = :id")
-                        .param("id", previous.sessionId())
-                        .query(Boolean.class)
-                        .single())
+                .sql("SELECT revoked_at IS NULL FROM auth_sessions WHERE id = :id")
+                .param("id", previous.sessionId())
+                .query(Boolean.class)
+                .single())
                 .isTrue();
     }
 
@@ -430,8 +443,8 @@ class RegistrationServiceIntegrationTest {
         assertThat(sessionVerification.check(UUID.randomUUID(), session).active())
                 .isFalse();
         assertThat(sessionVerification
-                        .check(operation.userId(), UUID.randomUUID())
-                        .active())
+                .check(operation.userId(), UUID.randomUUID())
+                .active())
                 .isFalse();
         jdbcClient
                 .sql("UPDATE auth_sessions SET revoked_at=clock_timestamp() WHERE id=:id")
@@ -462,7 +475,8 @@ class RegistrationServiceIntegrationTest {
     void blockedRegistrationCanBeResumedOnlyOnceWithAudit() throws Exception {
         var operation = registrationService.start(
                 UUID.randomUUID(), new RegisterUserRequest("recover-" + UUID.randomUUID() + "@example.com", "a"));
-        var lease = leases.claim(UUID.randomUUID(), 100, 30).stream()
+        var lease = leases.claim(UUID.randomUUID(), 100, 30)
+                .stream()
                 .filter(item -> item.operationId().equals(operation.operationId()))
                 .findFirst()
                 .orElseThrow();
@@ -500,12 +514,12 @@ class RegistrationServiceIntegrationTest {
         assertThat(restored.lastErrorCode()).isNull();
         assertThat(restored.version()).isEqualTo(blocked.version() + 1);
         assertThat(jdbcClient
-                        .sql("SELECT count(*) FROM registration_recovery_audit WHERE operation_id=:id "
-                                + "AND actor_user_id=:actor AND previous_error_code='COINS_PERMISSION_DENIED'")
-                        .param("id", operation.operationId())
-                        .param("actor", actor)
-                        .query(Integer.class)
-                        .single())
+                .sql("SELECT count(*) FROM registration_recovery_audit WHERE operation_id=:id "
+                        + "AND actor_user_id=:actor AND previous_error_code='COINS_PERMISSION_DENIED'")
+                .param("id", operation.operationId())
+                .param("actor", actor)
+                .query(Integer.class)
+                .single())
                 .isEqualTo(1);
         assertThat(leases.markProfileReady(lease)).isFalse();
         assertThatThrownBy(() -> recovery.resume(operation.operationId(), actor, restored.version(), " "))
@@ -516,14 +530,15 @@ class RegistrationServiceIntegrationTest {
     void auditFailureRollsBackRecovery() {
         var operation = registrationService.start(
                 UUID.randomUUID(), new RegisterUserRequest("audit-" + UUID.randomUUID() + "@example.com", "a"));
-        var lease = leases.claim(UUID.randomUUID(), 100, 30).stream()
+        var lease = leases.claim(UUID.randomUUID(), 100, 30)
+                .stream()
                 .filter(item -> item.operationId().equals(operation.operationId()))
                 .findFirst()
                 .orElseThrow();
         leases.recordFailure(lease, false, "ACCOUNTS_PERMISSION_DENIED");
         var before = recovery.read(operation.operationId());
         assertThatThrownBy(() -> recovery.resume(
-                        operation.operationId(), UUID.randomUUID(), before.version(), "invalid\u0000text"))
+                operation.operationId(), UUID.randomUUID(), before.version(), "invalid\u0000text"))
                 .isInstanceOf(org.springframework.dao.DataAccessException.class);
         var after = recovery.read(operation.operationId());
         assertThat(after.recoveryBlockedAt()).isEqualTo(before.recoveryBlockedAt());
@@ -546,39 +561,39 @@ class RegistrationServiceIntegrationTest {
                 .query(String.class)
                 .single();
         mockMvc.perform(post("/api/v1/auth/login")
-                        .contentType(APPLICATION_JSON)
-                        .content("{\"email\":\"" + email + "\",\"password\":\"wrong\"}"))
+                .contentType(APPLICATION_JSON)
+                .content("{\"email\":\"" + email + "\",\"password\":\"wrong\"}"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.error.code").value("invalid_credentials"));
         mockMvc.perform(post("/api/v1/auth/login")
-                        .contentType(APPLICATION_JSON)
-                        .content("{\"email\":\"unknown@example.com\",\"password\":\"wrong\"}"))
+                .contentType(APPLICATION_JSON)
+                .content("{\"email\":\"unknown@example.com\",\"password\":\"wrong\"}"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.error.code").value("invalid_credentials"));
         assertThat(jdbcClient
-                        .sql(
-                                "SELECT next_retry_at > clock_timestamp()+interval '30 minutes' FROM registration_operations WHERE id=:id")
-                        .param("id", operation.operationId())
-                        .query(Boolean.class)
-                        .single())
+                .sql(
+                        "SELECT next_retry_at > clock_timestamp()+interval '30 minutes' FROM registration_operations WHERE id=:id")
+                .param("id", operation.operationId())
+                .query(Boolean.class)
+                .single())
                 .isTrue();
         mockMvc.perform(post("/api/v1/auth/login")
-                        .contentType(APPLICATION_JSON)
-                        .content("{\"email\":\"" + email + "\",\"password\":\"a\"}"))
+                .contentType(APPLICATION_JSON)
+                .content("{\"email\":\"" + email + "\",\"password\":\"a\"}"))
                 .andExpect(status().isServiceUnavailable())
                 .andExpect(jsonPath("$.error.code").value("registration_pending"))
                 .andExpect(jsonPath("$.access_token").doesNotExist());
         assertThat(jdbcClient
-                        .sql("SELECT next_retry_at <= clock_timestamp() FROM registration_operations WHERE id=:id")
-                        .param("id", operation.operationId())
-                        .query(Boolean.class)
-                        .single())
+                .sql("SELECT next_retry_at <= clock_timestamp() FROM registration_operations WHERE id=:id")
+                .param("id", operation.operationId())
+                .query(Boolean.class)
+                .single())
                 .isTrue();
         assertThat(jdbcClient
-                        .sql("SELECT encode(idempotency_key_digest,'hex') FROM registration_operations WHERE id=:id")
-                        .param("id", operation.operationId())
-                        .query(String.class)
-                        .single())
+                .sql("SELECT encode(idempotency_key_digest,'hex') FROM registration_operations WHERE id=:id")
+                .param("id", operation.operationId())
+                .query(String.class)
+                .single())
                 .isEqualTo(before);
         jdbcClient
                 .sql("UPDATE registration_operations SET next_retry_at=clock_timestamp()+interval '1 hour', "
@@ -586,16 +601,16 @@ class RegistrationServiceIntegrationTest {
                 .param("id", operation.operationId())
                 .update();
         mockMvc.perform(post("/api/v1/auth/login")
-                        .contentType(APPLICATION_JSON)
-                        .content("{\"email\":\"" + email + "\",\"password\":\"a\"}"))
+                .contentType(APPLICATION_JSON)
+                .content("{\"email\":\"" + email + "\",\"password\":\"a\"}"))
                 .andExpect(status().isServiceUnavailable())
                 .andExpect(jsonPath("$.error.code").value("registration_pending"));
         assertThat(jdbcClient
-                        .sql(
-                                "SELECT next_retry_at > clock_timestamp()+interval '30 minutes' FROM registration_operations WHERE id=:id")
-                        .param("id", operation.operationId())
-                        .query(Boolean.class)
-                        .single())
+                .sql(
+                        "SELECT next_retry_at > clock_timestamp()+interval '30 minutes' FROM registration_operations WHERE id=:id")
+                .param("id", operation.operationId())
+                .query(Boolean.class)
+                .single())
                 .isTrue();
         jdbcClient
                 .sql("UPDATE registration_operations SET recovery_blocked_at=NULL, lease_owner=:owner, "
@@ -604,15 +619,15 @@ class RegistrationServiceIntegrationTest {
                 .param("id", operation.operationId())
                 .update();
         mockMvc.perform(post("/api/v1/auth/login")
-                        .contentType(APPLICATION_JSON)
-                        .content("{\"email\":\"" + email + "\",\"password\":\"a\"}"))
+                .contentType(APPLICATION_JSON)
+                .content("{\"email\":\"" + email + "\",\"password\":\"a\"}"))
                 .andExpect(status().isServiceUnavailable());
         assertThat(jdbcClient
-                        .sql(
-                                "SELECT next_retry_at > clock_timestamp()+interval '30 minutes' FROM registration_operations WHERE id=:id")
-                        .param("id", operation.operationId())
-                        .query(Boolean.class)
-                        .single())
+                .sql(
+                        "SELECT next_retry_at > clock_timestamp()+interval '30 minutes' FROM registration_operations WHERE id=:id")
+                .param("id", operation.operationId())
+                .query(Boolean.class)
+                .single())
                 .isTrue();
     }
 
@@ -633,19 +648,19 @@ class RegistrationServiceIntegrationTest {
                 .isInstanceOf(LoginCredentialsChangedException.class);
         var signer = org.mockito.Mockito.mock(AccessTokenSigner.class);
         org.mockito.Mockito.when(signer.sign(
-                        org.mockito.ArgumentMatchers.any(),
-                        org.mockito.ArgumentMatchers.any(),
-                        org.mockito.ArgumentMatchers.any()))
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any()))
                 .thenThrow(new IllegalStateException("signing failed"));
         var service = new RegistrationTokenService(sessionService, signer);
-        assertThatThrownBy(() ->
-                        transactionTemplate.execute(status -> service.createLogin(operation.userId(), hash, null)))
+        assertThatThrownBy(
+                () -> transactionTemplate.execute(status -> service.createLogin(operation.userId(), hash, null)))
                 .isInstanceOf(IllegalStateException.class);
         assertThat(jdbcClient
-                        .sql("SELECT count(*) FROM auth_sessions WHERE user_id=:id")
-                        .param("id", operation.userId())
-                        .query(Integer.class)
-                        .single())
+                .sql("SELECT count(*) FROM auth_sessions WHERE user_id=:id")
+                .param("id", operation.userId())
+                .query(Integer.class)
+                .single())
                 .isZero();
         jdbcClient
                 .sql("UPDATE users SET status='DISABLED' WHERE id=:id")
@@ -672,18 +687,18 @@ class RegistrationServiceIntegrationTest {
         var session = sessionService.createLogin(operation.userId(), hash, null);
         var signer = org.mockito.Mockito.mock(AccessTokenSigner.class);
         org.mockito.Mockito.when(signer.sign(
-                        org.mockito.ArgumentMatchers.any(),
-                        org.mockito.ArgumentMatchers.any(),
-                        org.mockito.ArgumentMatchers.any()))
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any()))
                 .thenThrow(new IllegalStateException("signing failed"));
-        var refresh = new RefreshTokenService(jdbcClient, signer);
+        var refresh = new RefreshTokenService(refreshTokenRepository, signer);
         assertThatThrownBy(() -> transactionTemplate.execute(status -> refresh.refresh(session.refreshToken())))
                 .isInstanceOf(IllegalStateException.class);
         assertThat(jdbcClient
-                        .sql("SELECT count(*) FROM refresh_tokens WHERE session_id=:id AND used_at IS NULL")
-                        .param("id", session.sessionId())
-                        .query(Integer.class)
-                        .single())
+                .sql("SELECT count(*) FROM refresh_tokens WHERE session_id=:id AND used_at IS NULL")
+                .param("id", session.sessionId())
+                .query(Integer.class)
+                .single())
                 .isEqualTo(1);
         jdbcClient
                 .sql("UPDATE auth_sessions SET created_at=clock_timestamp()-interval '2 days', "
@@ -699,23 +714,24 @@ class RegistrationServiceIntegrationTest {
     void retryAndPermanentFailureRespectLeaseAndScheduling() {
         var operation = registrationService.start(
                 UUID.randomUUID(), new RegisterUserRequest("retry-" + UUID.randomUUID() + "@example.com", "a"));
-        var first = leases.claim(UUID.randomUUID(), 100, 30).stream()
+        var first = leases.claim(UUID.randomUUID(), 100, 30)
+                .stream()
                 .filter(lease -> lease.operationId().equals(operation.operationId()))
                 .findFirst()
                 .orElseThrow();
         assertThat(leases.recordFailure(first, true, "ACCOUNTS_UNAVAILABLE")).isTrue();
         assertThat(leases.recordFailure(first, true, "ACCOUNTS_UNAVAILABLE")).isFalse();
         assertThat(jdbcClient
-                        .sql("SELECT retry_count FROM registration_operations WHERE id = :id")
-                        .param("id", operation.operationId())
-                        .query(Integer.class)
-                        .single())
+                .sql("SELECT retry_count FROM registration_operations WHERE id = :id")
+                .param("id", operation.operationId())
+                .query(Integer.class)
+                .single())
                 .isEqualTo(1);
         assertThat(jdbcClient
-                        .sql("SELECT next_retry_at > clock_timestamp() FROM registration_operations WHERE id = :id")
-                        .param("id", operation.operationId())
-                        .query(Boolean.class)
-                        .single())
+                .sql("SELECT next_retry_at > clock_timestamp() FROM registration_operations WHERE id = :id")
+                .param("id", operation.operationId())
+                .query(Boolean.class)
+                .single())
                 .isTrue();
         assertThat(leases.claim(UUID.randomUUID(), 100, 30))
                 .noneMatch(l -> l.operationId().equals(operation.operationId()));
@@ -723,17 +739,18 @@ class RegistrationServiceIntegrationTest {
                 .sql("UPDATE registration_operations SET next_retry_at = clock_timestamp() WHERE id = :id")
                 .param("id", operation.operationId())
                 .update();
-        var second = leases.claim(UUID.randomUUID(), 100, 30).stream()
+        var second = leases.claim(UUID.randomUUID(), 100, 30)
+                .stream()
                 .filter(lease -> lease.operationId().equals(operation.operationId()))
                 .findFirst()
                 .orElseThrow();
         assertThat(leases.recordFailure(second, false, "ACCOUNTS_PERMISSION_DENIED"))
                 .isTrue();
         assertThat(jdbcClient
-                        .sql("SELECT recovery_blocked_at IS NOT NULL FROM registration_operations WHERE id = :id")
-                        .param("id", operation.operationId())
-                        .query(Boolean.class)
-                        .single())
+                .sql("SELECT recovery_blocked_at IS NOT NULL FROM registration_operations WHERE id = :id")
+                .param("id", operation.operationId())
+                .query(Boolean.class)
+                .single())
                 .isTrue();
         assertThat(leases.claim(UUID.randomUUID(), 100, 30))
                 .noneMatch(l -> l.operationId().equals(operation.operationId()));
@@ -741,9 +758,10 @@ class RegistrationServiceIntegrationTest {
 
     @Test
     void expiredLeaseCannotCompleteAfterAnotherWorkerClaims() {
-        var operation =
-                registrationService.start(UUID.randomUUID(), new RegisterUserRequest("lease-test@example.com", "a"));
-        var first = leases.claim(UUID.randomUUID(), 20, 30).stream()
+        var operation = registrationService.start(UUID.randomUUID(),
+                new RegisterUserRequest("lease-test@example.com", "a"));
+        var first = leases.claim(UUID.randomUUID(), 20, 30)
+                .stream()
                 .filter(lease -> lease.operationId().equals(operation.operationId()))
                 .findFirst()
                 .orElseThrow();
@@ -752,7 +770,8 @@ class RegistrationServiceIntegrationTest {
                         "UPDATE registration_operations SET lease_until = clock_timestamp() - interval '1 second' WHERE id = :id")
                 .param("id", operation.operationId())
                 .update();
-        var second = leases.claim(UUID.randomUUID(), 20, 30).stream()
+        var second = leases.claim(UUID.randomUUID(), 20, 30)
+                .stream()
                 .filter(lease -> lease.operationId().equals(operation.operationId()))
                 .findFirst()
                 .orElseThrow();
@@ -764,12 +783,11 @@ class RegistrationServiceIntegrationTest {
     @Test
     void createsPendingUserWithArgon2idHashAndUserRole() {
         UUID idempotencyKey = UUID.randomUUID();
-        RegistrationService.RegistrationStartResult result =
-                registrationService.start(idempotencyKey, new RegisterUserRequest(" Anna@Example.com ", "a"));
+        RegistrationStartResult result = registrationService.start(idempotencyKey,
+                new RegisterUserRequest(" Anna@Example.com ", "a"));
 
         UserEntity user = userRepository.findById(result.userId()).orElseThrow();
-        UserCredentialEntity credentials =
-                userCredentialRepository.findById(result.userId()).orElseThrow();
+        UserCredentialEntity credentials = userCredentialRepository.findById(result.userId()).orElseThrow();
 
         assertThat(user.getEmailCanonical()).isEqualTo("anna@example.com");
         assertThat(user.getStatus()).isEqualTo(UserStatus.PENDING);
@@ -786,18 +804,18 @@ class RegistrationServiceIntegrationTest {
         String request = "{\"email\":\"http@example.com\",\"password\":\"a\"}";
 
         mockMvc.perform(post("/api/v1/auth/register")
-                        .header("Idempotency-Key", key)
-                        .contentType(APPLICATION_JSON)
-                        .content(request))
+                .header("Idempotency-Key", key)
+                .contentType(APPLICATION_JSON)
+                .content(request))
                 .andExpect(status().isServiceUnavailable())
                 .andExpect(header().exists("X-Request-Id"))
                 .andExpect(jsonPath("$.error.code").value("registration_unavailable"))
                 .andExpect(jsonPath("$.error.request_id").isNotEmpty());
 
         mockMvc.perform(post("/api/v1/auth/register")
-                        .header("Idempotency-Key", key)
-                        .contentType(APPLICATION_JSON)
-                        .content(request))
+                .header("Idempotency-Key", key)
+                .contentType(APPLICATION_JSON)
+                .content(request))
                 .andExpect(status().isServiceUnavailable());
 
         assertThat(userRepository.findByEmailCanonical("http@example.com")).isPresent();
@@ -807,22 +825,22 @@ class RegistrationServiceIntegrationTest {
     @Test
     void rejectsMissingInvalidOrEmptyRegistrationInput() throws Exception {
         mockMvc.perform(post("/api/v1/auth/register")
-                        .contentType(APPLICATION_JSON)
-                        .content("{}"))
+                .contentType(APPLICATION_JSON)
+                .content("{}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error.code").value("invalid_request"));
 
         mockMvc.perform(post("/api/v1/auth/register")
-                        .header("Idempotency-Key", "not-a-uuid")
-                        .contentType(APPLICATION_JSON)
-                        .content("{\"email\":\"invalid@example.com\",\"password\":\"a\"}"))
+                .header("Idempotency-Key", "not-a-uuid")
+                .contentType(APPLICATION_JSON)
+                .content("{\"email\":\"invalid@example.com\",\"password\":\"a\"}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error.code").value("invalid_request"));
 
         mockMvc.perform(post("/api/v1/auth/register")
-                        .header("Idempotency-Key", UUID.randomUUID().toString())
-                        .contentType(APPLICATION_JSON)
-                        .content("{\"email\":\"empty@example.com\",\"password\":\"\"}"))
+                .header("Idempotency-Key", UUID.randomUUID().toString())
+                .contentType(APPLICATION_JSON)
+                .content("{\"email\":\"empty@example.com\",\"password\":\"\"}"))
                 .andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.error.code").value("validation_error"))
                 .andExpect(jsonPath("$.error.details[0].field").value("password"));
@@ -833,9 +851,9 @@ class RegistrationServiceIntegrationTest {
         long usersBefore = userRepository.count();
         for (String key : List.of("1-1-4000-8000-1", "00000000-0000-4000-c000-000000000000")) {
             mockMvc.perform(post("/api/v1/auth/register")
-                            .header("Idempotency-Key", key)
-                            .contentType(APPLICATION_JSON)
-                            .content("{\"email\":\"key-test@example.com\",\"password\":\"a\"}"))
+                    .header("Idempotency-Key", key)
+                    .contentType(APPLICATION_JSON)
+                    .content("{\"email\":\"key-test@example.com\",\"password\":\"a\"}"))
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.error.code").value("invalid_request"));
         }
@@ -848,9 +866,9 @@ class RegistrationServiceIntegrationTest {
         String body = "{\"email\":\"uppercase-key@example.com\",\"password\":\"a\"}";
         for (String value : List.of(key.toUpperCase(java.util.Locale.ROOT), key)) {
             mockMvc.perform(post("/api/v1/auth/register")
-                            .header("Idempotency-Key", value)
-                            .contentType(APPLICATION_JSON)
-                            .content(body))
+                    .header("Idempotency-Key", value)
+                    .contentType(APPLICATION_JSON)
+                    .content(body))
                     .andExpect(status().isServiceUnavailable());
         }
         assertThat(userCount("uppercase-key@example.com")).isEqualTo(1);
@@ -861,9 +879,9 @@ class RegistrationServiceIntegrationTest {
         long usersBefore = userRepository.count();
         for (String email : List.of("a@@b", "a@b@c", "@ab", "ab@", "\u212a@a")) {
             mockMvc.perform(post("/api/v1/auth/register")
-                            .header("Idempotency-Key", UUID.randomUUID().toString())
-                            .contentType(APPLICATION_JSON)
-                            .content("{\"email\":\"" + email + "\",\"password\":\"a\"}"))
+                    .header("Idempotency-Key", UUID.randomUUID().toString())
+                    .contentType(APPLICATION_JSON)
+                    .content("{\"email\":\"" + email + "\",\"password\":\"a\"}"))
                     .andExpect(status().isUnprocessableEntity())
                     .andExpect(jsonPath("$.error.code").value("validation_error"))
                     .andExpect(jsonPath("$.error.details[0].field").value("email"));
@@ -881,8 +899,8 @@ class RegistrationServiceIntegrationTest {
         appender.start();
         logger.addAppender(appender);
         try {
-            assertThatThrownBy(() ->
-                            userRepository.saveAndFlush(new UserEntity(UUID.randomUUID(), email, UserStatus.PENDING)))
+            assertThatThrownBy(
+                    () -> userRepository.saveAndFlush(new UserEntity(UUID.randomUUID(), email, UserStatus.PENDING)))
                     .isInstanceOf(DataIntegrityViolationException.class);
 
             assertThat(appender.list)
@@ -900,11 +918,11 @@ class RegistrationServiceIntegrationTest {
         UUID key = UUID.randomUUID();
         synchronizePasswordEncoding();
         try (ExecutorService executor = Executors.newFixedThreadPool(2)) {
-            CompletableFuture<RegistrationService.RegistrationStartResult> first = CompletableFuture.supplyAsync(
+            CompletableFuture<RegistrationStartResult> first = CompletableFuture.supplyAsync(
                     () -> registrationService.start(
                             key, new RegisterUserRequest("same-key@example.com", "race-password")),
                     executor);
-            CompletableFuture<RegistrationService.RegistrationStartResult> second = CompletableFuture.supplyAsync(
+            CompletableFuture<RegistrationStartResult> second = CompletableFuture.supplyAsync(
                     () -> registrationService.start(
                             key, new RegisterUserRequest("same-key@example.com", "race-password")),
                     executor);
@@ -918,19 +936,19 @@ class RegistrationServiceIntegrationTest {
     void handlesConcurrentRequestsWithDifferentKeysAndSameEmail() throws Exception {
         synchronizePasswordEncoding();
         try (ExecutorService executor = Executors.newFixedThreadPool(2)) {
-            CompletableFuture<RegistrationService.RegistrationStartResult> first = CompletableFuture.supplyAsync(
+            CompletableFuture<RegistrationStartResult> first = CompletableFuture.supplyAsync(
                     () -> registrationService.start(
                             UUID.randomUUID(), new RegisterUserRequest("same-email@example.com", "race-password")),
                     executor);
-            CompletableFuture<RegistrationService.RegistrationStartResult> second = CompletableFuture.supplyAsync(
+            CompletableFuture<RegistrationStartResult> second = CompletableFuture.supplyAsync(
                     () -> registrationService.start(
                             UUID.randomUUID(), new RegisterUserRequest("same-email@example.com", "race-password")),
                     executor);
 
-            List<CompletableFuture<RegistrationService.RegistrationStartResult>> results = List.of(first, second);
+            List<CompletableFuture<RegistrationStartResult>> results = List.of(first, second);
             int successfulRequests = 0;
             int conflictingRequests = 0;
-            for (CompletableFuture<RegistrationService.RegistrationStartResult> result : results) {
+            for (CompletableFuture<RegistrationStartResult> result : results) {
                 try {
                     result.get();
                     successfulRequests++;
@@ -948,9 +966,9 @@ class RegistrationServiceIntegrationTest {
     private void synchronizePasswordEncoding() {
         var barrier = new CyclicBarrier(2);
         org.mockito.Mockito.doAnswer(invocation -> {
-                    barrier.await(15, TimeUnit.SECONDS);
-                    return invocation.callRealMethod();
-                })
+            barrier.await(15, TimeUnit.SECONDS);
+            return invocation.callRealMethod();
+        })
                 .when(passwordEncoder)
                 .encode("race-password");
     }

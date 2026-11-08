@@ -11,5 +11,6 @@ public record ApiErrorResponse(Error error) {
         }
     }
 
-    public record ErrorDetail(String field, String code) {}
+    public record ErrorDetail(String field, String code) {
+    }
 }

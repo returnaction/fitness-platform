@@ -4,10 +4,10 @@ This root file applies to the entire repository, including the
 [System Design documentation](system-design/README.md). More specific
 instructions in nested directories supplement the root instructions.
 
-## Active SDD Scope: 001-user-registration
+## Active SDD Scope: 002-identity-structure
 
 Until the user explicitly changes the scope, a request to continue development
-means continuing [001-user-registration](specs/001-user-registration/spec.md).
+means continuing [002-identity-structure](specs/002-identity-structure/spec.md).
 Do not start implementing another feature or a system-design roadmap item just
 because it exists in the documentation. When the specification is complete or
 all remaining tasks are blocked, report the status and ask the user what to do
@@ -15,9 +15,9 @@ next rather than choosing a different feature.
 
 Before each development step:
 
-1. Read the current [task list](specs/001-user-registration/tasks.md),
-   [specification](specs/001-user-registration/spec.md), and
-   [plan](specs/001-user-registration/plan.md). Identify an open task, its
+1. Read the current [task list](specs/002-identity-structure/tasks.md),
+   [specification](specs/002-identity-structure/spec.md), and
+   [plan](specs/002-identity-structure/plan.md). Identify an open task, its
    acceptance criteria, and any dependencies. Respect an explicit user request
    and the current branch; do not assume the first unchecked item is always
    actionable.

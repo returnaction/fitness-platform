@@ -12,17 +12,22 @@ import java.util.List;
 import javax.net.ssl.SSLPeerUnverifiedException;
 import javax.net.ssl.SSLSession;
 
-/** Разрешает provisioning только service identity Identity из проверенного TLS-сертификата. */
+/**
+ * Разрешает provisioning только service identity Identity из проверенного
+ * TLS-сертификата.
+ */
 public final class IdentityAuthorizationInterceptor implements ServerInterceptor {
     private static final String IDENTITY = "spiffe://fitness.local/identity-service";
 
     @Override
     public <ReqT, RespT> ServerCall.Listener<ReqT> interceptCall(
-            ServerCall<ReqT, RespT> call, Metadata headers, ServerCallHandler<ReqT, RespT> next) {
+                                                                 ServerCall<ReqT, RespT> call, Metadata headers,
+                                                                 ServerCallHandler<ReqT, RespT> next) {
         SSLSession session = call.getAttributes().get(Grpc.TRANSPORT_ATTR_SSL_SESSION);
         if (!authorized(session)) {
             call.close(Status.PERMISSION_DENIED.withDescription("Service identity is not authorized"), new Metadata());
-            return new ServerCall.Listener<>() {};
+            return new ServerCall.Listener<>() {
+            };
         }
         return next.startCall(call, headers);
     }
