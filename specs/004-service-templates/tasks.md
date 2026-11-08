@@ -22,7 +22,7 @@
 
 | Задача | Ветка | Pull Request | Статус |
 | --- | --- | --- | --- |
-| Заготовки сервисов | `24-service-templates` | — | в работе |
+| Заготовки сервисов | `24-service-templates` | [#26](https://github.com/returnaction/fitness-platform/pull/26) | Влит в `main` |
 
 ## Результаты проверок
 
