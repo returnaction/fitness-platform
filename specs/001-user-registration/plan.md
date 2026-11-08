@@ -1,7 +1,7 @@
 # План реализации: регистрация пользователя
 
 > **Спецификация:** [spec.md](spec.md)  
-> **Статус:** approved
+> **Статус:** implemented (локальный сценарий)
 > **Связанные документы system-design:** [регистрация Identity](../../system-design/services/identity/30-identity-registration.md), [сессии Identity](../../system-design/services/identity/31-identity-login-sessions.md), [внутренние контракты](../../system-design/interactions/59-identity-accounts-internal-api.md)
 
 ## Краткое решение
