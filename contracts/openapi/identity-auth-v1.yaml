@@ -3,8 +3,8 @@ info:
   title: Identity API
   version: 1.0.0
   description: |
-    Внешний REST API Identity Service. Этот контракт описывает регистрацию
-    пользователя первой версии и не является API текущего Python-приложения.
+    Внешний REST API Identity Service. Logout-операции помечены как планируемые:
+    они ещё не реализованы. Контракт не является API текущего Python-приложения.
 servers:
   - url: http://localhost:8080
     description: Пример для локальной разработки; реальный адрес задаётся конфигурацией окружения.
@@ -195,7 +195,87 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/auth/logout:
+    post:
+      tags: [Authentication]
+      summary: Завершить сессию по refresh-токену
+      operationId: logoutSession
+      x-implementation-status: planned
+      description: |
+        Планируется в спецификации 003. Независимый лимит: 30 запросов в минуту
+        с IP. После проверки секрета Identity отзывает связанную сессию. Уже
+        использованный refresh с правильным секретом тоже отзывает сессию.
+        Для неизвестного, неверного или уже отозванного токена возвращается
+        тот же 204. Ранее выданный access при локальной проверке может оставаться
+        действительным до истечения своего срока, не более 15 минут.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LogoutRequest'
+            example:
+              refresh_token: example-refresh-token
+      responses:
+        '204':
+          description: Запрос обработан; тело отсутствует. Ответ не раскрывает состояние токена.
+        '400':
+          description: Отсутствует тело запроса или JSON некорректен; код invalid_request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '406':
+          $ref: '#/components/responses/NotAcceptable'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '422':
+          $ref: '#/components/responses/LogoutValidationError'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/IdentityUnavailable'
+  /api/v1/auth/logout-all:
+    post:
+      tags: [Authentication]
+      summary: Завершить все сессии текущего пользователя
+      operationId: logoutAllSessions
+      x-implementation-status: planned
+      description: |
+        Планируется в спецификации 003. Независимый лимит: 30 запросов в минуту
+        с IP. Нужен действующий access-токен и активная сессия. После фиксации
+        отзыва всех сессий, включая текущую, возвращается 204. Повтор с тем же
+        отозванным access-токеном получает 401. Access-токены, ранее выданные
+        другим устройствам, при локальной проверке могут действовать до истечения
+        срока, не более 15 минут. Тело запроса не требуется.
+      security:
+        - BearerAccess: []
+      responses:
+        '204':
+          description: Сессии отозваны; тело отсутствует.
+        '401':
+          description: Отсутствующий, невалидный, истёкший или отозванный access; код invalid_access_token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '406':
+          $ref: '#/components/responses/NotAcceptable'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/IdentityUnavailable'
 components:
+  securitySchemes:
+    BearerAccess:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
   parameters:
     IdempotencyKey:
       name: Idempotency-Key
@@ -209,6 +289,17 @@ components:
         type: string
         format: uuid
   schemas:
+    LogoutRequest:
+      type: object
+      required: [refresh_token]
+      properties:
+        refresh_token:
+          type: string
+          format: password
+          writeOnly: true
+          minLength: 1
+          maxLength: 256
+          description: Непустой refresh-токен. Пустое или отсутствующее поле возвращает 422.
     RegisterRequest:
       type: object
       required: [email, password]
@@ -320,6 +411,18 @@ components:
               type: string
               format: uuid
   responses:
+    LogoutValidationError:
+      description: Поле refresh_token отсутствует, пусто или превышает допустимую длину; код validation_error.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    IdentityUnavailable:
+      description: Identity или база временно недоступны; код identity_unavailable. Успех отзыва не подтверждается.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
     NotAcceptable:
       description: Клиент не принимает application/json. Ответ без тела.
     UnsupportedMediaType:
@@ -369,7 +472,7 @@ components:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
     RateLimited:
-      description: Registration limit exceeded.
+      description: Request rate limit exceeded.
       headers:
         Retry-After:
           description: Seconds until the client can retry.
