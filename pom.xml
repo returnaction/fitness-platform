@@ -55,6 +55,11 @@
         <module>services/identity-service</module>
         <module>services/accounts-service</module>
         <module>services/coins-service</module>
+        <module>services/challenge-service</module>
+        <module>services/video-proof-service</module>
+        <module>services/moderation-service</module>
+        <module>services/exercise-catalog-service</module>
+        <module>services/notifications-service</module>
     </modules>
   <!-- ====================================================================== -->
   <!-- ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ (Версии)                                         -->
