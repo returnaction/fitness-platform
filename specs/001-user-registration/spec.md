@@ -1,6 +1,6 @@
 # Регистрация пользователя
 
-> **Статус:** in-progress
+> **Статус:** implemented
 > **Номер:** 001  
 > **Связанные документы:** [регистрация Identity](../../system-design/services/identity/30-identity-registration.md), [вход и сессии](../../system-design/services/identity/31-identity-login-sessions.md), [профиль Accounts](../../system-design/services/accounts/32-accounts-profile.md), [кошелёк Coins](../../system-design/services/coins/33-coins-wallet-and-reward.md)  
 > **Заменяет / заменена:** —
