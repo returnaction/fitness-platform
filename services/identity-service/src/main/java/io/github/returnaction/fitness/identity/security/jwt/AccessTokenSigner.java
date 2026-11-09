@@ -7,6 +7,7 @@ import com.nimbusds.jose.crypto.ECDSASigner;
 import com.nimbusds.jose.jwk.Curve;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
+import io.github.returnaction.fitness.identity.registration.entity.role.RoleCode;
 import java.security.interfaces.ECPrivateKey;
 import java.time.Clock;
 import java.time.Instant;
@@ -43,9 +44,12 @@ public final class AccessTokenSigner {
         this.clock = Objects.requireNonNull(clock);
     }
 
-    public String sign(UUID userId, UUID sessionId, Instant sessionExpiresAt) {
+    public String sign(UUID userId, UUID sessionId, Instant sessionExpiresAt, List<RoleCode> roles) {
         Objects.requireNonNull(userId);
         Objects.requireNonNull(sessionId);
+        if (roles == null || roles.isEmpty() || roles.stream().anyMatch(Objects::isNull)) {
+            throw new IllegalStateException("Access token requires assigned roles");
+        }
         Instant now = clock.instant().truncatedTo(ChronoUnit.SECONDS);
         Instant expires = Objects.requireNonNull(sessionExpiresAt).truncatedTo(ChronoUnit.SECONDS);
         if (expires.isAfter(now.plusSeconds(900))) {
@@ -59,6 +63,7 @@ public final class AccessTokenSigner {
                 .audience(List.of(audience))
                 .subject(userId.toString())
                 .claim("sid", sessionId.toString())
+                .claim("roles", roles.stream().map(RoleCode::name).toList())
                 .issueTime(Date.from(now))
                 .expirationTime(Date.from(expires))
                 .jwtID(UUID.randomUUID().toString())

@@ -2,6 +2,7 @@ package io.github.returnaction.fitness.identity.session.service;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.returnaction.fitness.identity.security.jwt.AccessTokenSigner;
+import io.github.returnaction.fitness.identity.registration.repository.UserRoleRepository;
 import io.github.returnaction.fitness.identity.session.repository.RefreshTokenRepository;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -20,11 +21,13 @@ public class RefreshTokenService {
     private final RefreshTokenRepository repository;
 
     private final AccessTokenSigner signer;
+    private final UserRoleRepository roles;
     private final SecureRandom random = new SecureRandom();
 
-    public RefreshTokenService(RefreshTokenRepository repository, AccessTokenSigner signer) {
+    public RefreshTokenService(RefreshTokenRepository repository, AccessTokenSigner signer, UserRoleRepository roles) {
         this.repository = repository;
         this.signer = signer;
+        this.roles = roles;
     }
 
     @Transactional
@@ -61,7 +64,8 @@ public class RefreshTokenService {
         random.nextBytes(secret);
         String access;
         try {
-            access = signer.sign(location.userId(), location.sessionId(), session.expiresAt());
+            access = signer.sign(location.userId(), location.sessionId(), session.expiresAt(),
+                    roles.findRoleCodesByUserId(location.userId()));
         } catch (IllegalArgumentException expired) {
             return Result.invalid();
         }

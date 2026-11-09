@@ -2,6 +2,7 @@
 """Проверка регистрации через три процесса и временный PostgreSQL в Docker."""
 
 import argparse
+import base64
 import json
 import os
 from concurrent.futures import ThreadPoolExecutor
@@ -118,6 +119,12 @@ def template(service):
     return result
 
 
+def token_roles(token):
+    # Проверка содержимого уже полученного токена; подпись проверяется Java-тестами.
+    payload = token.split(".")[1]
+    return json.loads(base64.urlsafe_b64decode(payload + "=" * (-len(payload) % 4)))["roles"]
+
+
 def openssl(*args):
     run("openssl", *map(str, args))
 
@@ -191,6 +198,15 @@ def login(port, email, password):
             return response.status, json.load(response)
     except urllib.error.HTTPError as error:
         return error.code, json.load(error)
+
+
+def refresh_session(port, token):
+    request = urllib.request.Request(
+        f"http://127.0.0.1:{port}/api/v1/auth/refresh",
+        data=json.dumps({"refresh_token": token}).encode(),
+        headers={"Content-Type": "application/json"}, method="POST")
+    with urllib.request.urlopen(request, timeout=25) as response:
+        return response.status, json.load(response)
 
 
 def post_auth(port, path, body=None, bearer=None):
@@ -434,6 +450,7 @@ def main():
                 time.sleep(1)
             user = str(uuid.UUID(body["user"]["id"]))
             assert body["user"]["status"] == "ACTIVE" and body["session"]["access_token"]
+            assert token_roles(body["session"]["access_token"]) == ["USER"]
             assert sql(container, "test_identity", f"SELECT count(*) FROM users WHERE id='{user}' AND status='ACTIVE'") == "1"
             assert sql(container, "test_accounts", f"SELECT count(*) FROM user_profiles WHERE user_id='{user}'") == "1"
             assert sql(container, "test_coins", f"SELECT count(*) FROM coin_wallets WHERE user_id='{user}' AND available_balance=0 AND locked_balance=0") == "1"
@@ -484,6 +501,10 @@ def main():
                     assert private not in serialized, "Sensitive input or internal detail leaked in an error"
             fresh_status, fresh = login(ports["identity"], direct_email, TEST_PASSWORD)
             assert fresh_status == 200
+            assert token_roles(fresh["access_token"]) == ["USER"]
+            refresh_status, rotated = refresh_session(ports["identity"], fresh["refresh_token"])
+            assert refresh_status == 200 and token_roles(rotated["access_token"]) == ["USER"]
+            fresh = rotated
             direct_refresh = direct["session"]["refresh_token"]
             assert post_auth(ports["identity"], "logout", {"refresh_token": direct_refresh}) == 204
             assert post_auth(ports["identity"], "refresh", {"refresh_token": direct_refresh}) == 401

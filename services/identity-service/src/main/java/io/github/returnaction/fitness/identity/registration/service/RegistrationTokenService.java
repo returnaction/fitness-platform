@@ -1,6 +1,7 @@
 package io.github.returnaction.fitness.identity.registration.service;
 
 import io.github.returnaction.fitness.identity.security.jwt.AccessTokenSigner;
+import io.github.returnaction.fitness.identity.registration.repository.UserRoleRepository;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -14,18 +15,25 @@ import org.springframework.transaction.annotation.Transactional;
 public class RegistrationTokenService {
     private final RegistrationSessionService sessions;
     private final AccessTokenSigner signer;
+    private final UserRoleRepository roles;
 
     @Transactional
     public Tokens create(UUID operationId, String password) {
-        var session = sessions.create(operationId, password);
-        String access = signer.sign(session.userId(), session.sessionId(), session.expiresAt());
+
+        RegistrationSessionService.IssuedSession session = sessions.create(operationId, password);
+        String access = signer.sign(session.userId(), session.sessionId(), session.expiresAt(),
+                roles.findRoleCodesByUserId(session.userId()));
+
         return new Tokens(access, session.refreshToken());
     }
 
     @Transactional
     public Tokens createLogin(UUID userId, String passwordHash, String upgradedHash) {
-        var session = sessions.createLogin(userId, passwordHash, upgradedHash);
-        String access = signer.sign(session.userId(), session.sessionId(), session.expiresAt());
+
+        RegistrationSessionService.IssuedSession session = sessions.createLogin(userId, passwordHash, upgradedHash);
+        String access = signer.sign(session.userId(), session.sessionId(), session.expiresAt(),
+                roles.findRoleCodesByUserId(session.userId()));
+
         return new Tokens(access, session.refreshToken());
     }
 
