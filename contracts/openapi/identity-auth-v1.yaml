@@ -4,6 +4,16 @@ info:
   version: 1.0.0
   description: |
     Внешний REST API Identity Service. Контракт не является API Python-приложения.
+    Access JWT содержит claim `roles`: массив только фактически назначенных ролей,
+    например `["USER", "ADMIN"]`. Наследование прав не расширяет этот массив.
+    При регистрации, входе и refresh роли читаются заново; ранее выданный токен
+    может сохранять прежние роли до окончания срока действия (не более 15 минут).
+    Старый токен без `roles` не предоставляет прав по роли. Потребитель обязан
+    проверить подпись и параметры токена перед использованием claim. Иерархия
+    доступа: SUPER_ADMIN > ADMIN > MODERATOR > USER. Неизвестная строковая роль
+    не предоставляет прав; неверный тип `roles` или нестроковый элемент делают
+    токен недействительным. Отсутствие назначенных ролей у активного пользователя
+    приводит к 500 internal_error, ошибка чтения базы — к 503 identity_unavailable.
 servers:
   - url: http://localhost:8080
     description: Пример для локальной разработки; реальный адрес задаётся конфигурацией окружения.
@@ -488,8 +498,9 @@ components:
     RegistrationUnavailable:
       description: |
         Provisioning has not completed within the configured wait or is
-        temporarily unavailable. Retry with the same Idempotency-Key and
-        password; no session or token is issued.
+        temporarily unavailable (registration_unavailable), or Identity's
+        database is unavailable (identity_unavailable). Retry with the same
+        Idempotency-Key and password; no session or token is issued.
       content:
         application/json:
           schema:

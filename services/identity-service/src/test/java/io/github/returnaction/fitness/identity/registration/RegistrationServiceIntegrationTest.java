@@ -79,6 +79,9 @@ class RegistrationServiceIntegrationTest {
     private RegistrationSessionService sessionService;
 
     @Autowired
+    private io.github.returnaction.fitness.identity.registration.repository.UserRoleRepository userRoleRepository;
+
+    @Autowired
     private TransactionTemplate transactionTemplate;
 
     @Autowired
@@ -401,9 +404,10 @@ class RegistrationServiceIntegrationTest {
         org.mockito.Mockito.when(signer.sign(
                 org.mockito.ArgumentMatchers.any(),
                 org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any(),
                 org.mockito.ArgumentMatchers.any()))
                 .thenThrow(new IllegalStateException("signing failed"));
-        var service = new RegistrationTokenService(sessionService, signer);
+        var service = new RegistrationTokenService(sessionService, signer, userRoleRepository);
         assertThatThrownBy(() -> transactionTemplate.execute(status -> service.create(operation.operationId(), "a")))
                 .isInstanceOf(IllegalStateException.class);
         assertThat(jdbcClient
@@ -650,9 +654,10 @@ class RegistrationServiceIntegrationTest {
         org.mockito.Mockito.when(signer.sign(
                 org.mockito.ArgumentMatchers.any(),
                 org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any(),
                 org.mockito.ArgumentMatchers.any()))
                 .thenThrow(new IllegalStateException("signing failed"));
-        var service = new RegistrationTokenService(sessionService, signer);
+        var service = new RegistrationTokenService(sessionService, signer, userRoleRepository);
         assertThatThrownBy(
                 () -> transactionTemplate.execute(status -> service.createLogin(operation.userId(), hash, null)))
                 .isInstanceOf(IllegalStateException.class);
@@ -689,9 +694,10 @@ class RegistrationServiceIntegrationTest {
         org.mockito.Mockito.when(signer.sign(
                 org.mockito.ArgumentMatchers.any(),
                 org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any(),
                 org.mockito.ArgumentMatchers.any()))
                 .thenThrow(new IllegalStateException("signing failed"));
-        var refresh = new RefreshTokenService(refreshTokenRepository, signer);
+        var refresh = new RefreshTokenService(refreshTokenRepository, signer, userRoleRepository);
         assertThatThrownBy(() -> transactionTemplate.execute(status -> refresh.refresh(session.refreshToken())))
                 .isInstanceOf(IllegalStateException.class);
         assertThat(jdbcClient

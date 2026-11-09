@@ -11,6 +11,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.nimbusds.jose.crypto.ECDSAVerifier;
 import com.nimbusds.jose.jwk.JWKSet;
 import com.nimbusds.jwt.SignedJWT;
+import io.github.returnaction.fitness.identity.registration.entity.role.RoleCode;
 import io.github.returnaction.fitness.identity.registration.dto.RegisterUserRequest;
 import io.github.returnaction.fitness.identity.registration.service.RegistrationService;
 import io.github.returnaction.fitness.identity.security.jwt.AccessTokenSigner;
@@ -55,6 +56,12 @@ class RegistrationTokenHttpIntegrationTest {
     private MockMvc mvc;
 
     @Autowired
+    private org.springframework.transaction.support.TransactionTemplate transactions;
+
+    @Autowired
+    private io.github.returnaction.fitness.identity.session.service.RefreshTokenService refreshService;
+
+    @Autowired
     private JdbcClient jdbc;
 
     @Autowired
@@ -71,6 +78,9 @@ class RegistrationTokenHttpIntegrationTest {
 
     @Autowired
     private RegistrationService registration;
+
+    @org.springframework.test.context.bean.override.mockito.MockitoSpyBean
+    private io.github.returnaction.fitness.identity.registration.repository.UserRoleRepository userRoles;
 
     @Autowired
     private io.github.returnaction.fitness.identity.registration.service.RegistrationSessionService registrationSessions;
@@ -124,7 +134,7 @@ class RegistrationTokenHttpIntegrationTest {
         UUID session = UUID.randomUUID();
         createActor(user, session, "USER");
         Instant expiresAt = Instant.now().plusSeconds(5).truncatedTo(java.time.temporal.ChronoUnit.SECONDS);
-        String token = signer.sign(user, session, expiresAt);
+        String token = signer.sign(user, session, expiresAt, java.util.List.of(RoleCode.USER));
         try (var connection = POSTGRES.createConnection("");
                 var executor = java.util.concurrent.Executors.newSingleThreadExecutor()) {
             connection.setAutoCommit(false);
@@ -149,7 +159,7 @@ class RegistrationTokenHttpIntegrationTest {
         UUID user = UUID.randomUUID();
         UUID session = UUID.randomUUID();
         createActor(user, session, "USER");
-        String token = signer.sign(user, session, Instant.now().plusSeconds(3600));
+        String token = signer.sign(user, session, Instant.now().plusSeconds(3600), java.util.List.of(RoleCode.USER));
         var server = io.grpc.netty.shaded.io.grpc.netty.NettyServerBuilder
                 .forAddress(new java.net.InetSocketAddress("127.0.0.1", 0))
                 .addService(sessionGrpc)
@@ -184,7 +194,7 @@ class RegistrationTokenHttpIntegrationTest {
         UUID user = UUID.randomUUID();
         UUID session = UUID.randomUUID();
         createActor(user, session, "USER");
-        String valid = signer.sign(user, session, Instant.now().plusSeconds(3600));
+        String valid = signer.sign(user, session, Instant.now().plusSeconds(3600), java.util.List.of(RoleCode.USER));
         mvc.perform(post("/api/v1/auth/logout-all").header("Authorization", "Bearer " + valid + "x"))
                 .andExpect(status().isUnauthorized());
         String encoded = Files.readString(privateKey)
@@ -196,7 +206,7 @@ class RegistrationTokenHttpIntegrationTest {
         Instant past = Instant.now().minusSeconds(1800);
         var expiredSigner = new AccessTokenSigner(key, "test-key", "https://identity.test", "gateway",
                 java.time.Clock.fixed(past, java.time.ZoneOffset.UTC));
-        String expired = expiredSigner.sign(user, session, past.plusSeconds(900));
+        String expired = expiredSigner.sign(user, session, past.plusSeconds(900), java.util.List.of(RoleCode.USER));
         mvc.perform(post("/api/v1/auth/logout-all").header("Authorization", "Bearer " + expired))
                 .andExpect(status().isUnauthorized());
         assertThat(sessions.check(user, session).active()).isTrue();
@@ -385,7 +395,7 @@ class RegistrationTokenHttpIntegrationTest {
         UUID user = UUID.randomUUID();
         UUID session = UUID.randomUUID();
         createActor(user, session, "USER");
-        String token = signer.sign(user, session, Instant.now().plusSeconds(3600));
+        String token = signer.sign(user, session, Instant.now().plusSeconds(3600), java.util.List.of(RoleCode.USER));
         var gate = new java.util.concurrent.CountDownLatch(1);
         try (var executor = java.util.concurrent.Executors.newFixedThreadPool(2)) {
             java.util.concurrent.Callable<Integer> call = () -> {
@@ -408,7 +418,7 @@ class RegistrationTokenHttpIntegrationTest {
         UUID user = UUID.randomUUID();
         UUID session = UUID.randomUUID();
         createActor(user, session, "USER");
-        String token = signer.sign(user, session, Instant.now().plusSeconds(3600));
+        String token = signer.sign(user, session, Instant.now().plusSeconds(3600), java.util.List.of(RoleCode.USER));
         mvc.perform(post("/api/v1/auth/logout-all").header("Authorization", "Bearer " + token)
                 .accept("application/xml")).andExpect(status().isNotAcceptable());
         assertThat(jdbc.sql("SELECT revoked_at IS NULL FROM auth_sessions WHERE id=:id")
@@ -575,6 +585,7 @@ class RegistrationTokenHttpIntegrationTest {
         assertThat(publicJwk.isPrivate()).isFalse();
         assertThat(jwt.verify(new ECDSAVerifier(publicJwk))).isTrue();
         assertThat(jwt.getJWTClaimsSet().getIssuer()).isEqualTo("https://identity.test");
+        assertThat(jwt.getJWTClaimsSet().getStringListClaim("roles")).containsExactly("USER");
         assertThat(session.get("refresh_token").asString()).isNotBlank();
         assertThat(response.get("user").get("id").asString())
                 .isEqualTo(jwt.getJWTClaimsSet().getSubject());
@@ -629,8 +640,10 @@ class RegistrationTokenHttpIntegrationTest {
         UUID regularSession = UUID.randomUUID();
         createActor(admin, adminSession, "SUPER_ADMIN");
         createActor(regular, regularSession, "USER");
-        String adminJwt = signer.sign(admin, adminSession, Instant.now().plusSeconds(3600));
-        String regularJwt = signer.sign(regular, regularSession, Instant.now().plusSeconds(3600));
+        String adminJwt = signer.sign(admin, adminSession, Instant.now().plusSeconds(3600),
+                java.util.List.of(RoleCode.USER));
+        String regularJwt = signer.sign(regular, regularSession, Instant.now().plusSeconds(3600),
+                java.util.List.of(RoleCode.USER));
         String path = "/api/v1/admin/identity/registration-operations/" + operation.operationId();
         mvc.perform(get(path)).andExpect(status().isUnauthorized());
         mvc.perform(get(path).header("Authorization", "Bearer invalid")).andExpect(status().isUnauthorized());
@@ -695,6 +708,182 @@ class RegistrationTokenHttpIntegrationTest {
     }
 
     @Test
+    void roleRemovalCommittedBeforeRefreshIsVisibleInTheNewToken() throws Exception {
+        String email = "roles-first-" + UUID.randomUUID() + "@example.com";
+        var operation = registration.start(UUID.randomUUID(), new RegisterUserRequest(email, "a"));
+        jdbc.sql("UPDATE users SET status='ACTIVE' WHERE id=:id").param("id", operation.userId()).update();
+        jdbc.sql("INSERT INTO user_roles (user_id,role_id) SELECT :id,id FROM roles WHERE code='ADMIN'")
+                .param("id", operation.userId())
+                .update();
+        var mapper = JsonMapper.builder().build();
+        String login = mvc.perform(post("/api/v1/auth/login").contentType(APPLICATION_JSON)
+                .content("{\"email\":\"" + email + "\",\"password\":\"a\"}"))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+        String refresh = mapper.readTree(login).get("refresh_token").asString();
+        try (var connection = POSTGRES.createConnection("");
+                var executor = java.util.concurrent.Executors.newSingleThreadExecutor()) {
+            connection.setAutoCommit(false);
+            try (var lock = connection.prepareStatement("SELECT id FROM users WHERE id=? FOR UPDATE")) {
+                lock.setObject(1, operation.userId());
+                lock.executeQuery().close();
+            }
+            try (var delete = connection.prepareStatement(
+                    "DELETE FROM user_roles WHERE user_id=? AND role_id=(SELECT id FROM roles WHERE code='ADMIN')")) {
+                delete.setObject(1, operation.userId());
+                assertThat(delete.executeUpdate()).isEqualTo(1);
+            }
+            var pending = executor.submit(() -> mvc.perform(post("/api/v1/auth/refresh").contentType(APPLICATION_JSON)
+                    .content("{\"refresh_token\":\"" + refresh + "\"}")).andReturn());
+            awaitBlockedConnections(1);
+            connection.commit();
+            var response = pending.get(20, TimeUnit.SECONDS).getResponse();
+            assertThat(response.getStatus()).isEqualTo(200);
+            String access = mapper.readTree(response.getContentAsString()).get("access_token").asString();
+            assertThat(SignedJWT.parse(access).getJWTClaimsSet().getStringListClaim("roles")).containsExactly("USER");
+        }
+    }
+
+    @Test
+    void roleRemovalWaitsForRefreshThatAlreadyHoldsTheUserLock() throws Exception {
+        String email = "refresh-first-" + UUID.randomUUID() + "@example.com";
+        var operation = registration.start(UUID.randomUUID(), new RegisterUserRequest(email, "a"));
+        jdbc.sql("UPDATE users SET status='ACTIVE' WHERE id=:id").param("id", operation.userId()).update();
+        jdbc.sql("INSERT INTO user_roles (user_id,role_id) SELECT :id,id FROM roles WHERE code='ADMIN'")
+                .param("id", operation.userId())
+                .update();
+        var mapper = JsonMapper.builder().build();
+        String login = mvc.perform(post("/api/v1/auth/login").contentType(APPLICATION_JSON)
+                .content("{\"email\":\"" + email + "\",\"password\":\"a\"}"))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+        String refresh = mapper.readTree(login).get("refresh_token").asString();
+        var signed = new java.util.concurrent.CountDownLatch(1);
+        var finish = new java.util.concurrent.CountDownLatch(1);
+        try (var executor = java.util.concurrent.Executors.newFixedThreadPool(2)) {
+            var first = executor.submit(() -> transactions.execute(status -> {
+                var result = refreshService.refresh(refresh);
+                signed.countDown();
+                try {
+                    if (!finish.await(20, TimeUnit.SECONDS))
+                        throw new IllegalStateException("refresh timed out");
+                } catch (InterruptedException exception) {
+                    Thread.currentThread().interrupt();
+                    throw new IllegalStateException(exception);
+                }
+                return result;
+            }));
+            try {
+                assertThat(signed.await(20, TimeUnit.SECONDS)).isTrue();
+                var removal = executor.submit(() -> {
+                    try (var connection = POSTGRES.createConnection("")) {
+                        connection.setAutoCommit(false);
+                        try (var lock = connection.prepareStatement("SELECT id FROM users WHERE id=? FOR UPDATE")) {
+                            lock.setObject(1, operation.userId());
+                            lock.executeQuery().close();
+                        }
+                        try (var delete = connection.prepareStatement(
+                                "DELETE FROM user_roles WHERE user_id=? AND role_id=(SELECT id FROM roles WHERE code='ADMIN')")) {
+                            delete.setObject(1, operation.userId());
+                            assertThat(delete.executeUpdate()).isEqualTo(1);
+                        }
+                        connection.commit();
+                    }
+                    return null;
+                });
+                awaitBlockedConnections(1);
+                finish.countDown();
+                var issued = first.get(20, TimeUnit.SECONDS);
+                removal.get(20, TimeUnit.SECONDS);
+                assertThat(SignedJWT.parse(issued.access()).getJWTClaimsSet().getStringListClaim("roles"))
+                        .containsExactlyInAnyOrder("USER", "ADMIN");
+                String later = mvc.perform(post("/api/v1/auth/refresh").contentType(APPLICATION_JSON)
+                        .content("{\"refresh_token\":\"" + issued.refresh() + "\"}"))
+                        .andExpect(status().isOk())
+                        .andReturn()
+                        .getResponse()
+                        .getContentAsString();
+                assertThat(SignedJWT.parse(mapper.readTree(later).get("access_token").asString())
+                        .getJWTClaimsSet()
+                        .getStringListClaim("roles")).containsExactly("USER");
+            } finally {
+                finish.countDown();
+            }
+        }
+    }
+
+    @Test
+    void databaseFailureWhileReadingRolesReturns503AndDoesNotRotateRefresh() throws Exception {
+        String email = "roles-unavailable-" + UUID.randomUUID() + "@example.com";
+        var operation = registration.start(UUID.randomUUID(), new RegisterUserRequest(email, "a"));
+        jdbc.sql("UPDATE users SET status='ACTIVE' WHERE id=:id").param("id", operation.userId()).update();
+        var mapper = JsonMapper.builder().build();
+        String login = mvc.perform(post("/api/v1/auth/login").contentType(APPLICATION_JSON)
+                .content("{\"email\":\"" + email + "\",\"password\":\"a\"}"))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+        String refresh = mapper.readTree(login).get("refresh_token").asString();
+        String body = "{\"refresh_token\":\"" + refresh + "\"}";
+        org.mockito.Mockito
+                .doThrow(new org.springframework.dao.DataAccessResourceFailureException("simulated database failure"))
+                .when(userRoles)
+                .findRoleCodesByUserId(operation.userId());
+        try {
+            mvc.perform(post("/api/v1/auth/login").contentType(APPLICATION_JSON)
+                    .content("{\"email\":\"" + email + "\",\"password\":\"a\"}"))
+                    .andExpect(status().isServiceUnavailable())
+                    .andExpect(jsonPath("$.error.code").value("identity_unavailable"));
+            assertThat(jdbc.sql("SELECT count(*) FROM auth_sessions WHERE user_id=:id")
+                    .param("id", operation.userId())
+                    .query(Integer.class)
+                    .single()).isEqualTo(1);
+            String failure = mvc.perform(post("/api/v1/auth/refresh").contentType(APPLICATION_JSON).content(body))
+                    .andExpect(status().isServiceUnavailable())
+                    .andExpect(jsonPath("$.error.code").value("identity_unavailable"))
+                    .andReturn()
+                    .getResponse()
+                    .getContentAsString();
+            assertThat(failure).doesNotContain(refresh, "access_token", "refresh_token");
+        } finally {
+            org.mockito.Mockito.reset(userRoles);
+        }
+        mvc.perform(post("/api/v1/auth/refresh").contentType(APPLICATION_JSON).content(body))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void refreshWithoutAssignedRolesFailsWithoutRotatingTheToken() throws Exception {
+        String email = "missing-role-" + UUID.randomUUID() + "@example.com";
+        var operation = registration.start(UUID.randomUUID(), new RegisterUserRequest(email, "a"));
+        jdbc.sql("UPDATE users SET status='ACTIVE' WHERE id=:id").param("id", operation.userId()).update();
+        var mapper = JsonMapper.builder().build();
+        String login = mvc.perform(post("/api/v1/auth/login")
+                .contentType(APPLICATION_JSON)
+                .content("{\"email\":\"" + email + "\",\"password\":\"a\"}"))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+        String refresh = mapper.readTree(login).get("refresh_token").asString();
+        jdbc.sql("DELETE FROM user_roles WHERE user_id=:id").param("id", operation.userId()).update();
+        String body = "{\"refresh_token\":\"" + refresh + "\"}";
+        mvc.perform(post("/api/v1/auth/refresh").contentType(APPLICATION_JSON).content(body))
+                .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.error.code").value("internal_error"));
+        jdbc.sql("INSERT INTO user_roles (user_id, role_id) SELECT :id, id FROM roles WHERE code='USER'")
+                .param("id", operation.userId())
+                .update();
+        mvc.perform(post("/api/v1/auth/refresh").contentType(APPLICATION_JSON).content(body))
+                .andExpect(status().isOk());
+    }
+
+    @Test
     void refreshRotatesAndCorrectReplayRevokesButWrongSecretDoesNot() throws Exception {
         String email = "refresh-" + UUID.randomUUID() + "@example.com";
         var operation = registration.start(UUID.randomUUID(), new RegisterUserRequest(email, "a"));
@@ -711,6 +900,12 @@ class RegistrationTokenHttpIntegrationTest {
                 .getContentAsString();
         var original = mapper.readTree(login);
         String oldToken = original.get("refresh_token").asString();
+        assertThat(SignedJWT.parse(original.get("access_token").asString())
+                .getJWTClaimsSet()
+                .getStringListClaim("roles")).containsExactly("USER");
+        jdbc.sql("INSERT INTO user_roles (user_id, role_id) SELECT :user, id FROM roles WHERE code = 'ADMIN'")
+                .param("user", operation.userId())
+                .update();
         UUID sessionId = UUID.fromString(SignedJWT.parse(original.get("access_token").asString())
                 .getJWTClaimsSet()
                 .getStringClaim("sid"));
@@ -734,6 +929,9 @@ class RegistrationTokenHttpIntegrationTest {
                 .getContentAsString();
         var fresh = mapper.readTree(rotated);
         String newToken = fresh.get("refresh_token").asString();
+        assertThat(SignedJWT.parse(fresh.get("access_token").asString())
+                .getJWTClaimsSet()
+                .getStringListClaim("roles")).containsExactlyInAnyOrder("USER", "ADMIN");
         assertThat(newToken).isNotEqualTo(oldToken);
         assertThat(SignedJWT.parse(fresh.get("access_token").asString())
                 .getJWTClaimsSet()

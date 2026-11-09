@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.crypto.ECDSAVerifier;
 import com.nimbusds.jwt.SignedJWT;
+import io.github.returnaction.fitness.identity.registration.entity.role.RoleCode;
 import java.security.KeyPairGenerator;
 import java.security.interfaces.ECPrivateKey;
 import java.security.interfaces.ECPublicKey;
@@ -27,12 +28,14 @@ class AccessTokenSignerTest {
                 (ECPrivateKey) pair.getPrivate(), "key-1", "issuer", "gateway", Clock.fixed(now, ZoneOffset.UTC));
         UUID userId = UUID.randomUUID();
         UUID sessionId = UUID.randomUUID();
-        var jwt = SignedJWT.parse(signer.sign(userId, sessionId, now.plusSeconds(300)));
+        var jwt = SignedJWT
+                .parse(signer.sign(userId, sessionId, now.plusSeconds(300), java.util.List.of(RoleCode.USER)));
         assertThat(jwt.verify(new ECDSAVerifier((ECPublicKey) pair.getPublic())))
                 .isTrue();
         assertThat(jwt.getHeader().getAlgorithm()).isEqualTo(JWSAlgorithm.ES256);
         assertThat(jwt.getHeader().getKeyID()).isEqualTo("key-1");
         var claims = jwt.getJWTClaimsSet();
+        assertThat(claims.getStringListClaim("roles")).containsExactly("USER");
         assertThat(claims.getIssuer()).isEqualTo("issuer");
         assertThat(claims.getAudience()).containsExactly("gateway");
         assertThat(claims.getSubject()).isEqualTo(userId.toString());
@@ -40,9 +43,19 @@ class AccessTokenSignerTest {
         assertThat(UUID.fromString(claims.getJWTID())).isNotNull();
         assertThat(claims.getIssueTime().toInstant()).isEqualTo(now);
         assertThat(claims.getExpirationTime().toInstant()).isEqualTo(now.plusSeconds(300));
-        var longSession = SignedJWT.parse(signer.sign(userId, sessionId, now.plusSeconds(3600)));
+        var adminOnly = SignedJWT
+                .parse(signer.sign(userId, sessionId, now.plusSeconds(300), java.util.List.of(RoleCode.ADMIN)));
+        assertThat(adminOnly.getJWTClaimsSet().getStringListClaim("roles")).containsExactly("ADMIN");
+        var multiple = SignedJWT.parse(
+                signer.sign(userId, sessionId, now.plusSeconds(300), java.util.List.of(RoleCode.USER, RoleCode.ADMIN)));
+        assertThat(multiple.getJWTClaimsSet().getStringListClaim("roles")).containsExactly("USER", "ADMIN");
+        assertThatThrownBy(() -> signer.sign(userId, sessionId, now.plusSeconds(300), java.util.List.of()))
+                .isInstanceOf(IllegalStateException.class);
+        var longSession = SignedJWT
+                .parse(signer.sign(userId, sessionId, now.plusSeconds(3600), java.util.List.of(RoleCode.USER)));
         assertThat(longSession.getJWTClaimsSet().getExpirationTime().toInstant())
                 .isEqualTo(now.plusSeconds(900));
-        assertThatThrownBy(() -> signer.sign(userId, sessionId, now)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> signer.sign(userId, sessionId, now, java.util.List.of(RoleCode.USER)))
+                .isInstanceOf(IllegalArgumentException.class);
     }
 }
