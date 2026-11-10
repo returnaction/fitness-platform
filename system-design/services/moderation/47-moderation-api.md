@@ -9,9 +9,11 @@
 
 Все пути начинаются с `/api/v1/moderation`. Запросы требуют действительный
 access token и актуальную роль; конкретное назначение проверяется сервером.
-Идентификаторы — UUID, время — RFC 3339 UTC, JSON — UTF-8. Тело запроса не
-содержит ID модератора: сервер получает его из проверенной identity. Клиенту
-не возвращаются email, nickname участника, ставка или имя challenge.
+Собственные идентификаторы Moderation и внешние ID дел/отправок — UUID; ID
+упражнения и вариации в снимке задания — числа `1`–`32767`. Время — RFC 3339
+UTC, JSON — UTF-8. Тело запроса не содержит ID модератора: сервер получает его
+из проверенной identity. Клиенту не возвращаются email, nickname участника,
+ставка или имя challenge.
 
 Ошибки используют [общий формат](../identity/30-identity-registration.md):
 `{"error":{"code":"case_conflict","message":"Карточка уже изменилась","request_id":"<uuid>"}}`.
@@ -93,7 +95,7 @@ points для обязательной причины; для `APPROVE` допу
 ```json
 {"case_id":"<uuid>","state":"IN_REVIEW","version":2,
 "asset":{"id":"<uuid>","generation":1},
-"task":{"schema_version":1,"exercise_id":"<uuid>","variation_id":"<uuid>","exercise_name":"Push-up",
+"task":{"schema_version":1,"exercise_id":1,"variation_id":1,"exercise_name":"Push-up",
 "variation_name":"Narrow grip","description":"Выполнить отжимания узким хватом",
 "instructions":"Поставьте руки ближе ширины плеч и выполните отжимания.",
 "target":{"metric":"REPETITIONS","value":10,"unit":"REP"}}}

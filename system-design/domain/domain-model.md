@@ -92,17 +92,19 @@ future public profile response.
 ## Exercises
 
 Exercise Catalog owns a database-driven reference catalog. It consists of
-`exercise_categories`, `exercise_definitions`, and `exercise_variants`:
+`catalog_categories`, `catalog_exercises`, and `catalog_variations`:
 
 ```text
 ExerciseCategory → ExerciseDefinition → ExerciseVariant
 ```
 
-All catalog identifiers are `SMALLINT` internal keys. API clients use stable
-English `code` values rather than database identifiers. A definition has one
-primary metric: `REPETITIONS` or `DURATION`. A variant inherits that metric and
-defines `min_target_value` and `max_target_value`, which future Challenge rules
-must enforce for one set.
+All catalog entity identifiers are `SMALLINT` values from `1` to `32767`.
+REST and gRPC use those numeric IDs; the stable English `code` remains a
+business identifier, but is not a substitute for the ID in a relationship. An
+exercise has one primary metric: `REPETITIONS` or `DURATION`. A variation
+inherits that metric and defines its target range and step, which Challenge
+must validate before publication. The authoritative table and API contract is
+[Exercise Catalog v1](../services/exercise-catalog/57-exercise-catalog-service.md).
 
 The initial system catalog contains `SQUAT`, `PUSH_UP`, `BURPEE`,
 `JUMPING_JACK`, `JUMP_ROPE`, and `PLANK`. Push-ups and burpees have several
@@ -125,10 +127,10 @@ available balance to its locked balance and is represented by an immutable
 `CHALLENGE_STAKE_LOCK` ledger entry. Cancelling an unfilled OPEN challenge
 releases that same hold through `CHALLENGE_STAKE_RELEASE`.
 
-Each rule references the live `exercise_variants` row for integrity and stores
-a snapshot of the exercise/variant codes, names, and primary metric. This keeps
-the draft understandable if Catalog text changes later. Catalog remains the
-source of active-state and target-range validation.
+Each rule stores external Catalog IDs and a snapshot of the exercise/variation
+codes, names, and primary metric; it does not have a cross-database FK to a
+live Catalog row. This keeps the draft understandable if Catalog text changes
+later. Catalog remains the source of active-state and target-range validation.
 
 Clients explicitly choose `HEAD_TO_HEAD` or `GROUP`. H2H is the specialized
 `WHEN_FULL` case with exactly two players. GROUP accepts 2..20 players and uses

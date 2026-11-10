@@ -8,7 +8,8 @@
 ## Общие правила
 
 - Пути начинаются с `/api/v1/challenges`; JSON передаётся в UTF-8, время —
-  RFC 3339 с указанием UTC, идентификаторы — UUID в строковом представлении.
+  RFC 3339 с указанием UTC. Собственные ID Challenge — UUID в строковом
+  представлении; `exercise_id` и `variation_id` Catalog — числа `1`–`32767`.
 - Все методы ниже требуют действующий access token. Challenge проверяет права
   и состояние пользователя; ID участника и размер ставки из запроса клиента
   не считаются доказательством полномочий или суммы.
@@ -175,8 +176,8 @@ challenge в порядке `day_number`, задания — по `position`. М
 ```json
 {"items":[{"day_number":1,"opens_at":"2026-11-10T18:00:00Z",
  "deadline_at":"2026-11-11T18:00:00Z","tasks":[{"task_id":"<uuid>",
- "position":1,"task_snapshot":{"schema_version":1,"exercise_id":"<uuid>",
- "variation_id":"<uuid>","exercise_name":"Push-up","variation_name":"Narrow grip",
+ "position":1,"task_snapshot":{"schema_version":1,"exercise_id":1,
+ "variation_id":1,"exercise_name":"Push-up","variation_name":"Narrow grip",
  "description":"Выполнить отжимания узким хватом",
  "instructions":"Поставьте руки ближе ширины плеч и выполните отжимания.",
  "target":{"metric":"REPETITIONS","value":10,"unit":"REP"}}}]}]}

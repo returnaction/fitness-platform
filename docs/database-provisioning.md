@@ -1,20 +1,34 @@
 # Подготовка PostgreSQL для сервисов
 
-Этот документ описывает действия, которые выполняются **один раз до первого
-запуска** сервиса в локальной среде или на сервере. Liquibase не создаёт роль
-PostgreSQL и саму базу: он создаёт и изменяет только таблицы внутри уже
-доступной сервису базы.
+Этот документ описывает действия, которые выполняются один раз до первого
+запуска сервиса в локальной среде или на сервере. Работа выполняется в
+**DBeaver** через подключение PostgreSQL; команд `psql` в инструкции нет.
 
-Для каждого микросервиса создаются отдельные база и роль приложения. Нельзя
-подключать Identity, Accounts и Coins одной ролью к общей базе.
+Для каждого сервиса создаются:
+
+- отдельная **роль приложения** — технический пользователь PostgreSQL, под
+  которым запускается только этот сервис;
+- отдельная **база данных** — место для таблиц только этого сервиса;
+- доступ роли только к её собственной базе и схеме `public`.
+
+Liquibase не создаёт роль и базу. Он создаёт и изменяет только таблицы внутри
+уже созданной базы. Настоящие пароли не записываются в Git, документацию или
+журналы.
 
 ## Identity Service
 
-### 1. Создать роль и базу
+**База:** `fitness_identity`
+**Роль приложения:** `fitness_identity_app`
+**Локальный порт:** `8080`
 
-Выполнить команды от имени администратора PostgreSQL (обычно роль `postgres`).
-Значение в угловых скобках заменяется длинным уникальным паролем и **не
-сохраняется в Git, документации или логах**.
+### 1. Создать роль приложения
+
+Здесь создаётся отдельный технический пользователь PostgreSQL
+`fitness_identity_app`. Под ним будет подключаться `identity-service`; это не
+пользователь мобильного приложения.
+
+В DBeaver подключиться к PostgreSQL как администратор, например `postgres`, и
+выполнить:
 
 ```sql
 CREATE ROLE fitness_identity_app
@@ -24,7 +38,17 @@ CREATE ROLE fitness_identity_app
   NOCREATEROLE
   NOINHERIT
   PASSWORD '<длинный-уникальный-пароль>';
+```
 
+### 2. Создать базу данных сервиса
+
+Здесь создаётся отдельная база `fitness_identity`, в которой будут находиться
+только таблицы Identity Service. Владельцем базы назначается созданная роль
+`fitness_identity_app`.
+
+В DBeaver выполнить этот запрос отдельно при включённом auto-commit:
+
+```sql
 CREATE DATABASE fitness_identity
   OWNER fitness_identity_app
   ENCODING 'UTF8'
@@ -33,23 +57,22 @@ CREATE DATABASE fitness_identity
 REVOKE ALL ON DATABASE fitness_identity FROM PUBLIC;
 ```
 
-Затем подключиться к созданной базе как администратор и ограничить права схемы:
+### 3. Настроить права схемы
+
+В DBeaver переключить подключение на базу `fitness_identity`, остаться под
+PostgreSQL-администратором и выполнить:
 
 ```sql
-\c fitness_identity
-
 REVOKE ALL ON SCHEMA public FROM PUBLIC;
 GRANT USAGE, CREATE ON SCHEMA public TO fitness_identity_app;
 ```
 
-Роль приложения является владельцем своей базы, поэтому Liquibase может
-создавать таблицы и свою служебную историю миграций. У неё нет прав создавать
-другие базы, роли или выполнять административные действия на сервере.
+Это запрещает всем остальным ролям доступ к стандартной схеме `public` и даёт
+прикладной роли права, необходимые Liquibase для создания таблиц.
 
-### 2. Передать параметры сервису
+### 4. Настроить сервис
 
-Локально скрипт создаёт игнорируемый файл
-`services/identity-service/.env`; в нём указывают:
+Создать игнорируемый Git файл `services/identity-service/.env` и указать:
 
 ```properties
 DATABASE_URL=jdbc:postgresql://localhost:5432/fitness_identity
@@ -58,35 +81,55 @@ DATABASE_PASSWORD=<пароль-роли>
 SERVER_PORT=8080
 ```
 
-На сервере передаются те же четыре переменные окружения, но секрет хранится в
-защищённой конфигурации процесса или средства развёртывания, а не в репозитории
-и не в образе Docker. Точный механизм (например, файл окружения systemd с
-правами только для администратора) будет зафиксирован вместе с первым
-deployment-конфигом.
+### 5. Проверить базу и роль в DBeaver
 
-### 3. Первый запуск и проверка
+Проверить базу и её владельца:
 
-При первом запуске Identity Service Liquibase создаёт таблицы приложения и
-`databasechangelog`/`databasechangeloglock`. При последующих запусках он читает
-`databasechangelog` и применяет только новые changeset-ы.
+```sql
+SELECT datname, pg_get_userbyid(datdba) AS owner
+FROM pg_database
+WHERE datname = 'fitness_identity';
+```
 
-Проверить подключение можно так:
+Проверить, что прикладная роль не имеет административных прав:
+
+```sql
+SELECT rolname, rolcanlogin, rolsuper, rolcreatedb, rolcreaterole
+FROM pg_roles
+WHERE rolname = 'fitness_identity_app';
+```
+
+При подключении к `fitness_identity` проверить права роли на схему:
+
+```sql
+SELECT has_schema_privilege(
+         'fitness_identity_app', 'public', 'USAGE'
+       ) AS can_use,
+       has_schema_privilege(
+         'fitness_identity_app', 'public', 'CREATE'
+       ) AS can_create;
+```
+
+### 6. Запустить и проверить микросервис
+
+После настройки `.env` запустить `identity-service`. При первом запуске
+Liquibase подключится к `fitness_identity` и создаст таблицы приложения.
+
+После запуска в PowerShell выполнить health-check:
 
 ```powershell
 Invoke-WebRequest http://localhost:8080/actuator/health
 ```
 
-Ожидается HTTP `200` и JSON со `status: UP`. В журнале старта должны быть
-сообщения `HikariPool ... Start completed`, `Liquibase: Update has been
-successful` при первом запуске либо `Database is up to date` при повторном.
-
-Проверка от имени администратора PostgreSQL:
+Ожидается HTTP `200` и статус `UP`. Затем в DBeaver, подключённом к
+`fitness_identity`, проверить созданные таблицы и историю Liquibase:
 
 ```sql
-\du fitness_identity_app
-\l fitness_identity
-\c fitness_identity
-\dt
+SELECT table_name
+FROM information_schema.tables
+WHERE table_schema = 'public'
+ORDER BY table_name;
+
 SELECT id, author, filename, dateexecuted
 FROM databasechangelog
 ORDER BY dateexecuted;
@@ -94,11 +137,18 @@ ORDER BY dateexecuted;
 
 ## Accounts Service
 
-### 1. Создать роль и базу
+**База:** `fitness_accounts`
+**Роль приложения:** `fitness_accounts_app`
+**Локальный порт:** `8081`
 
-Выполнить команды от имени администратора PostgreSQL один раз в каждой новой
-среде, включая локальную среду разработчика и сервер. Значение пароля в Git и
-документацию не попадает.
+### 1. Создать роль приложения
+
+Здесь создаётся отдельный технический пользователь PostgreSQL
+`fitness_accounts_app`. Под ним будет подключаться `accounts-service`; это не
+пользователь мобильного приложения.
+
+В DBeaver подключиться к PostgreSQL как администратор, например `postgres`, и
+выполнить:
 
 ```sql
 CREATE ROLE fitness_accounts_app
@@ -108,7 +158,17 @@ CREATE ROLE fitness_accounts_app
   NOCREATEROLE
   NOINHERIT
   PASSWORD '<длинный-уникальный-пароль>';
+```
 
+### 2. Создать базу данных сервиса
+
+Здесь создаётся отдельная база `fitness_accounts`, в которой будут находиться
+только таблицы Accounts Service. Владельцем базы назначается созданная роль
+`fitness_accounts_app`.
+
+В DBeaver выполнить этот запрос отдельно при включённом auto-commit:
+
+```sql
 CREATE DATABASE fitness_accounts
   OWNER fitness_accounts_app
   ENCODING 'UTF8'
@@ -117,16 +177,22 @@ CREATE DATABASE fitness_accounts
 REVOKE ALL ON DATABASE fitness_accounts FROM PUBLIC;
 ```
 
-Подключиться к `fitness_accounts` как администратор и выполнить:
+### 3. Настроить права схемы
+
+В DBeaver переключить подключение на базу `fitness_accounts`, остаться под
+PostgreSQL-администратором и выполнить:
 
 ```sql
 REVOKE ALL ON SCHEMA public FROM PUBLIC;
 GRANT USAGE, CREATE ON SCHEMA public TO fitness_accounts_app;
 ```
 
-### 2. Передать параметры сервису
+Это запрещает всем остальным ролям доступ к стандартной схеме `public` и даёт
+прикладной роли права, необходимые Liquibase для создания таблиц.
 
-Локальный `.env` модуля `accounts-service` содержит:
+### 4. Настроить сервис
+
+Создать игнорируемый Git файл `services/accounts-service/.env` и указать:
 
 ```properties
 DATABASE_URL=jdbc:postgresql://localhost:5432/fitness_accounts
@@ -135,35 +201,74 @@ DATABASE_PASSWORD=<пароль-роли>
 SERVER_PORT=8081
 ```
 
-Этот файл создаётся из `.env.example`, остаётся игнорируемым Git и хранит
-реальный пароль только в локальной среде. На сервере те же переменные передаёт
-защищённая конфигурация процесса.
+### 5. Проверить базу и роль в DBeaver
 
-### 3. Первый запуск и проверка
-
-Liquibase Accounts создаст таблицы своей схемы и служебные
-`databasechangelog`/`databasechangeloglock` при первом запуске сервиса. До
-появления миграции список таблиц `fitness_accounts.public` остаётся пустым.
+Проверить базу и её владельца:
 
 ```sql
-SELECT datname FROM pg_database WHERE datname = 'fitness_accounts';
+SELECT datname, pg_get_userbyid(datdba) AS owner
+FROM pg_database
+WHERE datname = 'fitness_accounts';
+```
 
-SELECT rolname, rolsuper, rolcreatedb, rolcreaterole
+Проверить, что прикладная роль не имеет административных прав:
+
+```sql
+SELECT rolname, rolcanlogin, rolsuper, rolcreatedb, rolcreaterole
 FROM pg_roles
 WHERE rolname = 'fitness_accounts_app';
+```
 
+При подключении к `fitness_accounts` проверить права роли на схему:
+
+```sql
+SELECT has_schema_privilege(
+         'fitness_accounts_app', 'public', 'USAGE'
+       ) AS can_use,
+       has_schema_privilege(
+         'fitness_accounts_app', 'public', 'CREATE'
+       ) AS can_create;
+```
+
+### 6. Запустить и проверить микросервис
+
+После настройки `.env` запустить `accounts-service`. При первом запуске
+Liquibase подключится к `fitness_accounts` и создаст таблицы приложения.
+
+После запуска в PowerShell выполнить health-check:
+
+```powershell
+Invoke-WebRequest http://localhost:8081/actuator/health
+```
+
+Ожидается HTTP `200` и статус `UP`. Затем в DBeaver, подключённом к
+`fitness_accounts`, проверить созданные таблицы и историю Liquibase:
+
+```sql
 SELECT table_name
 FROM information_schema.tables
-WHERE table_schema = 'public';
+WHERE table_schema = 'public'
+ORDER BY table_name;
+
+SELECT id, author, filename, dateexecuted
+FROM databasechangelog
+ORDER BY dateexecuted;
 ```
 
 ## Coins Service
 
-### 1. Создать роль и базу
+**База:** `fitness_coins`
+**Роль приложения:** `fitness_coins_app`
+**Локальный порт:** `8082`
 
-Подключиться SQL-редактором от имени администратора PostgreSQL, например
-`postgres`. Для новой локальной или серверной среды выполнить команды ниже.
-Пароль заменить на собственный уникальный пароль; не записывать его в Git.
+### 1. Создать роль приложения
+
+Здесь создаётся отдельный технический пользователь PostgreSQL
+`fitness_coins_app`. Под ним будет подключаться `coins-service`; это не
+пользователь мобильного приложения.
+
+В DBeaver подключиться к PostgreSQL как администратор, например `postgres`, и
+выполнить:
 
 ```sql
 CREATE ROLE fitness_coins_app
@@ -175,57 +280,224 @@ CREATE ROLE fitness_coins_app
   PASSWORD '<длинный-уникальный-пароль>';
 ```
 
-`CREATE DATABASE` выполнить отдельной командой вне транзакции. Если редактор
-использует ручной commit, включить auto-commit для этой команды:
+### 2. Создать базу данных сервиса
+
+Здесь создаётся отдельная база `fitness_coins`, в которой будут находиться
+только таблицы Coins Service. Владельцем базы назначается созданная роль
+`fitness_coins_app`.
+
+В DBeaver выполнить этот запрос отдельно при включённом auto-commit:
 
 ```sql
 CREATE DATABASE fitness_coins
   OWNER fitness_coins_app
   ENCODING 'UTF8'
   TEMPLATE template0;
-```
 
-```sql
 REVOKE ALL ON DATABASE fitness_coins FROM PUBLIC;
 ```
 
-Затем переключить соединение SQL-редактора именно на базу `fitness_coins`,
-оставив пользователя-администратора, и выполнить:
+### 3. Настроить права схемы
+
+В DBeaver переключить подключение на базу `fitness_coins`, остаться под
+PostgreSQL-администратором и выполнить:
 
 ```sql
 REVOKE ALL ON SCHEMA public FROM PUBLIC;
 GRANT USAGE, CREATE ON SCHEMA public TO fitness_coins_app;
 ```
 
-### 2. Проверить базу и роль
+Это запрещает всем остальным ролям доступ к стандартной схеме `public` и даёт
+прикладной роли права, необходимые Liquibase для создания таблиц.
+
+### 4. Настроить сервис
+
+Создать игнорируемый Git файл `services/coins-service/.env` и указать:
+
+```properties
+DATABASE_URL=jdbc:postgresql://localhost:5432/fitness_coins
+DATABASE_USERNAME=fitness_coins_app
+DATABASE_PASSWORD=<пароль-роли>
+SERVER_PORT=8082
+```
+
+### 5. Проверить базу и роль в DBeaver
+
+Проверить базу и её владельца:
 
 ```sql
 SELECT datname, pg_get_userbyid(datdba) AS owner
 FROM pg_database
 WHERE datname = 'fitness_coins';
+```
 
+Проверить, что прикладная роль не имеет административных прав:
+
+```sql
 SELECT rolname, rolcanlogin, rolsuper, rolcreatedb, rolcreaterole
 FROM pg_roles
 WHERE rolname = 'fitness_coins_app';
-
-SELECT has_schema_privilege('fitness_coins_app', 'public', 'USAGE') AS can_use,
-       has_schema_privilege('fitness_coins_app', 'public', 'CREATE') AS can_create;
 ```
 
-Последний запрос выполнять при подключении к `fitness_coins`. Ожидается
-владелец `fitness_coins_app`, `rolcanlogin = true`, три административных
-права `false`, а оба права на схему — `true`.
+При подключении к `fitness_coins` проверить права роли на схему:
 
-### 3. Передать параметры и запустить сервис
+```sql
+SELECT has_schema_privilege(
+         'fitness_coins_app', 'public', 'USAGE'
+       ) AS can_use,
+       has_schema_privilege(
+         'fitness_coins_app', 'public', 'CREATE'
+       ) AS can_create;
+```
 
-Скопировать `services/coins-service/.env.example` в `services/coins-service/.env`
-и указать в `DATABASE_PASSWORD` пароль роли. Файл `.env` игнорируется Git.
-В нём также явно указаны URL базы, имя роли, размеры пула и порт приложения.
-На сервере эти значения передаются через защищённую конфигурацию процесса.
+### 6. Запустить и проверить микросервис
 
-При первом запуске Coins Liquibase создаёт `coin_wallets` и служебные таблицы
-`databasechangelog` и `databasechangeloglock` внутри уже созданной базы. Проверка
-доступности: `http://localhost:8082/actuator/health`.
+После настройки `.env` запустить `coins-service`. При первом запуске Liquibase
+подключится к `fitness_coins` и создаст таблицы приложения.
+
+После запуска в PowerShell выполнить health-check:
+
+```powershell
+Invoke-WebRequest http://localhost:8082/actuator/health
+```
+
+Ожидается HTTP `200` и статус `UP`. Затем в DBeaver, подключённом к
+`fitness_coins`, проверить созданные таблицы и историю Liquibase:
+
+```sql
+SELECT table_name
+FROM information_schema.tables
+WHERE table_schema = 'public'
+ORDER BY table_name;
+
+SELECT id, author, filename, dateexecuted
+FROM databasechangelog
+ORDER BY dateexecuted;
+```
+
+## Exercise Catalog Service
+
+**База:** `fitness_exercise_catalog`
+**Роль приложения:** `fitness_exercise_catalog_app`
+**Локальный порт:** `8086`
+
+### 1. Создать роль приложения
+
+Здесь создаётся отдельный технический пользователь PostgreSQL
+`fitness_exercise_catalog_app`. Под ним будет подключаться
+`exercise-catalog-service`; это не пользователь мобильного приложения.
+
+В DBeaver подключиться к PostgreSQL как администратор, например `postgres`, и
+выполнить:
+
+```sql
+CREATE ROLE fitness_exercise_catalog_app
+  LOGIN
+  NOSUPERUSER
+  NOCREATEDB
+  NOCREATEROLE
+  NOINHERIT
+  PASSWORD '<длинный-уникальный-пароль>';
+```
+
+### 2. Создать базу данных сервиса
+
+Здесь создаётся отдельная база `fitness_exercise_catalog`, в которой будут
+находиться только таблицы Exercise Catalog Service. Владельцем базы назначается
+созданная роль `fitness_exercise_catalog_app`.
+
+В DBeaver выполнить этот запрос отдельно при включённом auto-commit:
+
+```sql
+CREATE DATABASE fitness_exercise_catalog
+  OWNER fitness_exercise_catalog_app
+  ENCODING 'UTF8'
+  TEMPLATE template0;
+
+REVOKE ALL ON DATABASE fitness_exercise_catalog FROM PUBLIC;
+```
+
+### 3. Настроить права схемы
+
+В DBeaver переключить подключение на базу `fitness_exercise_catalog`, остаться
+под PostgreSQL-администратором и выполнить:
+
+```sql
+REVOKE ALL ON SCHEMA public FROM PUBLIC;
+GRANT USAGE, CREATE ON SCHEMA public TO fitness_exercise_catalog_app;
+```
+
+Это запрещает всем остальным ролям доступ к стандартной схеме `public` и даёт
+прикладной роли права, необходимые Liquibase для создания таблиц.
+
+### 4. Настроить сервис
+
+После добавления в сервис DataSource и Liquibase создать игнорируемый Git файл
+`services/exercise-catalog-service/.env` и указать:
+
+```properties
+DATABASE_URL=jdbc:postgresql://localhost:5432/fitness_exercise_catalog
+DATABASE_USERNAME=fitness_exercise_catalog_app
+DATABASE_PASSWORD=<пароль-роли>
+SERVER_PORT=8086
+```
+
+### 5. Проверить базу и роль в DBeaver
+
+Проверить базу и её владельца:
+
+```sql
+SELECT datname, pg_get_userbyid(datdba) AS owner
+FROM pg_database
+WHERE datname = 'fitness_exercise_catalog';
+```
+
+Проверить, что прикладная роль не имеет административных прав:
+
+```sql
+SELECT rolname, rolcanlogin, rolsuper, rolcreatedb, rolcreaterole
+FROM pg_roles
+WHERE rolname = 'fitness_exercise_catalog_app';
+```
+
+При подключении к `fitness_exercise_catalog` проверить права роли на схему:
+
+```sql
+SELECT has_schema_privilege(
+         'fitness_exercise_catalog_app', 'public', 'USAGE'
+       ) AS can_use,
+       has_schema_privilege(
+         'fitness_exercise_catalog_app', 'public', 'CREATE'
+       ) AS can_create;
+```
+
+### 6. Запустить и проверить микросервис
+
+После реализации DataSource и Liquibase запустить `exercise-catalog-service`.
+При первом запуске Liquibase подключится к `fitness_exercise_catalog` и создаст
+таблицы приложения. Пока эти части не реализованы, health-check подтверждает
+только запуск шаблона, но не подключение к базе.
+
+После запуска в PowerShell выполнить health-check:
+
+```powershell
+Invoke-WebRequest http://localhost:8086/actuator/health
+```
+
+Ожидается HTTP `200` и статус `UP`. После появления и применения миграций в
+DBeaver, подключённом к `fitness_exercise_catalog`, проверить таблицы и
+историю Liquibase:
+
+```sql
+SELECT table_name
+FROM information_schema.tables
+WHERE table_schema = 'public'
+ORDER BY table_name;
+
+SELECT id, author, filename, dateexecuted
+FROM databasechangelog
+ORDER BY dateexecuted;
+```
 
 ## Правило для следующих сервисов
 

@@ -95,8 +95,8 @@ Challenge отвечает за допуск задания; Video Proof — з�
     "task_id": "<uuid>",
     "task_snapshot": {
       "schema_version": 1,
-      "exercise_id": "<uuid>",
-      "variation_id": "<uuid>",
+      "exercise_id": 1,
+      "variation_id": 1,
       "exercise_name": "Push-up",
       "variation_name": "Narrow grip",
       "description": "Выполнить отжимания узким хватом",
