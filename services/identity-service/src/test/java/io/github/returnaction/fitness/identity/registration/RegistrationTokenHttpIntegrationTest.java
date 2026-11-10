@@ -45,6 +45,22 @@ import tools.jackson.databind.json.JsonMapper;
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 class RegistrationTokenHttpIntegrationTest {
+    // Тестируем HTTP и БД без запуска фоновых задач и реальных gRPC-соединений.
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    private io.github.returnaction.fitness.identity.registration.grpc.AccountsProvisioningClient accountsClient;
+
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    private io.github.returnaction.fitness.identity.registration.grpc.CoinsProvisioningClient coinsClient;
+
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    private io.github.returnaction.fitness.identity.registration.worker.AccountsProvisioningScheduler accountsScheduler;
+
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    private io.github.returnaction.fitness.identity.registration.worker.CoinsProvisioningScheduler coinsScheduler;
+
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    private io.github.returnaction.fitness.identity.session.grpc.SecureSessionGrpcServer sessionGrpcServer;
+
     @Container
     static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:17-alpine");
 
@@ -104,7 +120,6 @@ class RegistrationTokenHttpIntegrationTest {
         registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
         registry.add("spring.datasource.username", POSTGRES::getUsername);
         registry.add("spring.datasource.password", POSTGRES::getPassword);
-        registry.add("identity.jwt.enabled", () -> "true");
         registry.add("identity.jwt.private-key", () -> privateKey.toString());
         registry.add("identity.jwt.public-key", () -> publicKey.toString());
         registry.add("identity.jwt.key-id", () -> "test-key");
@@ -484,6 +499,94 @@ class RegistrationTokenHttpIntegrationTest {
     }
 
     @Test
+    void loginBeanValidationPreservesAllCredentialErrors() throws Exception {
+        mvc.perform(post("/api/v1/auth/login").contentType(APPLICATION_JSON)
+                .content("{\"email\":\"a@@b\",\"password\":null}"))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.error.code").value("validation_error"))
+                .andExpect(jsonPath("$.error.details[0].field").value("email"))
+                .andExpect(jsonPath("$.error.details[0].code").value("invalid_format"))
+                .andExpect(jsonPath("$.error.details[1].field").value("password"))
+                .andExpect(jsonPath("$.error.details[1].code").value("required"));
+        mvc.perform(post("/api/v1/auth/login").contentType(APPLICATION_JSON)
+                .content("{}"))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.error.details[0].code").value("required"))
+                .andExpect(jsonPath("$.error.details[1].code").value("required"));
+    }
+
+    @Test
+    void loginNormalizesEmailAndKeepsValidationErrors() throws Exception {
+        String email = "login-normalization-" + UUID.randomUUID() + "@example.com";
+        var operation = registration.start(UUID.randomUUID(), new RegisterUserRequest(email, "a"));
+        jdbc.sql("UPDATE users SET status='ACTIVE' WHERE id=:id").param("id", operation.userId()).update();
+        mvc.perform(post("/api/v1/auth/login").contentType(APPLICATION_JSON)
+                .content("{\"email\":\"  " + email.toUpperCase(java.util.Locale.ROOT)
+                        + "  \",\"password\":\"a\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.access_token").isNotEmpty());
+        mvc.perform(post("/api/v1/auth/login").contentType(APPLICATION_JSON)
+                .content("{\"email\":\"a@@b\",\"password\":\"a\"}"))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.error.code").value("validation_error"))
+                .andExpect(jsonPath("$.error.details[0].field").value("email"));
+    }
+
+    @Test
+    void loginAndRefreshFailuresKeepTheirHttpContract() throws Exception {
+        String requestId = UUID.randomUUID().toString();
+        mvc.perform(post("/api/v1/auth/login").header("X-Request-Id", requestId)
+                .contentType(APPLICATION_JSON)
+                .content("{\"email\":\"missing@example.com\",\"password\":\"a\"}"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(header().string("Cache-Control", "no-store"))
+                .andExpect(jsonPath("$.error.code").value("invalid_credentials"))
+                .andExpect(jsonPath("$.error.message").value("Invalid email or password."))
+                .andExpect(jsonPath("$.error.request_id").value(requestId));
+        mvc.perform(post("/api/v1/auth/refresh").header("X-Request-Id", requestId)
+                .contentType(APPLICATION_JSON)
+                .content("{\"refresh_token\":\"invalid\"}"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(header().string("Cache-Control", "no-store"))
+                .andExpect(jsonPath("$.error.code").value("invalid_refresh_token"))
+                .andExpect(jsonPath("$.error.message").value("Request could not be completed."))
+                .andExpect(jsonPath("$.error.request_id").value(requestId));
+    }
+
+    @Test
+    void unavailableAccountReturnsTheOriginalLoginAndRefreshErrors() throws Exception {
+        String email = "unavailable-" + UUID.randomUUID() + "@example.com";
+        var operation = registration.start(UUID.randomUUID(), new RegisterUserRequest(email, "a"));
+        jdbc.sql("UPDATE users SET status='ACTIVE' WHERE id=:id").param("id", operation.userId()).update();
+        String credentials = "{\"email\":\"" + email + "\",\"password\":\"a\"}";
+        String login = mvc.perform(post("/api/v1/auth/login").contentType(APPLICATION_JSON).content(credentials))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+        String refresh = JsonMapper.builder().build().readTree(login).get("refresh_token").asString();
+        String requestId = UUID.randomUUID().toString();
+        jdbc.sql("UPDATE users SET status='SUSPENDED' WHERE id=:id").param("id", operation.userId()).update();
+
+        mvc.perform(post("/api/v1/auth/login").header("X-Request-Id", requestId)
+                .contentType(APPLICATION_JSON)
+                .content(credentials))
+                .andExpect(status().isForbidden())
+                .andExpect(header().string("Cache-Control", "no-store"))
+                .andExpect(jsonPath("$.error.code").value("account_unavailable"))
+                .andExpect(jsonPath("$.error.message").value("Account is unavailable."))
+                .andExpect(jsonPath("$.error.request_id").value(requestId));
+        mvc.perform(post("/api/v1/auth/refresh").header("X-Request-Id", requestId)
+                .contentType(APPLICATION_JSON)
+                .content("{\"refresh_token\":\"" + refresh + "\"}"))
+                .andExpect(status().isForbidden())
+                .andExpect(header().string("Cache-Control", "no-store"))
+                .andExpect(jsonPath("$.error.code").value("account_unavailable"))
+                .andExpect(jsonPath("$.error.message").value("Request could not be completed."))
+                .andExpect(jsonPath("$.error.request_id").value(requestId));
+    }
+
+    @Test
     void pendingAccountCannotObtainTokensThroughRegistrationLoginOrRefresh() throws Exception {
         String email = "pending-token-" + UUID.randomUUID() + "@example.com";
         UUID key = UUID.randomUUID();
@@ -500,6 +603,10 @@ class RegistrationTokenHttpIntegrationTest {
         String loginResponse = mvc.perform(
                 post("/api/v1/auth/login").contentType(APPLICATION_JSON).content(body))
                 .andExpect(status().isServiceUnavailable())
+                .andExpect(header().string("Cache-Control", "no-store"))
+                .andExpect(jsonPath("$.error.code").value("registration_pending"))
+                .andExpect(jsonPath("$.error.message").value("Registration is being prepared. Try again later."))
+                .andExpect(jsonPath("$.error.request_id").isNotEmpty())
                 .andReturn()
                 .getResponse()
                 .getContentAsString();
@@ -884,6 +991,38 @@ class RegistrationTokenHttpIntegrationTest {
     }
 
     @Test
+    void expiredRefreshIsRejectedWithoutRevokingSession() throws Exception {
+        String email = "expired-refresh-" + UUID.randomUUID() + "@example.com";
+        var operation = registration.start(UUID.randomUUID(), new RegisterUserRequest(email, "a"));
+        jdbc.sql("UPDATE users SET status='ACTIVE' WHERE id=:id").param("id", operation.userId()).update();
+        String login = mvc.perform(post("/api/v1/auth/login").contentType(APPLICATION_JSON)
+                .content("{\"email\":\"" + email + "\",\"password\":\"a\"}"))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+        String token = JsonMapper.builder().build().readTree(login).get("refresh_token").asString();
+        UUID tokenId = UUID.fromString(token.substring(0, 36));
+        jdbc.sql("UPDATE refresh_tokens SET created_at=clock_timestamp()-interval '2 days', "
+                + "expires_at=clock_timestamp()-interval '1 day' WHERE id=:id").param("id", tokenId).update();
+
+        mvc.perform(post("/api/v1/auth/refresh").contentType(APPLICATION_JSON)
+                .content("{\"refresh_token\":\"" + token + "\"}"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(header().string("Cache-Control", "no-store"))
+                .andExpect(jsonPath("$.error.code").value("invalid_refresh_token"));
+        assertThat(jdbc.sql("SELECT used_at IS NULL AND revoked_at IS NULL FROM refresh_tokens WHERE id=:id")
+                .param("id", tokenId)
+                .query(Boolean.class)
+                .single()).isTrue();
+        assertThat(jdbc.sql("SELECT s.revoked_at IS NULL FROM auth_sessions s "
+                + "JOIN refresh_tokens t ON t.session_id=s.id WHERE t.id=:id")
+                .param("id", tokenId)
+                .query(Boolean.class)
+                .single()).isTrue();
+    }
+
+    @Test
     void refreshRotatesAndCorrectReplayRevokesButWrongSecretDoesNot() throws Exception {
         String email = "refresh-" + UUID.randomUUID() + "@example.com";
         var operation = registration.start(UUID.randomUUID(), new RegisterUserRequest(email, "a"));
@@ -956,7 +1095,11 @@ class RegistrationTokenHttpIntegrationTest {
         mvc.perform(post("/api/v1/auth/refresh")
                 .contentType(APPLICATION_JSON)
                 .content("{\"refresh_token\":\"" + oldToken + "\"}"))
-                .andExpect(status().isUnauthorized());
+                .andExpect(status().isUnauthorized())
+                .andExpect(header().string("Cache-Control", "no-store"))
+                .andExpect(jsonPath("$.error.code").value("invalid_refresh_token"))
+                .andExpect(jsonPath("$.error.message").value("Request could not be completed."))
+                .andExpect(jsonPath("$.error.request_id").isNotEmpty());
         assertThat(jdbc.sql("SELECT revoked_at IS NOT NULL FROM auth_sessions WHERE id=:id")
                 .param("id", sessionId)
                 .query(Boolean.class)

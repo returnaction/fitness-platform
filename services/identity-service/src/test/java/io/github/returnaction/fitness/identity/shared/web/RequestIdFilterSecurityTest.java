@@ -10,7 +10,7 @@ import io.github.returnaction.fitness.identity.registration.service.Registration
 import io.github.returnaction.fitness.identity.registration.service.RegistrationRecoveryService;
 import io.github.returnaction.fitness.identity.registration.service.RegistrationSessionService;
 import io.github.returnaction.fitness.identity.session.repository.SessionVerificationRepository;
-import io.github.returnaction.fitness.identity.session.service.PendingLoginService;
+import io.github.returnaction.fitness.identity.session.service.LoginService;
 import io.github.returnaction.fitness.identity.registration.repository.RoleRepository;
 import io.github.returnaction.fitness.identity.registration.repository.UserCredentialRepository;
 import io.github.returnaction.fitness.identity.registration.repository.UserRepository;
@@ -31,6 +31,26 @@ import org.springframework.transaction.support.TransactionTemplate;
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 class RequestIdFilterSecurityTest {
+    // Тестируем HTTP и БД без запуска фоновых задач и реальных gRPC-соединений.
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    private io.github.returnaction.fitness.identity.registration.grpc.AccountsProvisioningClient accountsClient;
+
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    private io.github.returnaction.fitness.identity.registration.grpc.CoinsProvisioningClient coinsClient;
+
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    private io.github.returnaction.fitness.identity.registration.worker.AccountsProvisioningScheduler accountsScheduler;
+
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    private io.github.returnaction.fitness.identity.registration.worker.CoinsProvisioningScheduler coinsScheduler;
+
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    private io.github.returnaction.fitness.identity.session.grpc.SecureSessionGrpcServer sessionGrpcServer;
+
+    @org.springframework.test.context.DynamicPropertySource
+    static void jwtKeys(org.springframework.test.context.DynamicPropertyRegistry registry) {
+        io.github.returnaction.fitness.identity.TestJwtKeys.register(registry);
+    }
 
     @MockitoBean
     private jakarta.persistence.EntityManager entityManager;
@@ -42,7 +62,7 @@ class RequestIdFilterSecurityTest {
     private io.github.returnaction.fitness.identity.registration.repository.RegistrationReadinessRepository registrationReadinessRepository;
 
     @MockitoBean
-    private io.github.returnaction.fitness.identity.session.repository.PendingLoginRepository pendingLoginRepository;
+    private io.github.returnaction.fitness.identity.session.repository.LoginRepository loginRepository;
 
     @Autowired
     private MockMvc mockMvc;
@@ -72,7 +92,7 @@ class RequestIdFilterSecurityTest {
     private RegistrationRecoveryService registrationRecoveryService;
 
     @MockitoBean
-    private PendingLoginService pendingLoginService;
+    private LoginService pendingLoginService;
 
     @MockitoBean
     private RegistrationSessionService registrationSessionService;

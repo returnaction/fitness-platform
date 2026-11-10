@@ -6,11 +6,9 @@ import io.github.returnaction.fitness.identity.security.jwt.AccessTokenVerifier;
 import io.github.returnaction.fitness.identity.session.repository.SessionVerificationRepository;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 @Component
-@ConditionalOnProperty(name = "identity.jwt.enabled", havingValue = "true")
 @RequiredArgsConstructor
 public class RecoveryAccessVerifier {
     private final AccessTokenVerifier verifier;

@@ -20,7 +20,7 @@ volume CA; при создании новой CA её нужно настрои�
 
 ## Зачем обновлять сертификаты
 
-Accounts и Coins подтверждают свои имена отдельными серверными сертификатами; Identity подтверждает
+Accounts, Coins и внутренний gRPC-сервер Identity подтверждают свои имена отдельными серверными сертификатами; Identity подтверждает
 свою service identity клиентским сертификатом с URI SAN
 `spiffe://fitness.local/identity-service`. Сертификаты имеют ограниченный срок;
 после окончания срока mTLS-соединение не установится. Тестовые сертификаты,
@@ -37,6 +37,7 @@ docker compose -f platform/step-ca/compose.yaml ps
 docker compose -f platform/step-ca/compose.yaml exec -T step-ca step ca health --ca-url https://localhost:9000 --root /home/step/certs/root_ca.crt
 $openssl = 'C:\Program Files\PostgreSQL\17\bin\openssl.exe'
 & $openssl x509 -in secrets/identity-client.crt -noout -enddate
+& $openssl x509 -in secrets/identity-server.crt -noout -enddate
 & $openssl x509 -in secrets/accounts-server.crt -noout -enddate
 & $openssl x509 -in secrets/coins-server.crt -noout -enddate
 ```

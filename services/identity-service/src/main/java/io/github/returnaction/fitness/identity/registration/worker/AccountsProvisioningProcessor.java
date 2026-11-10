@@ -6,13 +6,11 @@ import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /** Обрабатывает одну уже арендованную операцию без транзакции во время gRPC. */
 @Component
-@ConditionalOnProperty(name = "identity.accounts-grpc.enabled", havingValue = "true")
 @RequiredArgsConstructor
 public class AccountsProvisioningProcessor {
     private final AccountsProvisioningClient client;

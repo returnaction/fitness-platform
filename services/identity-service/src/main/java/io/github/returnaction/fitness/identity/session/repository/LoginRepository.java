@@ -1,6 +1,7 @@
 package io.github.returnaction.fitness.identity.session.repository;
 
 import io.github.returnaction.fitness.identity.registration.entity.user.UserEntity;
+import io.github.returnaction.fitness.identity.session.model.LoginUser;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.Modifying;
@@ -9,18 +10,17 @@ import org.springframework.data.repository.Repository;
 import org.springframework.data.repository.query.Param;
 import org.springframework.transaction.annotation.Transactional;
 
-public interface PendingLoginRepository extends Repository<UserEntity, UUID> {
-    @Query(value = """
-            SELECT u.id AS id, u.status AS status, c.password_hash AS "passwordHash" FROM users u
-            JOIN user_credentials c ON c.user_id = u.id WHERE u.email_canonical = :email
-            """, nativeQuery = true)
-    Optional<UserProjection> findUserProjection(@Param("email") String email);
+public interface LoginRepository extends Repository<UserEntity, UUID> {
 
-    default User findUser(String email) {
-        return findUserProjection(email)
-                .map(row -> new User(row.getId(), row.getStatus(), row.getPasswordHash()))
-                .orElse(null);
-    }
+    @Transactional(readOnly = true)
+    @Query("""
+            SELECT new io.github.returnaction.fitness.identity.session.model.LoginUser(
+                u.id, u.status, c.passwordHash)
+            FROM UserEntity u
+            JOIN UserCredentialEntity c ON c.userId = u.id
+            WHERE u.emailCanonical = :email
+            """)
+    Optional<LoginUser> findByEmail(@Param("email") String email);
 
     @Transactional
     @Modifying
@@ -36,18 +36,4 @@ public interface PendingLoginRepository extends Repository<UserEntity, UUID> {
             """, nativeQuery = true)
     void accelerate(@Param("user") UUID userId, @Param("hash") String hash);
 
-    interface UserProjection {
-        UUID getId();
-
-        String getStatus();
-
-        String getPasswordHash();
-    }
-
-    record User(UUID id, String status, String passwordHash) {
-        @Override
-        public String toString() {
-            return "User[redacted]";
-        }
-    }
 }

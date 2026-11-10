@@ -10,12 +10,10 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.util.concurrent.TimeUnit;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.SmartLifecycle;
 import org.springframework.stereotype.Component;
 
 @Component
-@ConditionalOnProperty(name = "identity.session-grpc.enabled", havingValue = "true")
 public final class SecureSessionGrpcServer implements SmartLifecycle {
     private final Server server;
     private volatile boolean running;

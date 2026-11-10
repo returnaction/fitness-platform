@@ -1,5 +1,7 @@
 package io.github.returnaction.fitness.identity.registration.service;
 
+import io.github.returnaction.fitness.identity.session.service.SessionTokenService;
+import io.github.returnaction.fitness.identity.session.model.IssuedTokens;
 import io.github.returnaction.fitness.identity.registration.dto.RegisterResponse;
 import io.github.returnaction.fitness.identity.registration.dto.RegisterUserRequest;
 import io.github.returnaction.fitness.identity.registration.dto.RegisteredUser;
@@ -9,7 +11,6 @@ import io.github.returnaction.fitness.identity.registration.exception.Registrati
 import io.github.returnaction.fitness.identity.registration.model.RegistrationStartResult;
 import io.github.returnaction.fitness.identity.registration.validation.IdempotencyKeyValidator;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -17,7 +18,7 @@ import org.springframework.stereotype.Service;
 public class RegistrationFacade {
 
     private final RegistrationService registrationService;
-    private final ObjectProvider<RegistrationTokenService> tokenService;
+    private final SessionTokenService tokenService;
     private final RegistrationReadinessWaiter readinessWaiter;
     private final IdempotencyKeyValidator keyValidator;
 
@@ -41,12 +42,11 @@ public class RegistrationFacade {
     public RegisterResponse register(String idempotencyKey, RegisterUserRequest request) {
 
         RegistrationStartResult operation = registrationService.start(keyValidator.parse(idempotencyKey), request);
-        RegistrationTokenService issuer = tokenService.getIfAvailable();
-        if (issuer == null || !readinessWaiter.await(operation.operationId())) {
+        if (!readinessWaiter.await(operation.operationId())) {
             throw new RegistrationUnavailableException();
         }
         try {
-            RegistrationTokenService.Tokens tokens = issuer.create(operation.operationId(), request.password());
+            IssuedTokens tokens = tokenService.create(operation.operationId(), request.password());
 
             return new RegisterResponse(
                     new RegisteredUser(

@@ -4,10 +4,10 @@ This root file applies to the entire repository, including the
 [System Design documentation](system-design/README.md). More specific
 instructions in nested directories supplement the root instructions.
 
-## Active SDD Scope: 005-jwt-role-claims
+## Active SDD Scope: 006-identity-auth-clean-code
 
 Until the user explicitly changes the scope, a request to continue development
-means continuing [005-jwt-role-claims](specs/005-jwt-role-claims/spec.md).
+means continuing [006-identity-auth-clean-code](specs/006-identity-auth-clean-code/spec.md).
 Do not start implementing another feature or a system-design roadmap item just
 because it exists in the documentation. When the specification is complete or
 all remaining tasks are blocked, report the status and ask the user what to do
@@ -15,9 +15,9 @@ next rather than choosing a different feature.
 
 Before each development step:
 
-1. Read the current [task list](specs/005-jwt-role-claims/tasks.md),
-   [specification](specs/005-jwt-role-claims/spec.md), and
-   [plan](specs/005-jwt-role-claims/plan.md). Identify an open task, its
+1. Read the current [task list](specs/006-identity-auth-clean-code/tasks.md),
+   [specification](specs/006-identity-auth-clean-code/spec.md), and
+   [plan](specs/006-identity-auth-clean-code/plan.md). Identify an open task, its
    acceptance criteria, and any dependencies. Respect an explicit user request
    and the current branch; do not assume the first unchecked item is always
    actionable.

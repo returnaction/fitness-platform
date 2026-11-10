@@ -22,13 +22,17 @@ public class LogoutController {
 
     @PostMapping(value = "/logout", produces = MediaType.APPLICATION_JSON_VALUE)
     ResponseEntity<Void> logout(@Valid @RequestBody LogoutRequest request) {
+
         service.logout(request.refreshToken());
+
         return ResponseEntity.noContent().build();
     }
 
     @PostMapping(value = "/logout-all", produces = MediaType.APPLICATION_JSON_VALUE)
     ResponseEntity<Void> logoutAll(@AuthenticationPrincipal AccessTokenVerifier.Identity identity) {
+
         service.logoutAll(identity);
+
         return ResponseEntity.noContent().build();
     }
 }

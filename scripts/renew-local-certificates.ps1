@@ -4,7 +4,7 @@ $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
 $openssl = 'C:\Program Files\PostgreSQL\17\bin\openssl.exe'
 $container = 'step-ca-step-ca-1'
-$names = @('identity-client', 'accounts-server', 'coins-server')
+$names = @('identity-client', 'identity-server', 'accounts-server', 'coins-server')
 $secrets = Join-Path $root 'secrets'
 if (!(Test-Path -LiteralPath $openssl)) { throw "OpenSSL не найден: $openssl" }
 foreach ($name in $names) {

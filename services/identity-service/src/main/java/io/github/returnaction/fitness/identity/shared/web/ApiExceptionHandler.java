@@ -6,11 +6,14 @@ import io.github.returnaction.fitness.identity.registration.exception.RecoveryCo
 import io.github.returnaction.fitness.identity.registration.exception.RegistrationConflictException;
 import io.github.returnaction.fitness.identity.registration.exception.RegistrationRateLimitException;
 import io.github.returnaction.fitness.identity.registration.exception.RegistrationUnavailableException;
-import io.github.returnaction.fitness.identity.registration.exception.RegistrationValidationException;
+import io.github.returnaction.fitness.identity.shared.exception.CredentialsValidationException;
+import io.github.returnaction.fitness.identity.session.exception.AuthenticationFailureException;
+import io.github.returnaction.fitness.identity.session.dto.LoginRequest;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
@@ -61,6 +64,29 @@ public class ApiExceptionHandler {
         return ResponseEntity.status(HttpStatus.NOT_ACCEPTABLE).build();
     }
 
+    @ExceptionHandler(AuthenticationFailureException.class)
+    ResponseEntity<ApiErrorResponse> handleAuthenticationFailure(AuthenticationFailureException exception,
+                                                                 HttpServletRequest request) {
+        HttpStatus status = switch (exception.reason()) {
+            case INVALID_CREDENTIALS, INVALID_REFRESH -> HttpStatus.UNAUTHORIZED;
+            case ACCOUNT_UNAVAILABLE, REFRESH_ACCOUNT_UNAVAILABLE -> HttpStatus.FORBIDDEN;
+            case REGISTRATION_PENDING -> HttpStatus.SERVICE_UNAVAILABLE;
+        };
+        String code = switch (exception.reason()) {
+            case INVALID_CREDENTIALS -> "invalid_credentials";
+            case ACCOUNT_UNAVAILABLE, REFRESH_ACCOUNT_UNAVAILABLE -> "account_unavailable";
+            case REGISTRATION_PENDING -> "registration_pending";
+            case INVALID_REFRESH -> "invalid_refresh_token";
+        };
+        String message = switch (exception.reason()) {
+            case INVALID_CREDENTIALS -> "Invalid email or password.";
+            case ACCOUNT_UNAVAILABLE -> "Account is unavailable.";
+            case REGISTRATION_PENDING -> "Registration is being prepared. Try again later.";
+            case INVALID_REFRESH, REFRESH_ACCOUNT_UNAVAILABLE -> "Request could not be completed.";
+        };
+        return response(status, code, message, List.of(), request, HttpHeaders.CACHE_CONTROL, "no-store");
+    }
+
     @ExceptionHandler(InvalidAccessTokenException.class)
     ResponseEntity<ApiErrorResponse> handleInvalidAccess(InvalidAccessTokenException exception,
                                                          HttpServletRequest request) {
@@ -103,7 +129,12 @@ public class ApiExceptionHandler {
         List<ApiErrorResponse.ErrorDetail> details = exception.getBindingResult()
                 .getFieldErrors()
                 .stream()
-                .map(this::toErrorDetail)
+                .map(field -> exception.getBindingResult().getTarget() instanceof LoginRequest
+                        ? new ApiErrorResponse.ErrorDetail(field.getField(), field.getDefaultMessage())
+                        : toErrorDetail(field))
+                .sorted(java.util.Comparator
+                        .comparingInt(field -> exception.getBindingResult().getTarget() instanceof LoginRequest
+                                && "email".equals(field.field()) ? 0 : 1))
                 .toList();
 
         return response(HttpStatus.UNPROCESSABLE_CONTENT, "validation_error", "Check the submitted data.", details,
@@ -120,9 +151,9 @@ public class ApiExceptionHandler {
                 request);
     }
 
-    @ExceptionHandler(RegistrationValidationException.class)
-    ResponseEntity<ApiErrorResponse> handleRegistrationValidation(RegistrationValidationException exception,
-                                                                  HttpServletRequest request) {
+    @ExceptionHandler(CredentialsValidationException.class)
+    ResponseEntity<ApiErrorResponse> handleCredentialsValidation(CredentialsValidationException exception,
+                                                                 HttpServletRequest request) {
         List<ApiErrorResponse.ErrorDetail> details = exception.getViolations()
                 .stream()
                 .map(violation -> new ApiErrorResponse.ErrorDetail(violation.field(), violation.code()))
@@ -164,6 +195,19 @@ public class ApiExceptionHandler {
                                                       HttpServletRequest request) {
 
         return ResponseEntity.status(status).body(errorBody(code, message, details, request));
+    }
+
+    private ResponseEntity<ApiErrorResponse> response(HttpStatus status,
+                                                      String code,
+                                                      String message,
+                                                      List<ApiErrorResponse.ErrorDetail> details,
+                                                      HttpServletRequest request,
+                                                      String headerName,
+                                                      String headerValue) {
+
+        return ResponseEntity.status(status)
+                .header(headerName, headerValue)
+                .body(errorBody(code, message, details, request));
     }
 
     private ApiErrorResponse errorBody(String code,

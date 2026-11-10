@@ -38,8 +38,25 @@ import org.bouncycastle.openssl.jcajce.JcaPEMWriter;
 import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 
 class SessionMutualTlsTest {
+    @Test
+    void missingCertificateFailsStartupEvenWithOldDisabledFlag(@TempDir Path dir) {
+        new ApplicationContextRunner()
+                .withUserConfiguration(SecureSessionGrpcServer.class)
+                .withBean(SessionVerificationGrpcService.class, () -> mock(SessionVerificationGrpcService.class))
+                .withPropertyValues(
+                        "identity.session-grpc.enabled=false",
+                        "identity.session-grpc.address=127.0.0.1",
+                        "identity.session-grpc.port=19093",
+                        "identity.session-grpc.certificate=" + dir.resolve("missing.crt"),
+                        "identity.session-grpc.private-key=" + dir.resolve("missing.key"),
+                        "identity.session-grpc.trust-certificate=" + dir.resolve("missing-ca.crt"),
+                        "identity.session-grpc.allowed-caller=spiffe://fitness.local/local-session-client")
+                .run(context -> assertThat(context).hasFailed());
+    }
+
     @Test
     void onlyConfiguredCallerCanCheckSession(@TempDir Path dir) throws Exception {
         var caKey = keyPair();

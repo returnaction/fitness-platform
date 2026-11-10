@@ -12,12 +12,10 @@ import java.io.IOException;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 /** Внутренний mTLS-клиент, используемый обработчиком регистрации. */
 @Component
-@ConditionalOnProperty(name = "identity.accounts-grpc.enabled", havingValue = "true")
 public final class AccountsProvisioningClient {
     private final ManagedChannel channel;
 

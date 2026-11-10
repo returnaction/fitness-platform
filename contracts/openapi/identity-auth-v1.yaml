@@ -193,7 +193,7 @@ paths:
         '415':
           $ref: '#/components/responses/UnsupportedMediaType'
         '422':
-          $ref: '#/components/responses/ValidationError'
+          $ref: '#/components/responses/RefreshValidationError'
         '429':
           $ref: '#/components/responses/RateLimited'
         '500':
@@ -418,6 +418,12 @@ components:
               type: string
               format: uuid
   responses:
+    RefreshValidationError:
+      description: Поле refresh_token отсутствует, пусто или превышает 256 символов; код validation_error.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
     LogoutValidationError:
       description: Поле refresh_token отсутствует, пусто или превышает допустимую длину; код validation_error.
       content:
