@@ -8,11 +8,9 @@ import io.github.returnaction.fitness.identity.shared.exception.InvalidAccessTok
 import java.time.Instant;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 @Component
-@ConditionalOnProperty(name = "identity.jwt.enabled", havingValue = "true")
 public class AccessTokenVerifier {
     private final PublicJwtKeys keys;
     private final String issuer;

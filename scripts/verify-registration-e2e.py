@@ -339,7 +339,7 @@ def main():
                 run("docker", "exec", container, "createdb", "-U", "postgres", database)
             ports = {}
             for name in ("identity", "accounts", "coins", "accounts_grpc", "coins_grpc",
-                         "accounts_grpc_real", "coins_grpc_real"):
+                         "accounts_grpc_real", "coins_grpc_real", "identity_session_grpc"):
                 port = free_port()
                 while port in ports.values():
                     port = free_port()
@@ -358,12 +358,16 @@ def main():
                 return env
 
             identity = environment("identity-service", "test_identity", ports["identity"])
-            identity.update({"IDENTITY_JWT_ENABLED": "true", "IDENTITY_JWT_PRIVATE_KEY": str(directory / "jwt.key"),
+            identity.update({"IDENTITY_JWT_PRIVATE_KEY": str(directory / "jwt.key"),
                              "IDENTITY_JWT_PUBLIC_KEY": str(directory / "jwt.pub"),
-                             "IDENTITY_ACCOUNTS_GRPC_ENABLED": "true", "IDENTITY_COINS_GRPC_ENABLED": "true",
+                             "IDENTITY_SESSION_GRPC_ADDRESS": "127.0.0.1",
+                             "IDENTITY_SESSION_GRPC_PORT": str(ports["identity_session_grpc"]),
+                             "IDENTITY_SESSION_GRPC_CERTIFICATE": str(directory / "server.crt"),
+                             "IDENTITY_SESSION_GRPC_PRIVATE_KEY": str(directory / "server.key"),
+                             "IDENTITY_SESSION_GRPC_TRUST_CERTIFICATE": str(directory / "ca.crt"),
+                             "IDENTITY_SESSION_GRPC_ALLOWED_CALLER": "spiffe://fitness.local/test-client",
                              "IDENTITY_ACCOUNTS_GRPC_PORT": str(ports["accounts_grpc"]),
                              "IDENTITY_COINS_GRPC_PORT": str(ports["coins_grpc"]),
-                             "IDENTITY_REGISTRATION_WORKER_ENABLED": "true",
                              "IDENTITY_REGISTRATION_WORKER_POLL_MS": "1000",
                              "IDENTITY_REGISTRATION_RATE_CAPACITY": "100",
                              "IDENTITY_REGISTRATION_RETRY_INITIAL_SECONDS": "1"})

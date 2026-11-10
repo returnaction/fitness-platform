@@ -4,7 +4,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.returnaction.fitness.identity.registration.entity.operation.RegistrationOperationEntity;
 import io.github.returnaction.fitness.identity.registration.exception.RegistrationConflictException;
 import io.github.returnaction.fitness.identity.registration.model.RegistrationStartResult;
-import io.github.returnaction.fitness.identity.registration.model.ValidatedRegistration;
+import io.github.returnaction.fitness.identity.shared.model.ValidatedCredentials;
 import io.github.returnaction.fitness.identity.registration.repository.RegistrationOperationRepository;
 import io.github.returnaction.fitness.identity.registration.entity.role.RoleCode;
 import io.github.returnaction.fitness.identity.registration.entity.role.RoleEntity;
@@ -37,7 +37,7 @@ public class RegistrationWriter {
     @SuppressFBWarnings(value = "EI_EXPOSE_REP2", justification = "Spring infrastructure bean, not exposed or modified by this service.")
     private final TransactionTemplate transactionTemplate;
 
-    public RegistrationStartResult createOrRepeat(byte[] digest, ValidatedRegistration input) {
+    public RegistrationStartResult createOrRepeat(byte[] digest, ValidatedCredentials input) {
         RegistrationStartResult result = transactionTemplate
                 .execute(status -> createOrRepeatInTransaction(digest, input));
         if (result == null)
@@ -45,7 +45,7 @@ public class RegistrationWriter {
         return result;
     }
 
-    private RegistrationStartResult createOrRepeatInTransaction(byte[] digest, ValidatedRegistration input) {
+    private RegistrationStartResult createOrRepeatInTransaction(byte[] digest, ValidatedCredentials input) {
         RegistrationOperationEntity existing = operationRepository.findByIdempotencyKeyDigest(digest).orElse(null);
         if (existing != null) {
             return repeat(existing, input);
@@ -68,7 +68,7 @@ public class RegistrationWriter {
         return new RegistrationStartResult(operation.getId(), userId, input.emailCanonical());
     }
 
-    RegistrationStartResult repeat(RegistrationOperationEntity operation, ValidatedRegistration input) {
+    RegistrationStartResult repeat(RegistrationOperationEntity operation, ValidatedCredentials input) {
         UserEntity user = userRepository
                 .findById(operation.getUserId())
                 .orElseThrow(() -> new IllegalStateException("Registration operation references a missing user"));

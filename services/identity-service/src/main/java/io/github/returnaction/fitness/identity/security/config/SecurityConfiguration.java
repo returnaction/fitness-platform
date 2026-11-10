@@ -6,7 +6,6 @@ import io.github.returnaction.fitness.identity.registration.web.RegistrationClie
 import io.github.returnaction.fitness.identity.registration.web.RegistrationRateLimiter;
 import io.github.returnaction.fitness.identity.security.jwt.AccessTokenVerifier;
 import io.github.returnaction.fitness.identity.security.jwt.LogoutAllAuthenticationFilter;
-import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -23,8 +22,8 @@ import org.springframework.web.servlet.HandlerExceptionResolver;
 public class SecurityConfiguration {
 
     @Bean
-    SecurityFilterChain securityFilterChain(HttpSecurity http, ObjectProvider<RecoveryAccessVerifier> verifier,
-                                            ObjectProvider<AccessTokenVerifier> accessVerifier,
+    SecurityFilterChain securityFilterChain(HttpSecurity http, RecoveryAccessVerifier verifier,
+                                            AccessTokenVerifier accessVerifier,
                                             RegistrationClientAddress clientAddress,
                                             @Qualifier("handlerExceptionResolver") HandlerExceptionResolver exceptionResolver,
                                             @Value("${identity.registration.logout-all-rate-capacity}") long capacity,

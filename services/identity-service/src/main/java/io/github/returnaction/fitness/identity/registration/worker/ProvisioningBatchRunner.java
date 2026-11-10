@@ -15,12 +15,10 @@ import java.util.function.Supplier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 /** Общий ограниченный пул: задача арендуется только в свободном потоке. */
 @Component
-@ConditionalOnProperty(name = "identity.registration.worker.enabled", havingValue = "true")
 public final class ProvisioningBatchRunner implements AutoCloseable {
     private static final Logger LOGGER = LoggerFactory.getLogger(ProvisioningBatchRunner.class);
     private final int batchSize;

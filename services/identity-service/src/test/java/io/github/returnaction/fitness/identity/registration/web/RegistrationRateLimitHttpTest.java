@@ -15,7 +15,7 @@ import io.github.returnaction.fitness.identity.registration.service.Registration
 import io.github.returnaction.fitness.identity.registration.service.RegistrationRecoveryService;
 import io.github.returnaction.fitness.identity.registration.service.RegistrationSessionService;
 import io.github.returnaction.fitness.identity.session.repository.SessionVerificationRepository;
-import io.github.returnaction.fitness.identity.session.service.PendingLoginService;
+import io.github.returnaction.fitness.identity.session.service.LoginService;
 import io.github.returnaction.fitness.identity.registration.repository.RoleRepository;
 import io.github.returnaction.fitness.identity.registration.repository.UserCredentialRepository;
 import io.github.returnaction.fitness.identity.registration.repository.UserRepository;
@@ -36,6 +36,27 @@ import org.springframework.transaction.support.TransactionTemplate;
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 class RegistrationRateLimitHttpTest {
+    // Тестируем HTTP и БД без запуска фоновых задач и реальных gRPC-соединений.
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    private io.github.returnaction.fitness.identity.registration.grpc.AccountsProvisioningClient accountsClient;
+
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    private io.github.returnaction.fitness.identity.registration.grpc.CoinsProvisioningClient coinsClient;
+
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    private io.github.returnaction.fitness.identity.registration.worker.AccountsProvisioningScheduler accountsScheduler;
+
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    private io.github.returnaction.fitness.identity.registration.worker.CoinsProvisioningScheduler coinsScheduler;
+
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    private io.github.returnaction.fitness.identity.session.grpc.SecureSessionGrpcServer sessionGrpcServer;
+
+    @org.springframework.test.context.DynamicPropertySource
+    static void jwtKeys(org.springframework.test.context.DynamicPropertyRegistry registry) {
+        io.github.returnaction.fitness.identity.TestJwtKeys.register(registry);
+    }
+
     @MockitoBean
     private jakarta.persistence.EntityManager entityManager;
 
@@ -46,7 +67,7 @@ class RegistrationRateLimitHttpTest {
     private io.github.returnaction.fitness.identity.registration.repository.RegistrationReadinessRepository registrationReadinessRepository;
 
     @MockitoBean
-    private io.github.returnaction.fitness.identity.session.repository.PendingLoginRepository pendingLoginRepository;
+    private io.github.returnaction.fitness.identity.session.repository.LoginRepository loginRepository;
 
     @Autowired
     private MockMvc mvc;
@@ -79,7 +100,7 @@ class RegistrationRateLimitHttpTest {
     private RegistrationRecoveryService registrationRecoveryService;
 
     @MockitoBean
-    private PendingLoginService pendingLoginService;
+    private LoginService pendingLoginService;
 
     @MockitoBean
     private RegistrationSessionService sessions;
@@ -91,15 +112,104 @@ class RegistrationRateLimitHttpTest {
     private TransactionTemplate transactions;
 
     @Test
-    void logoutAllReturns503WhenTokenVerifierIsUnavailable() throws Exception {
+    void authenticationErrorsDoNotExposeInputInResponsesOrLogs() throws Exception {
+        var root = (ch.qos.logback.classic.Logger) org.slf4j.LoggerFactory.getLogger(org.slf4j.Logger.ROOT_LOGGER_NAME);
+        var logs = new ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent>();
+        logs.start();
+        root.addAppender(logs);
+        String email = "private.user@@example.test";
+        String validEmail = "person@example.test";
+        String password = "secret-password-006";
+        String token = "secret-refresh-006-" + "x".repeat(257);
+        String validToken = "e436670d-252f-47dd-a536-6200f9ac4144." + "A".repeat(43);
+        try {
+            String invalidCredentials = mvc.perform(post("/api/v1/auth/login")
+                    .with(request -> {
+                        request.setRemoteAddr("192.0.2.110");
+                        return request;
+                    })
+                    .contentType(APPLICATION_JSON)
+                    .content("{\"email\":\"" + email + "\",\"password\":\"" + password + "\"}"))
+                    .andExpect(status().isUnprocessableEntity())
+                    .andReturn()
+                    .getResponse()
+                    .getContentAsString();
+            String invalidRefresh = mvc.perform(post("/api/v1/auth/refresh")
+                    .with(request -> {
+                        request.setRemoteAddr("192.0.2.110");
+                        return request;
+                    })
+                    .contentType(APPLICATION_JSON)
+                    .content("{\"refresh_token\":\"" + token + "\"}"))
+                    .andExpect(status().isUnprocessableEntity())
+                    .andReturn()
+                    .getResponse()
+                    .getContentAsString();
+            String malformed = mvc.perform(post("/api/v1/auth/login")
+                    .with(request -> {
+                        request.setRemoteAddr("192.0.2.110");
+                        return request;
+                    })
+                    .contentType(APPLICATION_JSON)
+                    .content("{\"password\":\"" + password + "\","))
+                    .andExpect(status().isBadRequest())
+                    .andReturn()
+                    .getResponse()
+                    .getContentAsString();
+            doThrow(new IllegalStateException(email + " " + password + " " + token)).when(pendingLoginService)
+                    .login(any());
+            String unexpected = mvc.perform(post("/api/v1/auth/login")
+                    .with(request -> {
+                        request.setRemoteAddr("192.0.2.110");
+                        return request;
+                    })
+                    .contentType(APPLICATION_JSON)
+                    .content("{\"email\":\"" + validEmail + "\",\"password\":\"" + password + "\"}"))
+                    .andExpect(status().isInternalServerError())
+                    .andReturn()
+                    .getResponse()
+                    .getContentAsString();
+            doThrow(new org.springframework.dao.DataAccessResourceFailureException(validEmail + " " + validToken))
+                    .when(refreshTokenRepository)
+                    .findLocation(any());
+            String databaseFailure = mvc.perform(post("/api/v1/auth/refresh")
+                    .with(request -> {
+                        request.setRemoteAddr("192.0.2.110");
+                        return request;
+                    })
+                    .contentType(APPLICATION_JSON)
+                    .content("{\"refresh_token\":\"" + validToken + "\"}"))
+                    .andExpect(status().isServiceUnavailable())
+                    .andReturn()
+                    .getResponse()
+                    .getContentAsString();
+            for (String response : java.util.List.of(invalidCredentials, invalidRefresh, malformed, unexpected,
+                    databaseFailure)) {
+                assertThat(response).doesNotContain(email, validEmail, password, token, validToken);
+            }
+            for (var event : logs.list) {
+                assertThat(event.getFormattedMessage()).doesNotContain(email, validEmail, password, token, validToken);
+                if (event.getThrowableProxy() != null) {
+                    assertThat(ch.qos.logback.classic.spi.ThrowableProxyUtil.asString(event.getThrowableProxy()))
+                            .doesNotContain(email, validEmail, password, token, validToken);
+                }
+            }
+        } finally {
+            root.detachAppender(logs);
+            logs.stop();
+        }
+    }
+
+    @Test
+    void logoutAllRejectsInvalidTokenWithMandatoryVerifier() throws Exception {
         mvc.perform(post("/api/v1/auth/logout-all")
                 .with(request -> {
                     request.setRemoteAddr("192.0.2.62");
                     return request;
                 })
                 .header("Authorization", "Bearer invalid"))
-                .andExpect(status().isServiceUnavailable())
-                .andExpect(jsonPath("$.error.code").value("identity_unavailable"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error.code").value("invalid_access_token"))
                 .andExpect(header().exists("X-Request-Id"));
     }
 
@@ -226,6 +336,30 @@ class RegistrationRateLimitHttpTest {
                 .andExpect(header().exists("X-Request-Id"))
                 .andExpect(jsonPath("$.error.code").value("validation_error"))
                 .andExpect(jsonPath("$.error.details[0].field").value("refreshToken"));
+    }
+
+    @Test
+    void invalidRefreshFieldsKeepTheirValidationContract() throws Exception {
+        String requestId = "9c54845a-cece-4f1e-83b1-428f1e299ddf";
+        for (String body : java.util.List.of(
+                "{}", "{\"refresh_token\":null}", "{\"refresh_token\":\"\"}",
+                "{\"refresh_token\":\"  \"}", "{\"refresh_token\":\"" + "x".repeat(257) + "\"}")) {
+            mvc.perform(post("/api/v1/auth/refresh")
+                    .with(request -> {
+                        request.setRemoteAddr("192.0.2.90");
+                        return request;
+                    })
+                    .header("X-Request-Id", requestId)
+                    .contentType(APPLICATION_JSON)
+                    .content(body))
+                    .andExpect(status().isUnprocessableEntity())
+                    .andExpect(header().string("X-Request-Id", requestId))
+                    .andExpect(jsonPath("$.error.code").value("validation_error"))
+                    .andExpect(jsonPath("$.error.message").value("Check the submitted data."))
+                    .andExpect(jsonPath("$.error.request_id").value(requestId))
+                    .andExpect(jsonPath("$.error.details[0].field").value("refreshToken"))
+                    .andExpect(jsonPath("$.error.details[0].code").value("invalid"));
+        }
     }
 
     @Test

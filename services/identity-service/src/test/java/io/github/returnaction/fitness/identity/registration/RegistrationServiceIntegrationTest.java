@@ -22,7 +22,7 @@ import io.github.returnaction.fitness.identity.registration.repository.Registrat
 import io.github.returnaction.fitness.identity.registration.service.RegistrationRecoveryService;
 import io.github.returnaction.fitness.identity.registration.service.RegistrationService;
 import io.github.returnaction.fitness.identity.registration.service.RegistrationSessionService;
-import io.github.returnaction.fitness.identity.registration.service.RegistrationTokenService;
+import io.github.returnaction.fitness.identity.session.service.SessionTokenService;
 import io.github.returnaction.fitness.identity.registration.worker.AccountsProvisioningProcessor;
 import io.github.returnaction.fitness.identity.registration.worker.AccountsProvisioningScheduler;
 import io.github.returnaction.fitness.identity.registration.worker.CoinsProvisioningProcessor;
@@ -68,12 +68,30 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 class RegistrationServiceIntegrationTest {
+    // Тестируем HTTP и БД без запуска фоновых задач и реальных gRPC-соединений.
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    private io.github.returnaction.fitness.identity.registration.grpc.AccountsProvisioningClient accountsClient;
+
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    private io.github.returnaction.fitness.identity.registration.grpc.CoinsProvisioningClient coinsClient;
+
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    private io.github.returnaction.fitness.identity.registration.worker.AccountsProvisioningScheduler accountsScheduler;
+
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    private io.github.returnaction.fitness.identity.registration.worker.CoinsProvisioningScheduler coinsScheduler;
+
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    private io.github.returnaction.fitness.identity.session.grpc.SecureSessionGrpcServer sessionGrpcServer;
 
     @Container
     static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:17-alpine");
 
     @Autowired
     private RegistrationService registrationService;
+
+    @Autowired
+    private io.github.returnaction.fitness.identity.session.repository.LoginRepository loginRepository;
 
     @Autowired
     private RegistrationSessionService sessionService;
@@ -113,9 +131,22 @@ class RegistrationServiceIntegrationTest {
 
     @DynamicPropertySource
     static void databaseProperties(DynamicPropertyRegistry registry) {
+        io.github.returnaction.fitness.identity.TestJwtKeys.register(registry);
         registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
         registry.add("spring.datasource.username", POSTGRES::getUsername);
         registry.add("spring.datasource.password", POSTGRES::getPassword);
+    }
+
+    @Test
+    void loginRepositoryFindsUserAndCredentialsDirectlyByEmail() {
+        String email = "login-query-" + UUID.randomUUID() + "@example.com";
+        var operation = registrationService.start(UUID.randomUUID(), new RegisterUserRequest(email, "a"));
+
+        var user = loginRepository.findByEmail(email).orElseThrow();
+        assertThat(user.id()).isEqualTo(operation.userId());
+        assertThat(user.status()).isEqualTo(UserStatus.PENDING);
+        assertThat(passwordEncoder.matches("a", user.passwordHash())).isTrue();
+        assertThat(loginRepository.findByEmail("missing-" + UUID.randomUUID() + "@example.com")).isEmpty();
     }
 
     @Test
@@ -407,7 +438,7 @@ class RegistrationServiceIntegrationTest {
                 org.mockito.ArgumentMatchers.any(),
                 org.mockito.ArgumentMatchers.any()))
                 .thenThrow(new IllegalStateException("signing failed"));
-        var service = new RegistrationTokenService(sessionService, signer, userRoleRepository);
+        var service = new SessionTokenService(sessionService, signer, userRoleRepository);
         assertThatThrownBy(() -> transactionTemplate.execute(status -> service.create(operation.operationId(), "a")))
                 .isInstanceOf(IllegalStateException.class);
         assertThat(jdbcClient
@@ -569,11 +600,15 @@ class RegistrationServiceIntegrationTest {
                 .content("{\"email\":\"" + email + "\",\"password\":\"wrong\"}"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.error.code").value("invalid_credentials"));
+        org.mockito.Mockito.clearInvocations(passwordEncoder);
         mockMvc.perform(post("/api/v1/auth/login")
                 .contentType(APPLICATION_JSON)
                 .content("{\"email\":\"unknown@example.com\",\"password\":\"wrong\"}"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.error.code").value("invalid_credentials"));
+        org.mockito.Mockito.verify(passwordEncoder)
+                .matches(
+                        org.mockito.ArgumentMatchers.eq("wrong"), org.mockito.ArgumentMatchers.anyString());
         assertThat(jdbcClient
                 .sql(
                         "SELECT next_retry_at > clock_timestamp()+interval '30 minutes' FROM registration_operations WHERE id=:id")
@@ -657,7 +692,7 @@ class RegistrationServiceIntegrationTest {
                 org.mockito.ArgumentMatchers.any(),
                 org.mockito.ArgumentMatchers.any()))
                 .thenThrow(new IllegalStateException("signing failed"));
-        var service = new RegistrationTokenService(sessionService, signer, userRoleRepository);
+        var service = new SessionTokenService(sessionService, signer, userRoleRepository);
         assertThatThrownBy(
                 () -> transactionTemplate.execute(status -> service.createLogin(operation.userId(), hash, null)))
                 .isInstanceOf(IllegalStateException.class);

@@ -21,7 +21,6 @@ class AccessTokenConfigurationTest {
         return new ApplicationContextRunner()
                 .withUserConfiguration(AccessTokenConfiguration.class)
                 .withPropertyValues(
-                        "identity.jwt.enabled=true",
                         "identity.jwt.private-key=" + keyPath,
                         "identity.jwt.public-key=" + publicPath,
                         "identity.jwt.key-id=test-key",
@@ -56,6 +55,8 @@ class AccessTokenConfigurationTest {
             assertThat(entry.containsKey("d")).isFalse();
             assertThat(entry.get("kid")).isEqualTo("test-key");
         });
+        context(key.toString(), publicKey.toString()).withPropertyValues("identity.jwt.enabled=false")
+                .run(ctx -> assertThat(ctx).hasSingleBean(AccessTokenSigner.class));
         var different = generator.generateKeyPair();
         Path otherKey = directory.resolve("other-public.pem");
         Files.writeString(
@@ -67,9 +68,12 @@ class AccessTokenConfigurationTest {
         context(key.toString(), otherKey.toString()).run(ctx -> assertThat(ctx).hasFailed());
         context(directory.resolve("missing.pem").toString(), publicKey.toString())
                 .run(ctx -> assertThat(ctx).hasFailed());
+        Path damagedKey = directory.resolve("damaged.pem");
+        Files.writeString(damagedKey, "-----BEGIN PRIVATE KEY-----\ninvalid\n-----END PRIVATE KEY-----\n");
+        context(damagedKey.toString(), publicKey.toString()).run(ctx -> assertThat(ctx).hasFailed());
         new ApplicationContextRunner()
                 .withUserConfiguration(AccessTokenConfiguration.class)
                 .withPropertyValues("identity.jwt.enabled=false")
-                .run(ctx -> assertThat(ctx).doesNotHaveBean(AccessTokenSigner.class));
+                .run(ctx -> assertThat(ctx).hasFailed());
     }
 }

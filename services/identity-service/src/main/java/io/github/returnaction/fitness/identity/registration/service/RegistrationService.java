@@ -1,10 +1,11 @@
 package io.github.returnaction.fitness.identity.registration.service;
 
 import io.github.returnaction.fitness.identity.registration.dto.RegisterUserRequest;
+import io.github.returnaction.fitness.identity.shared.validation.CredentialsValidator;
 import io.github.returnaction.fitness.identity.registration.entity.operation.RegistrationOperationEntity;
 import io.github.returnaction.fitness.identity.registration.exception.RegistrationConflictException;
 import io.github.returnaction.fitness.identity.registration.model.RegistrationStartResult;
-import io.github.returnaction.fitness.identity.registration.model.ValidatedRegistration;
+import io.github.returnaction.fitness.identity.shared.model.ValidatedCredentials;
 import io.github.returnaction.fitness.identity.registration.repository.RegistrationOperationRepository;
 import io.github.returnaction.fitness.identity.registration.repository.UserRepository;
 import java.nio.charset.StandardCharsets;
@@ -34,14 +35,15 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class RegistrationService {
 
-    private final RegistrationInputValidator inputValidator;
+    private final CredentialsValidator inputValidator;
     private final RegistrationWriter registrationWriter;
     private final RegistrationOperationRepository operationRepository;
     private final UserRepository userRepository;
 
     public RegistrationStartResult start(UUID idempotencyKey, RegisterUserRequest request) {
         // Проверяет данные запроса и подготавливает email и пароль для регистрации.
-        ValidatedRegistration input = inputValidator.validate(request);
+        ValidatedCredentials input = inputValidator.validate(request == null ? null : request.email(),
+                request == null ? null : request.password());
         // Создаёт SHA-256-хеш ключа идемпотентности для безопасного хранения и поиска
         // операции.
         byte[] digest = sha256(idempotencyKey.toString());
@@ -53,7 +55,7 @@ public class RegistrationService {
         }
     }
 
-    private RegistrationStartResult resolveWriteConflict(byte[] digest, ValidatedRegistration input,
+    private RegistrationStartResult resolveWriteConflict(byte[] digest, ValidatedCredentials input,
                                                          DataIntegrityViolationException exception) {
 
         RegistrationOperationEntity existing = operationRepository.findByIdempotencyKeyDigest(digest).orElse(null);

@@ -5,6 +5,7 @@ import java.util.Map;
 
 /** Содержит только открытые параметры ключа для проверяющих компонентов. */
 public final class PublicJwtKeys {
+
     private final Map<String, Object> key;
 
     public PublicJwtKeys(Map<String, Object> key) {

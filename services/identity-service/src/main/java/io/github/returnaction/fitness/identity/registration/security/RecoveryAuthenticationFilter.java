@@ -10,7 +10,6 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.dao.DataAccessException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -24,7 +23,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 @RequiredArgsConstructor
 public final class RecoveryAuthenticationFilter extends OncePerRequestFilter {
     private static final String PREFIX = "/api/v1/admin/identity/registration-operations/";
-    private final ObjectProvider<RecoveryAccessVerifier> verifier;
+    private final RecoveryAccessVerifier verifier;
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
@@ -40,13 +39,8 @@ public final class RecoveryAuthenticationFilter extends OncePerRequestFilter {
             fail(request, response, 401, "invalid_access_token", "Authentication required.");
             return;
         }
-        var access = verifier.getIfAvailable();
-        if (access == null) {
-            fail(request, response, 503, "identity_unavailable", "Authentication unavailable.");
-            return;
-        }
         try {
-            var userId = access.verify(authorization.substring(7));
+            var userId = verifier.verify(authorization.substring(7));
             var auth = new UsernamePasswordAuthenticationToken(
                     userId, null, List.of(new SimpleGrantedAuthority("identity.registration.recover")));
             SecurityContextHolder.getContext().setAuthentication(auth);

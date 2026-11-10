@@ -29,7 +29,6 @@ spring:
 
 identity:
   session-grpc:
-    enabled: ${IDENTITY_SESSION_GRPC_ENABLED}
     address: ${IDENTITY_SESSION_GRPC_ADDRESS}
     port: ${IDENTITY_SESSION_GRPC_PORT}
     certificate: ${IDENTITY_SESSION_GRPC_CERTIFICATE}
@@ -37,21 +36,18 @@ identity:
     trust-certificate: ${IDENTITY_SESSION_GRPC_TRUST_CERTIFICATE}
     allowed-caller: ${IDENTITY_SESSION_GRPC_ALLOWED_CALLER}
   jwt:
-    enabled: ${IDENTITY_JWT_ENABLED}
     private-key: ${IDENTITY_JWT_PRIVATE_KEY}
     public-key: ${IDENTITY_JWT_PUBLIC_KEY}
     key-id: ${IDENTITY_JWT_KEY_ID}
     issuer: ${IDENTITY_JWT_ISSUER}
     audience: ${IDENTITY_JWT_AUDIENCE}
   coins-grpc:
-    enabled: ${IDENTITY_COINS_GRPC_ENABLED}
     host: ${IDENTITY_COINS_GRPC_HOST}
     port: ${IDENTITY_COINS_GRPC_PORT}
     certificate: ${IDENTITY_COINS_GRPC_CERTIFICATE}
     private-key: ${IDENTITY_COINS_GRPC_PRIVATE_KEY}
     trust-certificate: ${IDENTITY_COINS_GRPC_TRUST_CERTIFICATE}
   accounts-grpc:
-    enabled: ${IDENTITY_ACCOUNTS_GRPC_ENABLED}
     host: ${IDENTITY_ACCOUNTS_GRPC_HOST}
     port: ${IDENTITY_ACCOUNTS_GRPC_PORT}
     certificate: ${IDENTITY_ACCOUNTS_GRPC_CERTIFICATE}
@@ -71,7 +67,6 @@ identity:
     logout-rate-capacity: ${IDENTITY_LOGOUT_RATE_CAPACITY}
     logout-all-rate-capacity: ${IDENTITY_LOGOUT_ALL_RATE_CAPACITY}
     worker:
-      enabled: ${IDENTITY_REGISTRATION_WORKER_ENABLED}
       poll-ms: ${IDENTITY_REGISTRATION_WORKER_POLL_MS}
       batch-size: ${IDENTITY_REGISTRATION_WORKER_BATCH_SIZE}
       parallelism: ${IDENTITY_REGISTRATION_WORKER_PARALLELISM}

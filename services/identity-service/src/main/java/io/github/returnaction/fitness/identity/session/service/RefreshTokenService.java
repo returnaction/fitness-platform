@@ -9,13 +9,11 @@ import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.util.Base64;
 import java.util.UUID;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /** Ротация refresh и подпись access token в одной транзакции. */
 @Service
-@ConditionalOnProperty(name = "identity.jwt.enabled", havingValue = "true")
 public class RefreshTokenService {
     @SuppressFBWarnings(value = "EI_EXPOSE_REP2", justification = "Spring-managed repository is shared and not exposed.")
     private final RefreshTokenRepository repository;

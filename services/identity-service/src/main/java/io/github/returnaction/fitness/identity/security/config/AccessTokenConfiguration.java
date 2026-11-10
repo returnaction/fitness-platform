@@ -19,17 +19,14 @@ import java.security.spec.X509EncodedKeySpec;
 import java.time.Clock;
 import java.util.Base64;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-/** Явно включаемый загрузчик локального или серверного PKCS#8 ключа. */
+/** Загружает и проверяет локальные или серверные JWT-ключи. */
 @Configuration
-@ConditionalOnProperty(name = "identity.jwt.enabled", havingValue = "true")
 public class AccessTokenConfiguration {
     @Bean
-    JwtKeyMaterial jwtKeyMaterial(
-                                  @Value("${identity.jwt.private-key}") String privateKey,
+    JwtKeyMaterial jwtKeyMaterial(@Value("${identity.jwt.private-key}") String privateKey,
                                   @Value("${identity.jwt.public-key}") String publicKey)
             throws IOException, GeneralSecurityException {
         var factory = KeyFactory.getInstance("EC");
@@ -52,8 +49,7 @@ public class AccessTokenConfiguration {
     }
 
     @Bean
-    AccessTokenSigner accessTokenSigner(
-                                        JwtKeyMaterial keys,
+    AccessTokenSigner accessTokenSigner(JwtKeyMaterial keys,
                                         @Value("${identity.jwt.key-id}") String keyId,
                                         @Value("${identity.jwt.issuer}") String issuer,
                                         @Value("${identity.jwt.audience}") String audience) {

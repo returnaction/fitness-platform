@@ -11,7 +11,6 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.MediaType;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -24,7 +23,7 @@ import org.springframework.web.servlet.HandlerExceptionResolver;
  */
 @RequiredArgsConstructor
 public final class LogoutAllAuthenticationFilter extends OncePerRequestFilter {
-    private final ObjectProvider<AccessTokenVerifier> verifiers;
+    private final AccessTokenVerifier verifier;
     private final RegistrationClientAddress clientAddress;
     private final RegistrationRateLimiter limiter;
     private final HandlerExceptionResolver exceptionResolver;
@@ -60,12 +59,6 @@ public final class LogoutAllAuthenticationFilter extends OncePerRequestFilter {
         String authorization = request.getHeader("Authorization");
         if (authorization == null || !authorization.startsWith("Bearer ") || authorization.length() <= 7) {
             handleError(request, response, new InvalidAccessTokenException());
-            return;
-        }
-        var verifier = verifiers.getIfAvailable();
-        if (verifier == null) {
-            handleError(request, response,
-                    new org.springframework.dao.DataAccessResourceFailureException("Authentication unavailable"));
             return;
         }
         try {
