@@ -110,9 +110,9 @@ def free_port():
         return sock.getsockname()[1]
 
 
-def template(service):
+def test_environment(service):
     result = {}
-    for line in (ROOT / "services" / service / ".env.example").read_text(encoding="utf-8").splitlines():
+    for line in (ROOT / "services" / service / "src" / "test" / "resources" / "test-environment.properties").read_text(encoding="utf-8").splitlines():
         if line and not line.startswith("#") and "=" in line:
             key, value = line.split("=", 1)
             result[key] = value
@@ -351,8 +351,8 @@ def main():
 
             def environment(service, database, port):
                 env = os.environ.copy()
-                env.update(template(service))
-                env.update({"SPRING_PROFILES_ACTIVE": "local", "SERVER_PORT": str(port),
+                env.update(test_environment(service))
+                env.update({"SPRING_PROFILES_ACTIVE": "e2e", "SERVER_PORT": str(port),
                             "DATABASE_URL": f"jdbc:postgresql://127.0.0.1:{database_port}/{database}",
                             "DATABASE_USERNAME": "postgres", "DATABASE_PASSWORD": "temporary-test-password"})
                 return env

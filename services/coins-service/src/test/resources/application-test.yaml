@@ -1,7 +1,6 @@
 spring:
   config:
     import:
-      - optional:file:./.env.example[.properties]
-      - optional:file:./services/coins-service/.env.example[.properties]
+      - classpath:test-environment.properties
 server:
   port: 0
