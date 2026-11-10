@@ -1,0 +1,59 @@
+spring:
+  application:
+    name: gateway-service
+  profiles:
+    default: local
+  autoconfigure:
+    exclude: org.springframework.boot.security.autoconfigure.UserDetailsServiceAutoConfiguration
+  cloud:
+    gateway:
+      server:
+        webmvc:
+          form-filter:
+            enabled: false
+  servlet:
+    multipart:
+      enabled: false
+server:
+  port: ${SERVER_PORT}
+  address: ${GATEWAY_ADDRESS}
+  forward-headers-strategy: none
+  max-http-request-header-size: 16KB
+  tomcat:
+    connection-timeout: 5s
+    max-connections: 256
+    threads:
+      max: 64
+    accesslog:
+      enabled: false
+management:
+  server:
+    port: ${MANAGEMENT_PORT}
+    address: 127.0.0.1
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: never
+gateway:
+  identity-url: ${GATEWAY_IDENTITY_URL}
+  jwks-url: ${GATEWAY_JWKS_URL}
+  issuer: ${GATEWAY_JWT_ISSUER}
+  audience: ${GATEWAY_JWT_AUDIENCE}
+  max-body-bytes: ${GATEWAY_MAX_BODY_BYTES}
+  rate-capacity: ${GATEWAY_RATE_CAPACITY}
+  rate-period-seconds: ${GATEWAY_RATE_PERIOD_SECONDS}
+  max-clients: ${GATEWAY_MAX_CLIENTS}
+  jwks-ttl-seconds: ${GATEWAY_JWKS_TTL_SECONDS}
+  jwks-refresh-seconds: ${GATEWAY_JWKS_REFRESH_SECONDS}
+  http-timeout-millis: ${GATEWAY_HTTP_TIMEOUT_MILLIS}
+  session-host: ${GATEWAY_SESSION_HOST}
+  session-port: ${GATEWAY_SESSION_PORT}
+  certificate: ${GATEWAY_CERTIFICATE}
+  private-key: ${GATEWAY_PRIVATE_KEY}
+  trust-certificate: ${GATEWAY_TRUST_CERTIFICATE}
+  session-timeout-millis: ${GATEWAY_SESSION_TIMEOUT_MILLIS}

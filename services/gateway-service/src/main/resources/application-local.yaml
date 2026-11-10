@@ -1,0 +1,5 @@
+spring:
+  config:
+    import:
+      - optional:file:./.env[.properties]
+      - optional:file:./services/gateway-service/.env[.properties]

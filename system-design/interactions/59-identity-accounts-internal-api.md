@@ -33,8 +33,12 @@ UUID задаются строками lowercase, даты RFC 3339 UTC; proto-�
 Сервер Identity включается явно и принимает только одну service identity,
 заданную в `IDENTITY_SESSION_GRPC_ALLOWED_CALLER`. Значение задаёт разрешённого
 вызывающего для `identity.session.verify`; пустая или некорректная URI не
-позволяет включить сервер. На текущем этапе конкретная identity Gateway и его
-клиент ещё не настроены. Сертификат сервера и CA передаются отдельно через
+позволяет включить сервер. Для Gateway v1 выбран caller
+`spiffe://fitness.local/gateway-service`; клиент находится в `gateway-service`
+и использует отдельный сертификат с этим URI SAN. Настройки и локальные
+ограничения описаны в [инструкции Gateway](../../services/gateway-service/README.md).
+Существующие пользовательские `.env` автоматически не перезаписываются.
+Сертификат сервера и CA передаются отдельно через
 переменные `IDENTITY_SESSION_GRPC_*`, а порт не публикуется в интернет.
 
 `CheckSession` требует service permission `identity.session.verify`:

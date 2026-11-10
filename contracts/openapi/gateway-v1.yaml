@@ -1,0 +1,49 @@
+openapi: 3.1.0
+info:
+  title: Fitness Gateway auth API
+  version: 1.0.0
+  description: >-
+    Identity owns the referenced auth operations. Gateway additionally enforces
+    the limits and transport errors in ../gateway-v1.md. No other paths are public.
+servers:
+  - url: http://127.0.0.1:8088
+    description: Local development only
+paths:
+  /api/v1/auth/register:
+    $ref: './identity-auth-v1.yaml#/paths/~1api~1v1~1auth~1register'
+  /api/v1/auth/login:
+    $ref: './identity-auth-v1.yaml#/paths/~1api~1v1~1auth~1login'
+  /api/v1/auth/refresh:
+    $ref: './identity-auth-v1.yaml#/paths/~1api~1v1~1auth~1refresh'
+  /api/v1/auth/logout:
+    $ref: './identity-auth-v1.yaml#/paths/~1api~1v1~1auth~1logout'
+  /api/v1/auth/logout-all:
+    $ref: './identity-auth-v1.yaml#/paths/~1api~1v1~1auth~1logout-all'
+components:
+  securitySchemes:
+    BearerAccess:
+      $ref: './identity-auth-v1.yaml#/components/securitySchemes/BearerAccess'
+x-gateway-policy:
+  protected-paths: [/api/v1/auth/logout-all]
+  session-check: grpc-mtls-every-request
+  retries: 0
+  max-body-bytes: 16384
+  requests-per-ip-window: 60
+  window-seconds: 60
+  max-client-windows: 10000
+  jwks-ttl-seconds: 300
+  jwks-refresh-minimum-seconds: 5
+  session-deadline-milliseconds: 2500
+  http-timeout-milliseconds: 15000
+  cors-origins: []
+  errors:
+    '400': invalid_request
+    '401': invalid_access_token
+    '404': not_found
+    '405': method_not_allowed
+    '413': payload_too_large
+    '429': rate_limited
+    '500': internal_error
+    '502': upstream_unavailable
+    '503': identity_unavailable
+    '504': upstream_timeout
