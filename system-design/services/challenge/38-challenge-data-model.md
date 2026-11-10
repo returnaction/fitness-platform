@@ -73,7 +73,7 @@ outbox. Внешние вызовы не удерживают открытую �
 | `id` | UUID PK | Одно задание и максимум одна принятая видеозапись участника. |
 | `challenge_day_id` | UUID NOT NULL FK → `challenge_days.id` | День задания. |
 | `position` | INTEGER NOT NULL | `> 0`, UNIQUE `(challenge_day_id, position)`. |
-| `exercise_id`, `variation_id` | UUID NULL | Внешние ID каталога, не FK между сервисами; обязательны для опубликованного задания. |
+| `exercise_id`, `variation_id` | SMALLINT NULL | Внешние ID Catalog в диапазоне `1`–`32767`, не FK между сервисами; обязательны для опубликованного задания. |
 | `target_value` | BIGINT NULL | Целое положительное значение; обязательно для опубликованного задания и сверяется с диапазоном Catalog. |
 | `exercise_snapshot` | JSONB NULL | Проверенные сервером название, вариация, описание и инструкция; обязателен после публикации; формат — [снимок задания](../exercise-catalog/49-task-metric-contract.md). |
 | `target_snapshot` | JSONB NULL | Метрика и целевое значение; обязателен после публикации. |

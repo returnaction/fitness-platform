@@ -25,14 +25,15 @@
  "participants":{"min":2,"max":2},
  "start":{"mode":"WHEN_FULL","scheduled_at":null,
           "extension":{"max_count":0,"interval_seconds":null}},
- "days":[{"day_number":1,"tasks":[{"position":1,"exercise_id":"<uuid>",
- "variation_id":"<uuid>","target_value":10}]}]}
+ "days":[{"day_number":1,"tasks":[{"position":1,"exercise_id":1,
+ "variation_id":1,"target_value":10}]}]}
 ```
 
 Частичный PATCH меняет только переданные корневые поля; `days` при наличии
 полностью заменяет расписание черновика в одной локальной транзакции. Явный
 `null` очищает только nullable поле; неизвестное поле — `422 validation_error`.
-Отсутствие поля не меняет его. Все ID проверяются по формату, не считаются
+Отсутствие поля не меняет его. Собственные ID Challenge проверяются как UUID,
+а `exercise_id` и `variation_id` — как числа `1`–`32767`; они не считаются
 доказательством активности каталога. Полное расписание может состоять из
 нескольких дней; пример показывает только один элемент. При сохранении
 неполного черновика частичные условия допускаются, но при публикации они
@@ -94,7 +95,7 @@ Catalog. `target_value` — int64 > 0 и в допустимом диапазо�
 Пароль и приватный токен в ответ не входят. Для будущих дней время может быть
 NULL до фактического старта; доступ к видео проверяется отдельно.
 
-`GET /api/v1/challenges?min_stake=1&max_stake=100&exercise_id=<uuid>&sort=start_at&limit=20&cursor=...`
+`GET /api/v1/challenges?min_stake=1&max_stake=100&exercise_id=1&sort=start_at&limit=20&cursor=...`
 — проект поиска; min/max и exercise_id опциональны, sort: `start_at`, `stake`,
 `participants`; limit 1–100, default 20. `200 {"items":[{...}],"next_cursor":null}`.
 Каждый sort имеет вторичный стабильный ключ ID; cursor привязан к фильтрам.
