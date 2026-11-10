@@ -6,8 +6,8 @@ Bucket4j token bucket: пять запросов за период 60 секун
 Учитываются также запросы с некорректным JSON или отсутствующим заголовком.
 При превышении сервис отвечает `429 rate_limited` и `Retry-After` в секундах.
 
-Значения задаются в `.env.example` и могут быть переопределены в `.env` или
-окружении сервера: `IDENTITY_REGISTRATION_RATE_CAPACITY`,
+Локальные значения задаются в `.env`, а на сервере передаются в окружении;
+`.env.example` содержит только пример: `IDENTITY_REGISTRATION_RATE_CAPACITY`,
 `IDENTITY_REGISTRATION_RATE_PERIOD_SECONDS`,
 `IDENTITY_REGISTRATION_RATE_CACHE_SIZE` и
 `IDENTITY_REGISTRATION_RATE_CACHE_EXPIRY_SECONDS`. Состояние хранится в

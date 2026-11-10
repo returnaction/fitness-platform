@@ -1,7 +1,5 @@
 spring:
   config:
     import:
-      - optional:file:./.env.example[.properties]
-      - optional:file:./services/notifications-service/.env.example[.properties]
       - optional:file:./.env[.properties]
       - optional:file:./services/notifications-service/.env[.properties]
