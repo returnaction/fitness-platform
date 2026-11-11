@@ -16,7 +16,7 @@ import com.nimbusds.jose.jwk.gen.ECKeyGenerator;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
 import com.sun.net.httpserver.HttpServer;
-import io.github.returnaction.fitness.gateway.security.GatewayFailure;
+import io.github.returnaction.fitness.gateway.exception.GatewayException;
 import io.github.returnaction.fitness.gateway.security.SessionAccess;
 import java.net.InetSocketAddress;
 import java.net.URI;
@@ -143,10 +143,10 @@ class GatewayHttpTest {
     @Test
     void sessionRevocationAndUnavailableFailClosed() throws Exception {
         String token = token("test-identity", Instant.now().plusSeconds(60));
-        doThrow(GatewayFailure.invalid()).when(sessions).check(any(), any());
+        doThrow(GatewayException.invalid()).when(sessions).check(any(), any());
         assertThat(send("logout-all", "POST", "", Map.of("Authorization", "Bearer " + token)).statusCode())
                 .isEqualTo(401);
-        doThrow(GatewayFailure.unavailable()).when(sessions).check(any(), any());
+        doThrow(GatewayException.unavailable()).when(sessions).check(any(), any());
         assertThat(send("logout-all", "POST", "", Map.of("Authorization", "Bearer " + token)).statusCode())
                 .isEqualTo(503);
         assertThat(CALLS).hasValue(0);
@@ -182,7 +182,7 @@ class GatewayHttpTest {
 
     @Test
     void rateLimitReturnsRetryAfterAndDoesNotReachUpstream() throws Exception {
-        doThrow(new GatewayFailure(429, "rate_limited")).when(limits).check(any());
+        doThrow(new GatewayException(429, "rate_limited")).when(limits).check(any());
         var response = send("login", "POST", "{}", Map.of());
         assertThat(response.statusCode()).isEqualTo(429);
         assertThat(response.headers().firstValue("Retry-After")).contains("60");

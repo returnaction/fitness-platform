@@ -2,7 +2,7 @@ package io.github.returnaction.fitness.gateway.web;
 
 import io.github.returnaction.fitness.gateway.configuration.GatewayProperties;
 import io.github.returnaction.fitness.gateway.security.AccessTokens;
-import io.github.returnaction.fitness.gateway.security.GatewayFailure;
+import io.github.returnaction.fitness.gateway.exception.GatewayException;
 import io.github.returnaction.fitness.gateway.security.RequestLimits;
 import io.github.returnaction.fitness.gateway.security.SessionAccess;
 import jakarta.servlet.FilterChain;
@@ -63,22 +63,22 @@ public final class GatewayFilter extends OncePerRequestFilter {
             }
             limits.check(request.getRemoteAddr());
             if (!PATHS.contains(request.getRequestURI()))
-                throw new GatewayFailure(404, "not_found");
+                throw new GatewayException(404, "not_found");
             if (!"POST".equals(request.getMethod())) {
                 response.setHeader("Allow", "POST");
-                throw new GatewayFailure(405, "method_not_allowed");
+                throw new GatewayException(405, "method_not_allowed");
             }
             if (request.getQueryString() != null)
-                throw new GatewayFailure(400, "invalid_request");
+                throw new GatewayException(400, "invalid_request");
             if (request.getContentLengthLong() > settings.maxBodyBytes())
-                throw new GatewayFailure(413, "payload_too_large");
+                throw new GatewayException(413, "payload_too_large");
             byte[] body = request.getInputStream().readNBytes(settings.maxBodyBytes() + 1);
             if (body.length > settings.maxBodyBytes())
-                throw new GatewayFailure(413, "payload_too_large");
+                throw new GatewayException(413, "payload_too_large");
             if (request.getRequestURI().equals("/api/v1/auth/logout-all")) {
                 var headers = Collections.list(request.getHeaders("Authorization"));
                 if (headers.size() != 1 || !headers.getFirst().startsWith("Bearer "))
-                    throw GatewayFailure.invalid();
+                    throw GatewayException.invalid();
                 var principal = tokens.verify(headers.getFirst().substring(7));
                 sessions.check(principal, requestId);
                 SecurityContextHolder.getContext()
@@ -86,7 +86,7 @@ public final class GatewayFilter extends OncePerRequestFilter {
                                 UsernamePasswordAuthenticationToken.authenticated(principal, null, List.of()));
             }
             chain.doFilter(new BufferedRequest(request, body), response);
-        } catch (GatewayFailure failure) {
+        } catch (GatewayException failure) {
             if (failure.status() == 429)
                 response.setHeader("Retry-After", Integer.toString(settings.ratePeriodSeconds()));
             errors.write(response, failure.status(), failure.code(), requestId);

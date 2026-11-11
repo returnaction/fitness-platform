@@ -1,16 +1,20 @@
 package io.github.returnaction.fitness.gateway.security;
 
+import io.github.returnaction.fitness.gateway.exception.GatewayException;
+
 import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.crypto.ECDSAVerifier;
 import com.nimbusds.jose.jwk.Curve;
 import com.nimbusds.jwt.SignedJWT;
 import io.github.returnaction.fitness.gateway.configuration.GatewayProperties;
+import org.springframework.stereotype.Component;
+
 import java.time.Instant;
 import java.util.UUID;
-import org.springframework.stereotype.Component;
 
 @Component
 public final class AccessTokens {
+
     private final JwksKeys keys;
     private final GatewayProperties settings;
 
@@ -26,10 +30,10 @@ public final class AccessTokens {
             if (!JWSAlgorithm.ES256.equals(header.getAlgorithm()) || header.getKeyID() == null
                     || header.getKeyID().isBlank() || header.getKeyID().length() > 128
                     || header.getCriticalParams() != null)
-                throw GatewayFailure.invalid();
+                throw GatewayException.invalid();
             var key = keys.get(header.getKeyID());
             if (!Curve.P_256.equals(key.getCurve()) || !jwt.verify(new ECDSAVerifier(key))) {
-                throw GatewayFailure.invalid();
+                throw GatewayException.invalid();
             }
             var claims = jwt.getJWTClaimsSet();
             Instant now = Instant.now();
@@ -42,28 +46,28 @@ public final class AccessTokens {
                             .toInstant()
                             .isAfter(claims.getIssueTime().toInstant().plusSeconds(900))
                     || (claims.getNotBeforeTime() != null && claims.getNotBeforeTime().toInstant().isAfter(now))) {
-                throw GatewayFailure.invalid();
+                throw GatewayException.invalid();
             }
             var roles = claims.getStringListClaim("roles");
             // This route requires authentication, not a role. Unknown/missing roles grant
             // no authority.
             if (roles != null && roles.stream().anyMatch(java.util.Objects::isNull))
-                throw GatewayFailure.invalid();
+                throw GatewayException.invalid();
             canonical(claims.getJWTID());
             return new Principal(canonical(claims.getSubject()), canonical(claims.getStringClaim("sid")));
-        } catch (GatewayFailure failure) {
+        } catch (GatewayException failure) {
             throw failure;
         } catch (java.text.ParseException | com.nimbusds.jose.JOSEException | IllegalArgumentException exception) {
-            throw GatewayFailure.invalid();
+            throw GatewayException.invalid();
         }
     }
 
     private static UUID canonical(String value) {
         if (value == null)
-            throw GatewayFailure.invalid();
+            throw GatewayException.invalid();
         UUID id = UUID.fromString(value);
         if (!id.toString().equals(value))
-            throw GatewayFailure.invalid();
+            throw GatewayException.invalid();
         return id;
     }
 

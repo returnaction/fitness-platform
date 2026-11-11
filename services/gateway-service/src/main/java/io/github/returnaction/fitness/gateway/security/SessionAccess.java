@@ -1,5 +1,8 @@
 package io.github.returnaction.fitness.gateway.security;
 
+import io.github.returnaction.fitness.gateway.exception.GatewayException;
+
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.returnaction.fitness.contracts.identity.session.v1.CheckSessionRequest;
 import io.github.returnaction.fitness.contracts.identity.session.v1.IdentitySessionServiceGrpc;
 import io.github.returnaction.fitness.contracts.identity.session.v1.SessionStatus;
@@ -19,7 +22,7 @@ public final class SessionAccess implements AutoCloseable {
     private final int timeout;
     private final MeterRegistry meters;
 
-    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "EI_EXPOSE_REP2", justification = "Shared application metrics registry is injected intentionally")
+    @SuppressFBWarnings(value = "EI_EXPOSE_REP2", justification = "Shared application metrics registry is injected intentionally")
     public SessionAccess(GatewayProperties settings, MeterRegistry meters) throws javax.net.ssl.SSLException {
         this.meters = meters;
         timeout = settings.sessionTimeoutMillis();
@@ -46,15 +49,15 @@ public final class SessionAccess implements AutoCloseable {
                             .build());
             if (result.getStatus() == SessionStatus.SESSION_STATUS_INVALID) {
                 outcome = "invalid";
-                throw GatewayFailure.invalid();
+                throw GatewayException.invalid();
             }
             if (result.getStatus() != SessionStatus.SESSION_STATUS_ACTIVE)
-                throw GatewayFailure.unavailable();
+                throw GatewayException.unavailable();
             outcome = "active";
         } catch (StatusRuntimeException exception) {
             org.slf4j.LoggerFactory.getLogger(SessionAccess.class)
                     .warn("Session verification unavailable: {}", exception.getStatus().getCode());
-            throw GatewayFailure.unavailable();
+            throw GatewayException.unavailable();
         } finally {
             meters.timer("gateway.session.check", "outcome", outcome)
                     .record(System.nanoTime() - start, TimeUnit.NANOSECONDS);

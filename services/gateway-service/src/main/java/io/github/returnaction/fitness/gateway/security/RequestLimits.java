@@ -1,9 +1,13 @@
 package io.github.returnaction.fitness.gateway.security;
 
+import io.github.returnaction.fitness.gateway.exception.GatewayException;
+
 import io.github.returnaction.fitness.gateway.configuration.GatewayProperties;
 import java.time.Clock;
 import java.util.HashMap;
 import java.util.Map;
+
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 /**
@@ -12,14 +16,16 @@ import org.springframework.stereotype.Component;
  */
 @Component
 public final class RequestLimits {
+
     private final GatewayProperties settings;
     private final Clock clock;
     private final Map<String, Window> clients = new HashMap<>();
 
-    @org.springframework.beans.factory.annotation.Autowired
+    @Autowired
     public RequestLimits(GatewayProperties settings) {
         this(settings, Clock.systemUTC());
     }
+
     RequestLimits(GatewayProperties settings, Clock clock) {
         this.settings = settings;
         this.clock = clock;
@@ -32,13 +38,13 @@ public final class RequestLimits {
             if (clients.size() >= settings.maxClients())
                 clients.values().removeIf(value -> now >= value.expires);
             if (!clients.containsKey(address) && clients.size() >= settings.maxClients()) {
-                throw new GatewayFailure(429, "rate_limited");
+                throw new GatewayException(429, "rate_limited");
             }
             window = new Window(now + settings.ratePeriodSeconds() * 1000L);
             clients.put(address, window);
         }
         if (window.count >= settings.rateCapacity())
-            throw new GatewayFailure(429, "rate_limited");
+            throw new GatewayException(429, "rate_limited");
         window.count++;
     }
 

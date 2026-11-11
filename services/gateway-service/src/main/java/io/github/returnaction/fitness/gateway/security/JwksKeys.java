@@ -1,5 +1,7 @@
 package io.github.returnaction.fitness.gateway.security;
 
+import io.github.returnaction.fitness.gateway.exception.GatewayException;
+
 import com.nimbusds.jose.jwk.ECKey;
 import com.nimbusds.jose.jwk.JWKSet;
 import io.github.returnaction.fitness.gateway.configuration.GatewayProperties;
@@ -14,6 +16,7 @@ import org.springframework.stereotype.Component;
 /** Bounded key cache. Never caches session authorization. */
 @Component
 public final class JwksKeys implements AutoCloseable {
+
     private final GatewayProperties settings;
     private final Clock clock;
     private final HttpClient client;
@@ -44,10 +47,10 @@ public final class JwksKeys implements AutoCloseable {
         if (!now.isBefore(nextRefresh))
             refresh(now);
         if (!now.isBefore(expires) || lastRefreshFailed)
-            throw GatewayFailure.unavailable();
+            throw GatewayException.unavailable();
         key = keys.getKeyByKeyId(keyId);
         if (!(key instanceof ECKey ec))
-            throw GatewayFailure.invalid();
+            throw GatewayException.invalid();
         return ec;
     }
 
@@ -62,12 +65,12 @@ public final class JwksKeys implements AutoCloseable {
             // trusted endpoint is used.
             var response = client.send(request, HttpResponse.BodyHandlers.ofString());
             if (response.statusCode() != 200 || response.body().length() > 65536) {
-                throw GatewayFailure.unavailable();
+                throw GatewayException.unavailable();
             }
             var fetched = JWKSet.parse(response.body());
             if (fetched.getKeys().isEmpty() || fetched.getKeys().size() > 32
                     || fetched.getKeys().stream().anyMatch(k -> k.isPrivate())) {
-                throw GatewayFailure.unavailable();
+                throw GatewayException.unavailable();
             }
             keys = fetched;
             expires = now.plusSeconds(settings.jwksTtlSeconds());
@@ -75,10 +78,10 @@ public final class JwksKeys implements AutoCloseable {
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
             lastRefreshFailed = true;
-            throw GatewayFailure.unavailable();
+            throw GatewayException.unavailable();
         } catch (Exception exception) {
             lastRefreshFailed = true;
-            throw GatewayFailure.unavailable();
+            throw GatewayException.unavailable();
         }
     }
 

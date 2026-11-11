@@ -25,6 +25,7 @@ import org.springframework.web.servlet.function.ServerResponse;
 
 @Configuration
 public class RoutesConfiguration {
+
     @Bean(destroyMethod = "close")
     CloseableHttpClient upstreamClient(GatewayProperties settings) {
         var timeout = Timeout.ofMilliseconds(settings.httpTimeoutMillis());

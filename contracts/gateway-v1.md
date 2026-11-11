@@ -51,10 +51,25 @@ HTTP connect/read timeout 15000 мс: больше 12000 мс ожидания �
 Локальные лимиты рассчитаны на один экземпляр, не являются защитой от DDoS.
 
 HTTP transport failure — 502 upstream_unavailable, timeout — 504 upstream_timeout.
-Ошибки самого Gateway имеют `{"error":{"code":"…","message":"Request could not be completed.",
+Ошибки самого Gateway имеют `{"error":{"code":"…","message":"…",
 "details":[],"request_id":"<uuid>"}}`, Cache-Control: no-store и X-Request-Id.
 401 содержит WWW-Authenticate: Bearer. Непредвиденная ошибка — 500 internal_error
 без исходного исключения. Изменяющие запросы, включая refresh, не повторяются.
+Общие коды используют сообщения Identity без изменений:
+
+| Код | message |
+| --- | --- |
+| invalid_request | Check the request format. |
+| invalid_access_token | Authentication required. |
+| method_not_allowed | HTTP method is not supported. |
+| rate_limited | Try again later. |
+| identity_unavailable | Identity service is unavailable. |
+| internal_error | Unexpected server error. |
+
+Для собственных ошибок маршрутизации/транспорта Gateway (`not_found`,
+`payload_too_large`, `upstream_unavailable`, `upstream_timeout`) сообщение —
+`Request could not be completed.`. `details` ошибок Gateway — пустой массив.
+
 Ответ Identity сохраняется, включая 403 и 503. Redirect автоматически не выполняется.
 
 Только мобильный клиент; разрешающие CORS-заголовки не выдаются. При временном

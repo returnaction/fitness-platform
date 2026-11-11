@@ -1,5 +1,7 @@
 package io.github.returnaction.fitness.gateway.security;
 
+import io.github.returnaction.fitness.gateway.exception.GatewayException;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -49,13 +51,13 @@ class SecurityPolicyTest {
                     try {
                         limits.check("one");
                         accepted.incrementAndGet();
-                    } catch (GatewayFailure ignored) {
+                    } catch (GatewayException ignored) {
                     }
                 });
         }
         assertThat(accepted).hasValue(2);
         limits.check("two");
-        assertThatThrownBy(() -> limits.check("three")).isInstanceOf(GatewayFailure.class);
+        assertThatThrownBy(() -> limits.check("three")).isInstanceOf(GatewayException.class);
         clock.now = clock.now.plusSeconds(61);
         limits.check("three");
     }
