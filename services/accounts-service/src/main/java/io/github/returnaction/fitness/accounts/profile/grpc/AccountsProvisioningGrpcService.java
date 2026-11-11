@@ -1,5 +1,6 @@
 package io.github.returnaction.fitness.accounts.profile.grpc;
 
+import io.github.returnaction.fitness.accounts.profile.exception.ProfileCreationExhaustedException;
 import io.github.returnaction.fitness.accounts.profile.service.ProfileCreationService;
 import io.github.returnaction.fitness.contracts.accounts.provisioning.v1.AccountsProvisioningServiceGrpc;
 import io.github.returnaction.fitness.contracts.accounts.provisioning.v1.EnsureProfileRequest;
@@ -11,11 +12,15 @@ import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
-/** gRPC-адаптер Accounts v1; mTLS и авторизацию обеспечивает {@link SecureGrpcServer}. */
+/**
+ * gRPC-адаптер Accounts v1; mTLS и авторизацию обеспечивает
+ * {@link SecureGrpcServer}.
+ */
 @Component
 @RequiredArgsConstructor
 public final class AccountsProvisioningGrpcService
-        extends AccountsProvisioningServiceGrpc.AccountsProvisioningServiceImplBase {
+        extends
+            AccountsProvisioningServiceGrpc.AccountsProvisioningServiceImplBase {
 
     private final ProfileCreationService profileCreationService;
 
@@ -33,6 +38,9 @@ public final class AccountsProvisioningGrpcService
 
         try {
             profileCreationService.createIfAbsent(userId);
+        } catch (ProfileCreationExhaustedException exception) {
+            sendError(observer, Status.ABORTED, "Profile creation temporarily unavailable");
+            return;
         } catch (RuntimeException exception) {
             sendError(observer, Status.INTERNAL, "Profile provisioning failed");
             return;

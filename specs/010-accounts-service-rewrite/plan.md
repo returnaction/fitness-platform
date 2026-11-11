@@ -22,7 +22,7 @@
 
 ## Контракты и взаимодействия
 
-Identity продолжает вызывать `AccountsProvisioningService.EnsureProfile` по protobuf v1 с mTLS и существующим permission. Сохраняются канонические UUID, `READY`, `INVALID_ARGUMENT` и принцип: ошибочный повтор не перезаписывает профиль. REST-контрактов эта работа не создаёт и не меняет.
+Identity продолжает вызывать `AccountsProvisioningService.EnsureProfile` по protobuf v1 с mTLS и существующим permission. Сохраняются канонические UUID, `READY`, `INVALID_ARGUMENT`, `ABORTED` для исчерпанных попыток уникальной генерации и принцип: ошибочный повтор не перезаписывает профиль. REST-контрактов эта работа не создаёт и не меняет.
 
 ## Надёжность и безопасность
 

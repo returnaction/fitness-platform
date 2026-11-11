@@ -16,11 +16,13 @@ import io.grpc.Status;
 import java.security.cert.Certificate;
 import java.security.cert.X509Certificate;
 import java.util.List;
+import javax.net.ssl.SSLPeerUnverifiedException;
 import javax.net.ssl.SSLSession;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
 class IdentityAuthorizationInterceptorTest {
+    private static final int URI_SAN_TYPE = 6;
     private final IdentityAuthorizationInterceptor interceptor = new IdentityAuthorizationInterceptor();
 
     @Test
@@ -44,7 +46,7 @@ class IdentityAuthorizationInterceptorTest {
         X509Certificate certificate = mock(X509Certificate.class);
         when(session.getPeerCertificates()).thenReturn(new Certificate[]{certificate});
         when(certificate.getSubjectAlternativeNames())
-                .thenReturn(List.of(List.of(6, "spiffe://fitness.local/identity-service")));
+                .thenReturn(List.of(List.of(URI_SAN_TYPE, "spiffe://fitness.local/identity-service")));
         when(call.getAttributes())
                 .thenReturn(Attributes.newBuilder()
                         .set(Grpc.TRANSPORT_ATTR_SSL_SESSION, session)
@@ -61,12 +63,64 @@ class IdentityAuthorizationInterceptorTest {
         X509Certificate certificate = mock(X509Certificate.class);
         when(session.getPeerCertificates()).thenReturn(new Certificate[]{certificate});
         when(certificate.getSubjectAlternativeNames())
-                .thenReturn(List.of(List.of(6, "spiffe://fitness.local/coins-service")));
+                .thenReturn(List.of(List.of(URI_SAN_TYPE, "spiffe://fitness.local/coins-service")));
         when(call.getAttributes())
                 .thenReturn(Attributes.newBuilder()
                         .set(Grpc.TRANSPORT_ATTR_SSL_SESSION, session)
                         .build());
         interceptor.interceptCall(call, new Metadata(), handler);
+        verify(call).close(any(), any());
+        verify(handler, never()).startCall(any(), any());
+    }
+
+    @Test
+    void rejectsEmptyCertificateChain() throws Exception {
+        ServerCall<String, String> call = call();
+        ServerCallHandler<String, String> handler = handler();
+        SSLSession session = mock(SSLSession.class);
+        when(session.getPeerCertificates()).thenReturn(new Certificate[0]);
+        withSession(call, session);
+
+        interceptor.interceptCall(call, new Metadata(), handler);
+
+        assertRejected(call, handler);
+    }
+
+    @Test
+    void rejectsUnverifiedPeerCertificate() throws Exception {
+        ServerCall<String, String> call = call();
+        ServerCallHandler<String, String> handler = handler();
+        SSLSession session = mock(SSLSession.class);
+        when(session.getPeerCertificates()).thenThrow(new SSLPeerUnverifiedException("peer is not verified"));
+        withSession(call, session);
+
+        interceptor.interceptCall(call, new Metadata(), handler);
+
+        assertRejected(call, handler);
+    }
+
+    @Test
+    void rejectsNonUriSubjectAlternativeName() throws Exception {
+        ServerCall<String, String> call = call();
+        ServerCallHandler<String, String> handler = handler();
+        SSLSession session = mock(SSLSession.class);
+        X509Certificate certificate = mock(X509Certificate.class);
+        when(session.getPeerCertificates()).thenReturn(new Certificate[]{certificate});
+        when(certificate.getSubjectAlternativeNames())
+                .thenReturn(List.of(List.of(2, "identity.example")));
+        withSession(call, session);
+
+        interceptor.interceptCall(call, new Metadata(), handler);
+
+        assertRejected(call, handler);
+    }
+
+    private void withSession(ServerCall<String, String> call, SSLSession session) {
+        when(call.getAttributes())
+                .thenReturn(Attributes.newBuilder().set(Grpc.TRANSPORT_ATTR_SSL_SESSION, session).build());
+    }
+
+    private void assertRejected(ServerCall<String, String> call, ServerCallHandler<String, String> handler) {
         verify(call).close(any(), any());
         verify(handler, never()).startCall(any(), any());
     }

@@ -1,6 +1,7 @@
 package io.github.returnaction.fitness.accounts.profile.service;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import io.github.returnaction.fitness.accounts.profile.exception.ProfileCreationExhaustedException;
 import io.github.returnaction.fitness.accounts.profile.helpers.NicknameGenerator;
 import io.github.returnaction.fitness.accounts.profile.repository.ProfileRepository;
 import java.util.Objects;
@@ -34,7 +35,7 @@ public class ProfileCreationService {
                 return;
             }
         }
-        throw new IllegalStateException("Could not allocate a unique profile identifier");
+        throw new ProfileCreationExhaustedException();
     }
 
     private UUID nextPublicProfileId(UUID userId) {

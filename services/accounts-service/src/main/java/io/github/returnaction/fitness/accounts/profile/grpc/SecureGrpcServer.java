@@ -19,6 +19,7 @@ import java.util.concurrent.TimeUnit;
  */
 @Component
 public final class SecureGrpcServer implements SmartLifecycle {
+
     private final Server server;
     private volatile boolean running;
 
@@ -34,12 +35,12 @@ public final class SecureGrpcServer implements SmartLifecycle {
         }
 
         server = NettyServerBuilder.forAddress(new InetSocketAddress(address, port))
-            .sslContext(GrpcSslContexts.forServer(new File(certificate), new File(privateKey))
-                .trustManager(new File(trustCertificate))
-                .clientAuth(ClientAuth.REQUIRE)
-                .build())
-            .addService(ServerInterceptors.intercept(service, new IdentityAuthorizationInterceptor()))
-            .build();
+                .sslContext(GrpcSslContexts.forServer(new File(certificate), new File(privateKey))
+                        .trustManager(new File(trustCertificate))
+                        .clientAuth(ClientAuth.REQUIRE)
+                        .build())
+                .addService(ServerInterceptors.intercept(service, new IdentityAuthorizationInterceptor()))
+                .build();
     }
 
     @Override

@@ -9,6 +9,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
+import io.github.returnaction.fitness.accounts.profile.exception.ProfileCreationExhaustedException;
 import io.github.returnaction.fitness.accounts.profile.service.ProfileCreationService;
 import io.github.returnaction.fitness.contracts.accounts.provisioning.v1.EnsureProfileRequest;
 import io.github.returnaction.fitness.contracts.accounts.provisioning.v1.EnsureProfileResponse;
@@ -58,6 +59,21 @@ class AccountsProvisioningGrpcServiceTest {
         verify(observer).onError(error.capture());
         assertThat(Status.fromThrowable(error.getValue()).getCode()).isEqualTo(Status.Code.INTERNAL);
         assertThat(error.getValue().getMessage()).doesNotContain("private detail", user.toString());
+        verify(observer, never()).onNext(any());
+        verify(observer, never()).onCompleted();
+    }
+
+    @Test
+    void returnsAbortedWhenProfileCreationAttemptsAreExhausted() {
+        UUID user = UUID.randomUUID();
+        doThrow(new ProfileCreationExhaustedException()).when(profileCreationService).createIfAbsent(user);
+        StreamObserver<EnsureProfileResponse> observer = mockObserver();
+
+        service.ensureProfile(request(user.toString()), observer);
+
+        ArgumentCaptor<Throwable> error = ArgumentCaptor.forClass(Throwable.class);
+        verify(observer).onError(error.capture());
+        assertThat(Status.fromThrowable(error.getValue()).getCode()).isEqualTo(Status.Code.ABORTED);
         verify(observer, never()).onNext(any());
         verify(observer, never()).onCompleted();
     }

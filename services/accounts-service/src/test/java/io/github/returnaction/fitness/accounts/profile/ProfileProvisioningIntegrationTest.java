@@ -7,6 +7,7 @@ import static org.mockito.Mockito.doReturn;
 import io.github.returnaction.fitness.accounts.profile.entity.UserProfileEntity;
 import io.github.returnaction.fitness.accounts.profile.grpc.AccountsProvisioningGrpcService;
 import io.github.returnaction.fitness.accounts.profile.grpc.SecureGrpcServer;
+import io.github.returnaction.fitness.accounts.profile.grpc.TestMtlsCertificates;
 import io.github.returnaction.fitness.accounts.profile.helpers.NicknameGenerator;
 import io.github.returnaction.fitness.accounts.profile.repository.ProfileRepository;
 import io.github.returnaction.fitness.accounts.profile.service.ProfileCreationService;
@@ -22,15 +23,15 @@ import io.grpc.netty.shaded.io.grpc.netty.NettyChannelBuilder;
 import io.grpc.netty.shaded.io.grpc.netty.NettyServerBuilder;
 import io.grpc.stub.StreamObserver;
 import jakarta.persistence.EntityManager;
-import java.io.File;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
+import java.nio.file.Path;
 import java.util.UUID;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
+import org.junit.jupiter.api.io.TempDir;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -138,28 +139,27 @@ class ProfileProvisioningIntegrationTest {
     }
 
     @Test
-    @EnabledIfSystemProperty(named = "fitness.localStepCaSmoke", matches = "true")
-    void identityClientCreatesCommittedProfileThroughAccountsMtls() throws Exception {
+    void identityClientCreatesCommittedProfileThroughAccountsMtls(@TempDir Path certificateDirectory) throws Exception {
         int port;
         try (ServerSocket socket = new ServerSocket(0)) {
             port = socket.getLocalPort();
         }
-        File secrets = new File("../../secrets");
+        TestMtlsCertificates certificates = TestMtlsCertificates.create(certificateDirectory);
         SecureGrpcServer server = new SecureGrpcServer(
                 grpcService,
                 "127.0.0.1",
                 port,
-                new File(secrets, "accounts-server.crt").getPath(),
-                new File(secrets, "accounts-server-pkcs8.key").getPath(),
-                new File(secrets, "ca.crt").getPath());
+                certificates.serverCertificate().toString(),
+                certificates.serverPrivateKey().toString(),
+                certificates.caCertificate().toString());
         server.start();
         try {
             var channel = NettyChannelBuilder.forAddress("localhost", port)
                     .sslContext(GrpcSslContexts.forClient()
-                            .trustManager(new File(secrets, "ca.crt"))
+                            .trustManager(certificates.caCertificate().toFile())
                             .keyManager(
-                                    new File(secrets, "identity-client.crt"),
-                                    new File(secrets, "identity-client-pkcs8.key"))
+                                    certificates.identityCertificate().toFile(),
+                                    certificates.identityPrivateKey().toFile())
                             .build())
                     .build();
             try {
@@ -177,6 +177,7 @@ class ProfileProvisioningIntegrationTest {
                 assertThat(stub.ensureProfile(request).getStatus())
                         .isEqualTo(ProvisioningStatus.PROVISIONING_STATUS_READY);
                 assertThat(profile(userId).getUserId()).isEqualTo(userId);
+                assertThat(profileCount(userId)).isOne();
             } finally {
                 channel.shutdownNow();
             }
@@ -231,7 +232,8 @@ class ProfileProvisioningIntegrationTest {
 
     private long profileCount(UUID userId) {
         return entityManager
-                .createQuery("SELECT COUNT(profile) FROM UserProfileEntity profile WHERE profile.userId = :userId", Long.class)
+                .createQuery("SELECT COUNT(profile) FROM UserProfileEntity profile WHERE profile.userId = :userId",
+                        Long.class)
                 .setParameter("userId", userId)
                 .getSingleResult();
     }
