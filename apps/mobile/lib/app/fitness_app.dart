@@ -42,7 +42,14 @@ class AuthGate extends ConsumerWidget {
         onRetry: () => ref.read(authControllerProvider.notifier).restore(),
       ),
       AsyncData(value: AuthStatus.authenticated) => const AccountScreen(),
-      AsyncData(value: AuthStatus.unavailable) => _RestoreFailure(
+      AsyncData(value: AuthStatus.temporarilyUnavailable) =>
+        _TemporaryUnavailableScreen(
+          onRetry: () => ref.read(authControllerProvider.notifier).restore(),
+          onLocalLogout: () => ref
+              .read(authControllerProvider.notifier)
+              .discardLocalSession(),
+        ),
+      AsyncData(value: AuthStatus.storageFailure) => _StorageFailure(
         onRetry: () => ref.read(authControllerProvider.notifier).restore(),
       ),
       AsyncData() => const WelcomeScreen(),
@@ -65,6 +72,74 @@ class _RestoreFailure extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               const Text('Cannot connect to Fitness App.'),
+              const SizedBox(height: 16),
+              FilledButton(onPressed: onRetry, child: const Text('Try again')),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TemporaryUnavailableScreen extends StatelessWidget {
+  const _TemporaryUnavailableScreen({
+    required this.onRetry,
+    required this.onLocalLogout,
+  });
+
+  final VoidCallback onRetry;
+  final VoidCallback onLocalLogout;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('Service is temporarily unavailable.'),
+              const SizedBox(height: 8),
+              const Text(
+                'Your session is kept on this device.',
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+              FilledButton(onPressed: onRetry, child: const Text('Try again')),
+              TextButton(
+                onPressed: onLocalLogout,
+                child: const Text('Log out on this device'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _StorageFailure extends StatelessWidget {
+  const _StorageFailure({required this.onRetry});
+
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('Secure storage is unavailable.'),
+              const SizedBox(height: 8),
+              const Text(
+                'Your session could not be read safely.',
+                textAlign: TextAlign.center,
+              ),
               const SizedBox(height: 16),
               FilledButton(onPressed: onRetry, child: const Text('Try again')),
             ],

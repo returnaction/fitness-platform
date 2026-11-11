@@ -23,7 +23,9 @@ class _AuthFormScreenState extends ConsumerState<AuthFormScreen> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _email;
   final _password = TextEditingController();
-  late final String _idempotencyKey;
+  late String _idempotencyKey;
+  String? _registeredEmail;
+  String? _registeredPassword;
   bool _showPassword = false;
   String? _message;
 
@@ -118,7 +120,11 @@ class _AuthFormScreenState extends ConsumerState<AuthFormScreen> {
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : Text(
-                        widget.isRegistration ? 'Create account' : 'Sign in',
+                        widget.isRegistration && _canRetryRegistration
+                            ? 'Try again'
+                            : widget.isRegistration
+                            ? 'Create account'
+                            : 'Sign in',
                       ),
               ),
               const SizedBox(height: 12),
@@ -143,6 +149,10 @@ class _AuthFormScreenState extends ConsumerState<AuthFormScreen> {
   }
 
   bool get _isExistingAccount => _lastErrorCode == 'email_already_registered';
+  bool get _canRetryRegistration =>
+      _lastErrorCode == 'registration_pending' ||
+      _lastErrorCode == 'registration_unavailable';
+
   String? _lastErrorCode;
 
   Future<void> _submit() async {
@@ -156,6 +166,7 @@ class _AuthFormScreenState extends ConsumerState<AuthFormScreen> {
     try {
       final controller = ref.read(authControllerProvider.notifier);
       if (widget.isRegistration) {
+        _renewRegistrationKeyIfFormChanged();
         await controller.register(
           email: _email.text,
           password: _password.text,
@@ -171,7 +182,7 @@ class _AuthFormScreenState extends ConsumerState<AuthFormScreen> {
       if (mounted) {
         setState(() {
           _lastErrorCode = error.code;
-          _message = _friendlyMessage(error.code);
+          _message = _friendlyMessage(error);
         });
       }
     } on IdentityNetworkException {
@@ -185,16 +196,29 @@ class _AuthFormScreenState extends ConsumerState<AuthFormScreen> {
     }
   }
 
-  String _friendlyMessage(String? code) {
-    return switch (code) {
+  String _friendlyMessage(IdentityApiException error) {
+    return switch (error.code) {
       'invalid_credentials' => 'Email or password is incorrect.',
       'email_already_registered' =>
         'An account with this email already exists.',
       'registration_pending' || 'registration_unavailable' =>
         'Your account is still being prepared. Please try again shortly.',
-      'rate_limited' => 'Too many attempts. Please try again later.',
+      'rate_limited' => error.retryAfterSeconds == null
+          ? 'Too many attempts. Please try again later.'
+          : 'Too many attempts. Try again in ${error.retryAfterSeconds} seconds.',
+      'payload_too_large' => 'The request is too large. Please try again.',
       _ => 'Request could not be completed. Please try again.',
     };
+  }
+
+  void _renewRegistrationKeyIfFormChanged() {
+    if (_registeredEmail != null &&
+        (_registeredEmail != _email.text ||
+            _registeredPassword != _password.text)) {
+      _idempotencyKey = ref.read(uuidProvider).v4();
+    }
+    _registeredEmail = _email.text;
+    _registeredPassword = _password.text;
   }
 
   void _switchForm() {

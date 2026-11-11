@@ -71,11 +71,16 @@ class IdentityApiClient {
     final values = errorBody is Map
         ? Map<String, dynamic>.from(errorBody)
         : null;
+    final code = values?['code'];
+    final message = values?['message'];
     return IdentityApiException(
       statusCode: response.statusCode,
-      code: values?['code'] as String?,
-      message:
-          values?['message'] as String? ?? 'Request could not be completed.',
+      code: code is String ? code : null,
+      message: message is String ? message : 'Request could not be completed.',
+      retryAfterSeconds: _retryAfterSeconds(response.headers.value('Retry-After')),
     );
   }
+
+  static int? _retryAfterSeconds(String? value) =>
+      value == null ? null : int.tryParse(value);
 }

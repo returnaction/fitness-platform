@@ -91,20 +91,28 @@ Future<void> _showSignOutOptions(BuildContext context, WidgetRef ref) async {
     }
   }
   final controller = ref.read(authControllerProvider.notifier);
-  final remoteSucceeded = choice == _SignOutChoice.allDevices
+  final result = choice == _SignOutChoice.allDevices
       ? await controller.logoutAll()
       : await controller.logout();
-  if (!remoteSucceeded && context.mounted) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          choice == _SignOutChoice.allDevices
-              ? 'You have been signed out on this device. Other devices may still be signed in.'
-              : 'You have been signed out on this device.',
+  if (!context.mounted || result.localTokensCleared) {
+    if (!result.remoteSucceeded && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            choice == _SignOutChoice.allDevices
+                ? 'You have been signed out on this device. Other devices may still be signed in.'
+                : 'You have been signed out on this device.',
+          ),
         ),
-      ),
-    );
+      );
+    }
+    return;
   }
+  ScaffoldMessenger.of(context).showSnackBar(
+    const SnackBar(
+      content: Text('Local sign out could not be confirmed.'),
+    ),
+  );
 }
 
 enum _SignOutChoice { currentDevice, allDevices }

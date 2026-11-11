@@ -2,20 +2,37 @@ import '../../core/network/identity_api_client.dart';
 import '../../core/network/identity_api_error.dart';
 import '../../core/security/token_storage.dart';
 import 'model/session_tokens.dart';
+import 'session_operation_coordinator.dart';
 
-enum SessionRestoreResult { authenticated, guest, unavailable }
+enum SessionRestoreResult {
+  authenticated,
+  guest,
+  temporarilyUnavailable,
+  storageFailure,
+}
+
+class LogoutResult {
+  const LogoutResult({
+    required this.remoteSucceeded,
+    required this.localTokensCleared,
+  });
+
+  final bool remoteSucceeded;
+  final bool localTokensCleared;
+}
 
 class AuthRepository {
-  AuthRepository(this._api, this._tokenStorage);
+  AuthRepository(this._api, this._tokenStorage, this._coordinator);
 
   final IdentityApiClient _api;
   final TokenStorage _tokenStorage;
+  final SessionOperationCoordinator _coordinator;
 
   Future<void> register({
     required String email,
     required String password,
     required String idempotencyKey,
-  }) async {
+  }) => _coordinator.run(() async {
     final response = await _api.post(
       '/api/v1/auth/register',
       data: {'email': email, 'password': password},
@@ -28,18 +45,26 @@ class AuthRepository {
     await _tokenStorage.write(
       SessionTokens.fromJson(Map<String, dynamic>.from(session)),
     );
-  }
+  });
 
-  Future<void> login({required String email, required String password}) async {
-    final response = await _api.post(
-      '/api/v1/auth/login',
-      data: {'email': email, 'password': password},
-    );
-    await _tokenStorage.write(SessionTokens.fromJson(response));
-  }
+  Future<void> login({required String email, required String password}) =>
+      _coordinator.run(() async {
+        final response = await _api.post(
+          '/api/v1/auth/login',
+          data: {'email': email, 'password': password},
+        );
+        await _tokenStorage.write(SessionTokens.fromJson(response));
+      });
 
-  Future<SessionRestoreResult> restore() async {
-    final tokens = await _tokenStorage.read();
+  Future<SessionRestoreResult> restore() => _coordinator.run(_restore);
+
+  Future<SessionRestoreResult> _restore() async {
+    final SessionTokens? tokens;
+    try {
+      tokens = await _readTokens();
+    } on TokenStorageException {
+      return SessionRestoreResult.storageFailure;
+    }
     if (tokens == null) {
       return SessionRestoreResult.guest;
     }
@@ -50,49 +75,79 @@ class AuthRepository {
       );
       await _tokenStorage.write(SessionTokens.fromJson(response));
       return SessionRestoreResult.authenticated;
+    } on IdentityApiException catch (error) {
+      if (error.isIdentityUnavailable) {
+        return SessionRestoreResult.temporarilyUnavailable;
+      }
+      return _clearAfterUncertainRefresh();
     } on IdentityNetworkException {
-      return SessionRestoreResult.unavailable;
-    } on IdentityApiException {
+      return _clearAfterUncertainRefresh();
+    } on FormatException {
+      return _clearAfterUncertainRefresh();
+    } on TokenStorageException {
+      return SessionRestoreResult.storageFailure;
+    }
+  }
+
+  Future<LogoutResult> logout() => _coordinator.run(
+    () => _logout('/api/v1/auth/logout', useRefreshToken: true),
+  );
+
+  Future<LogoutResult> logoutAll() => _coordinator.run(
+    () => _logout('/api/v1/auth/logout-all', useRefreshToken: false),
+  );
+
+  Future<bool> discardLocalSession() =>
+      _coordinator.run(_clearForExplicitLogout);
+
+  Future<LogoutResult> _logout(
+    String path, {
+    required bool useRefreshToken,
+  }) async {
+    var remoteSucceeded = true;
+    try {
+      final tokens = await _readTokens();
+      if (tokens != null) {
+        await _api.postWithoutResponse(
+          path,
+          data: useRefreshToken ? {'refresh_token': tokens.refreshToken} : null,
+          headers: useRefreshToken
+              ? null
+              : {'Authorization': 'Bearer ${tokens.accessToken}'},
+        );
+      }
+    } catch (_) {
+      remoteSucceeded = false;
+    }
+    return LogoutResult(
+      remoteSucceeded: remoteSucceeded,
+      localTokensCleared: await _clearForExplicitLogout(),
+    );
+  }
+
+  Future<SessionTokens?> _readTokens() async {
+    try {
+      return await _tokenStorage.read();
+    } on TokenStorageException {
+      throw const TokenStorageException();
+    }
+  }
+
+  Future<SessionRestoreResult> _clearAfterUncertainRefresh() async {
+    try {
       await _tokenStorage.clear();
       return SessionRestoreResult.guest;
+    } on TokenStorageException {
+      return SessionRestoreResult.storageFailure;
     }
   }
 
-  Future<bool> logout() async {
-    final tokens = await _tokenStorage.read();
+  Future<bool> _clearForExplicitLogout() async {
     try {
-      if (tokens != null) {
-        await _api.postWithoutResponse(
-          '/api/v1/auth/logout',
-          data: {'refresh_token': tokens.refreshToken},
-        );
-      }
-      return true;
-    } on IdentityApiException {
-      return false;
-    } on IdentityNetworkException {
-      return false;
-    } finally {
       await _tokenStorage.clear();
-    }
-  }
-
-  Future<bool> logoutAll() async {
-    final tokens = await _tokenStorage.read();
-    try {
-      if (tokens != null) {
-        await _api.postWithoutResponse(
-          '/api/v1/auth/logout-all',
-          headers: {'Authorization': 'Bearer ${tokens.accessToken}'},
-        );
-      }
       return true;
-    } on IdentityApiException {
+    } on TokenStorageException {
       return false;
-    } on IdentityNetworkException {
-      return false;
-    } finally {
-      await _tokenStorage.clear();
     }
   }
 }

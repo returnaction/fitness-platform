@@ -4,6 +4,11 @@ class SessionTokens {
   final String accessToken;
   final String refreshToken;
 
+  Map<String, String> toJson() => {
+    'access_token': accessToken,
+    'refresh_token': refreshToken,
+  };
+
   factory SessionTokens.fromJson(Map<String, dynamic> json) {
     final accessToken = json['access_token'];
     final refreshToken = json['refresh_token'];
