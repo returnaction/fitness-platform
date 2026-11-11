@@ -1,6 +1,6 @@
 # План реализации: регистрация пользователя
 
-> **Спецификация:** [spec.md](spec.md)  
+> **Спецификация:** [spec.md](spec.md)
 > **Статус:** implemented (локальный сценарий)
 > **Связанные документы system-design:** [регистрация Identity](../../system-design/services/identity/30-identity-registration.md), [сессии Identity](../../system-design/services/identity/31-identity-login-sessions.md), [внутренние контракты](../../system-design/interactions/59-identity-accounts-internal-api.md)
 
@@ -22,8 +22,8 @@ Coins по gRPC. PostgreSQL запускается локально вне Docke
 | Область | Изменение | Владелец данных / контракта |
 | --- | --- | --- |
 | Identity Service | Внешняя регистрация, `PENDING`, повтор, worker, активация и сессия | Identity / `fitness_identity` |
-| Accounts Service | Идемпотентный `EnsureProfile` и создание начального профиля | Accounts / `fitness_accounts` |
-| Coins Service | Идемпотентный `EnsureWallet` и создание нулевого кошелька | Coins / `fitness_coins` |
+| Accounts Service | Идемпотентный `CreateProfileIfAbsent` и создание начального профиля | Accounts / `fitness_accounts` |
+| Coins Service | Идемпотентный `CreateWalletIfAbsent` и создание нулевого кошелька | Coins / `fitness_coins` |
 | Flutter client | Отдельная будущая задача: экран регистрации, хранение ключа до разрешения результата и обработка ошибок | Mobile client |
 | Platform | Конфигурация сервисов и шаблоны переменных среды | Platform |
 
@@ -49,8 +49,8 @@ Coins по gRPC. PostgreSQL запускается локально вне Docke
 | Направление | Тип | Изменение | Версионирование / совместимость |
 | --- | --- | --- | --- |
 | Flutter → Identity | [REST `POST /api/v1/auth/register`](../../contracts/openapi/identity-auth-v1.yaml) | email, password, `Idempotency-Key`, ошибки и токены | OpenAPI v1; новые необязательные поля допустимы |
-| Identity → Accounts | [gRPC `EnsureProfile`](../../contracts/proto/accounts-provisioning-v1.proto) | `{request_id, registration_operation_id, user_id}` → `{user_id, status: READY}` | Protobuf v1 |
-| Identity → Coins | [gRPC `EnsureWallet`](../../contracts/proto/coins-provisioning-v1.proto) | `{request_id, registration_operation_id, user_id}` → `{user_id, status: READY}` | Protobuf v1 |
+| Identity → Accounts | [gRPC `CreateProfileIfAbsent`](../../contracts/proto/accounts-profile-creation-v1.proto) | `{request_id, registration_operation_id, user_id}` → `{user_id, status: READY}` | Protobuf v1 |
+| Identity → Coins | [gRPC `CreateWalletIfAbsent`](../../contracts/proto/coins-wallet-creation-v1.proto) | `{request_id, registration_operation_id, user_id}` → `{user_id, status: READY}` | Protobuf v1 |
 
 - gRPC использует mTLS. Клиентский сертификат от private CA, выдаваемый step-ca,
   имеет URI SAN `spiffe://fitness.local/identity-service`; получатель по нему
@@ -60,7 +60,7 @@ Coins по gRPC. PostgreSQL запускается локально вне Docke
   отдельная последующая задача. HTTP не шифрует пароль и токены. Внутренний
   gRPC использует private CA. Подготовка сервера и развёртывание выполняются
   отдельно от этой спецификации.
-- Timeout одной provisioning-попытки — начальное значение 3 секунды. Таймаут
+- Timeout одной попытки создания — начальное значение 3 секунды. Таймаут
   не трактуется как отсутствие сохранённого профиля или кошелька.
 - `UNAVAILABLE`, `DEADLINE_EXCEEDED`, `RESOURCE_EXHAUSTED`, `ABORTED` и
   неожиданный `INTERNAL` считаются временными. Ошибки валидации, прав и
@@ -102,7 +102,7 @@ Coins по gRPC. PostgreSQL запускается локально вне Docke
 - Интеграционные тесты PostgreSQL: Liquibase-миграции, уникальность email,
   операции с одинаковыми и разными ключами, claim/lease/fencing, rollback и
   создание сессии только после `ACTIVE`.
-- Контрактные и межсервисные тесты: повторы `EnsureProfile` / `EnsureWallet`,
+- Контрактные и межсервисные тесты: повторы `CreateProfileIfAbsent` / `CreateWalletIfAbsent`,
   потеря ответа после commit, неверная service identity, несовпадающий `user_id`
   и временная недоступность получателя.
 - Сквозной тест: `201`, `503` и повтор, потеря `201`, падение worker,

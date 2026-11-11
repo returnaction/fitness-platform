@@ -49,8 +49,8 @@ Then set the real `DATABASE_PASSWORD` in
 automatically; it is never committed or copied into a Docker image.
 
 Before the first run, a PostgreSQL administrator must create the service role
-and the `fitness_identity` database. The exact local and server provisioning
+and the `fitness_identity` database. The exact local and server setup
 steps, minimal rights, and verification commands are in
-[PostgreSQL provisioning](docs/database-provisioning.md).
+[PostgreSQL setup](docs/database-setup.md).
 
 For local JWT signing key setup, see [local JWT keys](docs/local-jwt-keys.md).

@@ -16,10 +16,10 @@
 Текущие контракты:
 
 - [Identity REST API v1](openapi/identity-auth-v1.yaml) — регистрация, вход и обновление сессии;
-- [Accounts Provisioning gRPC v1](proto/accounts-provisioning-v1.proto);
-- [Coins Provisioning gRPC v1](proto/coins-provisioning-v1.proto).
+- [Accounts Creation gRPC v1](proto/accounts-profile-creation-v1.proto);
+- [Coins Creation gRPC v1](proto/coins-wallet-creation-v1.proto).
 
-Для `EnsureProfile` и `EnsureWallet` поля запроса одинаковые. Пример значений
+Для `CreateProfileIfAbsent` и `CreateWalletIfAbsent` поля запроса одинаковые. Пример значений
 полей protobuf (JSON показан только для наглядности; вызов выполняется по gRPC):
 
 ```json
@@ -31,7 +31,7 @@
 ```
 
 Успешный ответ содержит тот же `user_id` и статус
-`PROVISIONING_STATUS_READY`. Повтор использует те же `user_id` и
+`CREATION_STATUS_READY`. Повтор использует те же `user_id` и
 `registration_operation_id` и не изменяет существующий профиль или кошелёк.
 Доступ разрешён Identity через mTLS. Правила повторов и классификация сбоев
 зафиксированы в [плане регистрации](../specs/001-user-registration/plan.md).
@@ -54,9 +54,9 @@ Identity, Accounts и Coins подключают его как Maven dependency;
 ## Как это работает по шагам
 
 ### Шаг 1: Пишем контракт
-Мы создаем файл в `contracts/proto/accounts-provisioning-v1.proto`.
+Мы создаем файл в `contracts/proto/accounts-profile-creation-v1.proto`.
 Внутри пишем:
-- Какие есть методы (например, `EnsureProfile`).
+- Какие есть методы (например, `CreateProfileIfAbsent`).
 - Какие поля в запросе и ответе.
 
 ### Шаг 2: Запускаем генерацию
@@ -64,7 +64,7 @@ Identity, Accounts и Coins подключают его как Maven dependency;
 Там в `pom.xml` настроен плагин `protobuf-maven-plugin`.
 Этот плагин:
 - Берет файл `.proto`.
-- Генерирует из него Java-файлы (например, `EnsureProfileRequest.java`).
+- Генерирует из него Java-файлы (например, `CreateProfileIfAbsentRequest.java`).
 - Упаковывает их в `.jar` файл.
 
 ### Шаг 3: Используем в сервисах

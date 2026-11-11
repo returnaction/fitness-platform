@@ -5,9 +5,9 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
 import io.github.returnaction.fitness.accounts.profile.service.ProfileCreationService;
-import io.github.returnaction.fitness.contracts.accounts.provisioning.v1.AccountsProvisioningServiceGrpc;
-import io.github.returnaction.fitness.contracts.accounts.provisioning.v1.EnsureProfileRequest;
-import io.github.returnaction.fitness.contracts.accounts.provisioning.v1.ProvisioningStatus;
+import io.github.returnaction.fitness.contracts.accounts.profile.creation.v1.ProfileCreationServiceGrpc;
+import io.github.returnaction.fitness.contracts.accounts.profile.creation.v1.CreateProfileIfAbsentRequest;
+import io.github.returnaction.fitness.contracts.accounts.profile.creation.v1.CreationStatus;
 import io.grpc.ManagedChannel;
 import io.grpc.Server;
 import io.grpc.ServerInterceptors;
@@ -29,7 +29,7 @@ class LocalStepCaSmokeTest {
     void connectsWithLocallyIssuedCertificates() throws Exception {
         File directory = new File("../../secrets");
         File ca = new File(directory, "ca.crt");
-        ProfileCreationService provisioning = mock(ProfileCreationService.class);
+        ProfileCreationService creation = mock(ProfileCreationService.class);
         Server server = NettyServerBuilder.forAddress(new InetSocketAddress("127.0.0.1", 0))
                 .sslContext(GrpcSslContexts.forServer(
                         new File(directory, "accounts-server.crt"),
@@ -38,7 +38,7 @@ class LocalStepCaSmokeTest {
                         .clientAuth(ClientAuth.REQUIRE)
                         .build())
                 .addService(ServerInterceptors.intercept(
-                        new AccountsProvisioningGrpcService(provisioning), new IdentityAuthorizationInterceptor()))
+                        new ProfileCreationGrpcService(creation), new IdentityAuthorizationInterceptor()))
                 .build()
                 .start();
         ManagedChannel channel = NettyChannelBuilder.forAddress("localhost", server.getPort())
@@ -51,17 +51,17 @@ class LocalStepCaSmokeTest {
                 .build();
         try {
             UUID user = UUID.randomUUID();
-            var request = EnsureProfileRequest.newBuilder()
+            var request = CreateProfileIfAbsentRequest.newBuilder()
                     .setUserId(user.toString())
                     .setRequestId(UUID.randomUUID().toString())
                     .setRegistrationOperationId(UUID.randomUUID().toString())
                     .build();
-            assertThat(AccountsProvisioningServiceGrpc.newBlockingStub(channel)
+            assertThat(ProfileCreationServiceGrpc.newBlockingStub(channel)
                     .withDeadlineAfter(5, TimeUnit.SECONDS)
-                    .ensureProfile(request)
+                    .createProfileIfAbsent(request)
                     .getStatus())
-                    .isEqualTo(ProvisioningStatus.PROVISIONING_STATUS_READY);
-            verify(provisioning).createIfAbsent(user);
+                    .isEqualTo(CreationStatus.CREATION_STATUS_READY);
+            verify(creation).createIfAbsent(user);
         } finally {
             channel.shutdownNow();
             server.shutdownNow();

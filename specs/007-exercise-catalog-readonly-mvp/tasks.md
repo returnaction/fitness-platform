@@ -9,8 +9,8 @@
 
 ## Подготовка окружения
 
-- [x] **T003 — Описать provisioning PostgreSQL Catalog.** В
-  `docs/database-provisioning.md` добавлены база, роль, минимальные права,
+- [x] **T003 — Описать подготовку PostgreSQL Catalog.** В
+  `docs/database-setup.md` добавлены база, роль, минимальные права,
   переменные и SQL-проверки. Реальная БД и пароль не создаются.
 
 ## Основа сервиса и данные
@@ -275,4 +275,4 @@ deadline/retry и то, как `challenge-service` удостоверяет се
 
 | Задача | Ветка | Pull Request | Статус |
 | --- | --- | --- | --- |
-| T003: provisioning PostgreSQL Catalog | `30-exercise-catalog-readonly-mvp` | — | Документация подготовлена, проверка ожидается |
+| T003: подготовку PostgreSQL Catalog | `30-exercise-catalog-readonly-mvp` | — | Документация подготовлена, проверка ожидается |

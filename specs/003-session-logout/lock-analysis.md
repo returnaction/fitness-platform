@@ -8,7 +8,7 @@
 | Refresh | В `RefreshTokenService.refresh` транзакция сначала находит связь без блокировки, затем блокирует `users`, `auth_sessions`, `refresh_tokens`; после этого проверяет секрет и состояние. |
 | Вход | `RegistrationSessionService.createLogin` в транзакции блокирует активного пользователя, затем учётные данные, создаёт сессию и refresh. |
 | Выдача после регистрации | `RegistrationSessionService.create` сначала блокирует пользователя, затем операцию, отзывает прежнюю сессию операции и создаёт новую. |
-| Активация worker | `RegistrationLeaseRepository.markWalletReady` сначала блокирует пользователя, затем обновляет операцию и активирует пользователя в одной транзакции. |
+| Активация worker | `RegistrationLeaseRepository.completeRegistrationAndActivateUser` сначала блокирует пользователя, затем обновляет операцию и активирует пользователя в одной транзакции. |
 | Проверка сессии | `SessionVerificationRepository.check` делает чтение без блокировки в read-only транзакции; оно само не защищает от изменения сессии сразу после проверки. |
 | Административная авторизация | `RecoveryAccessVerifier` проверяет JWT, актуальную сессию и `SUPER_ADMIN`. Для logout-all обычного пользователя её нельзя применять без отделения проверки роли. |
 

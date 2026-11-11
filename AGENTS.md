@@ -4,10 +4,10 @@ This root file applies to the entire repository, including the
 [System Design documentation](system-design/README.md). More specific
 instructions in nested directories supplement the root instructions.
 
-## Active SDD Scope: 008-mobile-flutter-auth
+## Active SDD Scope: 011-mobile-flutter-auth
 
 Until the user explicitly changes the scope, a request to continue development
-means continuing [008-mobile-flutter-auth](specs/008-mobile-flutter-auth/spec.md).
+means continuing [011-mobile-flutter-auth](specs/011-mobile-flutter-auth/spec.md).
 Do not start implementing another feature or a system-design roadmap item just
 because it exists in the documentation. When the specification is complete or
 all remaining tasks are blocked, report the status and ask the user what to do
@@ -15,9 +15,9 @@ next rather than choosing a different feature.
 
 Before each development step:
 
-1. Read the current [task list](specs/008-mobile-flutter-auth/tasks.md),
-   [specification](specs/008-mobile-flutter-auth/spec.md), and
-   [plan](specs/008-mobile-flutter-auth/plan.md). Identify an open task, its
+1. Read the current [task list](specs/011-mobile-flutter-auth/tasks.md),
+   [specification](specs/011-mobile-flutter-auth/spec.md), and
+   [plan](specs/011-mobile-flutter-auth/plan.md). Identify an open task, its
    acceptance criteria, and any dependencies. Respect an explicit user request
    and the current branch; do not assume the first unchecked item is always
    actionable.
@@ -37,6 +37,28 @@ Before each development step:
 6. Report the changes, checks and their limitations, remaining work, and the
    next task tied to the specification. Continue with another in-scope task
    when the user has authorized continued work and no intervention is needed.
+
+### Spec 011 execution agreement
+
+- Do not begin implementation until the user explicitly gives the start command.
+- After that command, continue through Spec 011 tasks and their necessary
+  dependencies until completion; do not stop after each task to ask whether to
+  continue. Stay within the specification and engineering standards.
+- The user authorizes a local commit after each fully implemented and verified
+  task, including its task-list update and verification evidence. Include only
+  relevant changes, preserve unrelated work, and never commit secrets. This
+  authorization takes effect on the start command; no push, merge, deployment,
+  or user-database migrations are authorized by it.
+- Continue this agreed local workflow on `37-mobile-flutter-auth`; per-task
+  commits do not require a new branch from main. This is the Spec 011 exception
+  to the general branch workflow below.
+- Record questions that genuinely require the user in
+  [questions.md](specs/011-mobile-flutter-auth/questions.md), with affected task,
+  evidence, options, recommendation, and blocked scope. Continue independent
+  tasks; do not guess product decisions or mark blocked work complete.
+- If every remaining task depends on user input or unavailable external access,
+  record the blockers and report the incomplete status. The goal of completion
+  does not authorize bypassing permissions or claiming unverified success.
 
 ## Project and Technology
 

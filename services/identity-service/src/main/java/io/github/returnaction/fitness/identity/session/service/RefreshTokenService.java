@@ -33,7 +33,7 @@ public class RefreshTokenService {
         Parsed parsed = parse(input);
         if (parsed == null)
             return Result.invalid();
-        var location = repository.findLocation(parsed.id());
+        var location = repository.findSessionAndUserIds(parsed.id());
         if (location == null)
             return Result.invalid();
         String userStatus = repository.lockUser(location.userId());
@@ -145,7 +145,7 @@ public class RefreshTokenService {
             return refresh;
         }
 
-        public long remaining() {
+        public long sessionRemainingSeconds() {
             return remaining;
         }
     }

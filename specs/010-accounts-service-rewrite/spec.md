@@ -1,8 +1,8 @@
 # Переписывание Accounts Service по инженерному стандарту
 
 > **Статус:** complete
-> **Номер:** 010  
-> **Связанные документы:** [стандарты](../../docs/engineering-standards.md), [профиль Accounts](../../system-design/services/accounts/32-accounts-profile.md), [внутренний контракт v1](../../system-design/interactions/59-identity-accounts-internal-api.md), [protobuf](../../contracts/proto/accounts-provisioning-v1.proto)  
+> **Номер:** 010
+> **Связанные документы:** [стандарты](../../docs/engineering-standards.md), [профиль Accounts](../../system-design/services/accounts/32-accounts-profile.md), [внутренний контракт v1](../../system-design/interactions/59-identity-accounts-internal-api.md), [protobuf](../../contracts/proto/accounts-profile-creation-v1.proto)
 > **Заменяет / заменена:** —
 
 ## Цель
@@ -16,7 +16,7 @@
 - Заменить `JdbcClient` в production-коде профиля на JPA entity и repository.
 - Привести тесты доступа к данным к поддерживаемому JPA-подходу, сохранив PostgreSQL-проверки миграции, идемпотентности и конкурентных повторов.
 - Упорядочить пакеты и зависимости Accounts только настолько, насколько это необходимо для соответствия инженерному стандарту.
-- Проверить и сохранить `EnsureProfile` gRPC v1, mTLS-границу и существующую схему `user_profiles` без повторного создания таблиц или изменения данных.
+- Проверить и сохранить `CreateProfileIfAbsent` gRPC v1, mTLS-границу и существующую схему `user_profiles` без повторного создания таблиц или изменения данных.
 
 ### Не входит в эту спецификацию
 
@@ -28,15 +28,15 @@
 
 | Участник | Поведение |
 | --- | --- |
-| Identity с mTLS и правом `identity.registration.provision` | Вызывает `EnsureProfile` для регистрации. |
+| Identity с mTLS и правом `identity.registration.provision` | Вызывает `CreateProfileIfAbsent` для регистрации. |
 | Внешний клиент | Не получает нового доступа: публичного Accounts API в scope нет. |
 
 ## Сценарии
 
 ### Сценарий: повторное создание профиля
 
-**Дано:** доверенный Identity передал корректный канонический UUID пользователя.  
-**Когда:** он вызывает `EnsureProfile`, в том числе после потери предыдущего ответа.  
+**Дано:** доверенный Identity передал корректный канонический UUID пользователя.
+**Когда:** он вызывает `CreateProfileIfAbsent`, в том числе после потери предыдущего ответа.
 **Тогда:** Accounts создаёт ровно один профиль или находит уже сохранённый, не меняет его и возвращает `READY`.
 
 ### Ошибки и граничные случаи
@@ -61,7 +61,7 @@
 ## Критерии готовности
 
 - [x] В production-коде Accounts отсутствует `JdbcClient`; доступ к данным профиля реализован через JPA repository.
-- [x] `EnsureProfile` сохраняет protobuf v1, авторизацию и идемпотентность.
+- [x] `CreateProfileIfAbsent` сохраняет protobuf v1, авторизацию и идемпотентность.
 - [x] Схема и Liquibase-история совместимы с существующей базой.
 - [x] На PostgreSQL проверены повторы, коллизии и конкурентные вызовы.
 - [x] Maven `verify`, форматирование и статический анализ прошли для затронутых модулей.

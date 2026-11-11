@@ -61,7 +61,7 @@ public final class LoginService {
         String upgradedHash = passwordEncoder.upgradeEncoding(passwordHash)
                 ? passwordEncoder.encode(credentials.password())
                 : null;
-        IssuedTokens tokens = tokenService.createLogin(user.id(), passwordHash, upgradedHash);
+        IssuedTokens tokens = tokenService.createForLogin(user.id(), passwordHash, upgradedHash);
         return new LoginTokenResponse(tokens.accessToken(), tokens.refreshToken(), "Bearer", 900, 2592000);
     }
 

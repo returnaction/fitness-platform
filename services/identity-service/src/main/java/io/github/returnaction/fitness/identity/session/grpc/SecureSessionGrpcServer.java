@@ -15,18 +15,17 @@ import org.springframework.stereotype.Component;
 
 @Component
 public final class SecureSessionGrpcServer implements SmartLifecycle {
+
     private final Server server;
     private volatile boolean running;
 
-    public SecureSessionGrpcServer(
-                                   SessionVerificationGrpcService service,
+    public SecureSessionGrpcServer(SessionVerificationGrpcService service,
                                    @Value("${identity.session-grpc.address}") String address,
                                    @Value("${identity.session-grpc.port}") int port,
                                    @Value("${identity.session-grpc.certificate}") String certificate,
                                    @Value("${identity.session-grpc.private-key}") String privateKey,
                                    @Value("${identity.session-grpc.trust-certificate}") String trustCertificate,
-                                   @Value("${identity.session-grpc.allowed-caller}") String allowedCaller)
-            throws IOException {
+                                   @Value("${identity.session-grpc.allowed-caller}") String allowedCaller) throws IOException {
         if (port < 1 || port > 65535 || address.isBlank())
             throw new IllegalArgumentException("Invalid gRPC address");
         var authorization = new SessionCallerAuthorization(allowedCaller);

@@ -503,7 +503,7 @@ components:
               request_id: 2c160d4b-0f61-4702-99e1-99713d0c9326
     RegistrationUnavailable:
       description: |
-        Provisioning has not completed within the configured wait or is
+        Creation has not completed within the configured wait or is
         temporarily unavailable (registration_unavailable), or Identity's
         database is unavailable (identity_unavailable). Retry with the same
         Idempotency-Key and password; no session or token is issued.

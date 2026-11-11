@@ -11,7 +11,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import io.github.returnaction.fitness.identity.registration.repository.RegistrationLeaseRepository;
 import io.github.returnaction.fitness.identity.registration.repository.RegistrationOperationRepository;
-import io.github.returnaction.fitness.identity.registration.service.RegistrationReadinessWaiter;
+import io.github.returnaction.fitness.identity.registration.service.RegistrationCompletionWaiter;
 import io.github.returnaction.fitness.identity.registration.service.RegistrationRecoveryService;
 import io.github.returnaction.fitness.identity.registration.service.RegistrationSessionService;
 import io.github.returnaction.fitness.identity.session.repository.SessionVerificationRepository;
@@ -38,16 +38,16 @@ import org.springframework.transaction.support.TransactionTemplate;
 class RegistrationRateLimitHttpTest {
     // Тестируем HTTP и БД без запуска фоновых задач и реальных gRPC-соединений.
     @org.springframework.test.context.bean.override.mockito.MockitoBean
-    private io.github.returnaction.fitness.identity.registration.grpc.AccountsProvisioningClient accountsClient;
+    private io.github.returnaction.fitness.identity.registration.grpc.ProfileCreationClient accountsClient;
 
     @org.springframework.test.context.bean.override.mockito.MockitoBean
-    private io.github.returnaction.fitness.identity.registration.grpc.CoinsProvisioningClient coinsClient;
+    private io.github.returnaction.fitness.identity.registration.grpc.WalletCreationClient coinsClient;
 
     @org.springframework.test.context.bean.override.mockito.MockitoBean
-    private io.github.returnaction.fitness.identity.registration.worker.AccountsProvisioningScheduler accountsScheduler;
+    private io.github.returnaction.fitness.identity.registration.worker.ProfileCreationScheduler accountsScheduler;
 
     @org.springframework.test.context.bean.override.mockito.MockitoBean
-    private io.github.returnaction.fitness.identity.registration.worker.CoinsProvisioningScheduler coinsScheduler;
+    private io.github.returnaction.fitness.identity.registration.worker.WalletCreationScheduler coinsScheduler;
 
     @org.springframework.test.context.bean.override.mockito.MockitoBean
     private io.github.returnaction.fitness.identity.session.grpc.SecureSessionGrpcServer sessionGrpcServer;
@@ -106,7 +106,7 @@ class RegistrationRateLimitHttpTest {
     private RegistrationSessionService sessions;
 
     @MockitoBean
-    private RegistrationReadinessWaiter readinessWaiter;
+    private RegistrationCompletionWaiter readinessWaiter;
 
     @MockitoBean
     private TransactionTemplate transactions;
@@ -171,7 +171,7 @@ class RegistrationRateLimitHttpTest {
                     .getContentAsString();
             doThrow(new org.springframework.dao.DataAccessResourceFailureException(validEmail + " " + validToken))
                     .when(refreshTokenRepository)
-                    .findLocation(any());
+                    .findSessionAndUserIds(any());
             String databaseFailure = mvc.perform(post("/api/v1/auth/refresh")
                     .with(request -> {
                         request.setRemoteAddr("192.0.2.110");
@@ -218,7 +218,7 @@ class RegistrationRateLimitHttpTest {
         String secret = "private@example.com secret-token SELECT password";
         doThrow(new org.springframework.dao.DataAccessResourceFailureException(secret))
                 .when(refreshTokenRepository)
-                .findLocation(any());
+                .findSessionAndUserIds(any());
         String token = "e436670d-252f-47dd-a536-6200f9ac4144." + "A".repeat(43);
         String response = mvc.perform(post("/api/v1/auth/logout").contentType(APPLICATION_JSON)
                 .content("{\"refresh_token\":\"" + token + "\"}"))

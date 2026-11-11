@@ -36,7 +36,7 @@ import org.springframework.stereotype.Service;
 public class RegistrationService {
 
     private final CredentialsValidator inputValidator;
-    private final RegistrationWriter registrationWriter;
+    private final RegistrationCreationService registrationCreationService;
     private final RegistrationOperationRepository operationRepository;
     private final UserRepository userRepository;
 
@@ -49,18 +49,19 @@ public class RegistrationService {
         byte[] digest = sha256(idempotencyKey.toString());
 
         try {
-            return registrationWriter.createOrRepeat(digest, input);
+            return registrationCreationService.createOrRepeat(digest, input);
         } catch (DataIntegrityViolationException exception) {
             return resolveWriteConflict(digest, input, exception);
         }
     }
 
-    private RegistrationStartResult resolveWriteConflict(byte[] digest, ValidatedCredentials input,
+    private RegistrationStartResult resolveWriteConflict(byte[] digest,
+                                                         ValidatedCredentials input,
                                                          DataIntegrityViolationException exception) {
 
         RegistrationOperationEntity existing = operationRepository.findByIdempotencyKeyDigest(digest).orElse(null);
         if (existing != null) {
-            return registrationWriter.repeat(existing, input);
+            return registrationCreationService.repeat(existing, input);
         }
         if (userRepository.findByEmailCanonical(input.emailCanonical()).isPresent()) {
             throw new RegistrationConflictException("email_already_registered");

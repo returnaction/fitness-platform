@@ -43,7 +43,7 @@ class SecurityPolicyTest {
     @Test
     void rateLimitIsConcurrentBoundedAndExpires() throws Exception {
         var clock = new MutableClock();
-        var limits = new RequestLimits(settings(URI.create("http://localhost:1")), clock);
+        var limits = new RequestRateLimiter(settings(URI.create("http://localhost:1")), clock);
         var accepted = new AtomicInteger();
         try (var executor = java.util.concurrent.Executors.newFixedThreadPool(8)) {
             for (int i = 0; i < 100; i++)
@@ -79,7 +79,7 @@ class SecurityPolicyTest {
             exchange.close();
         });
         server.start();
-        try (var keys = new JwksKeys(settings(URI.create("http://127.0.0.1:" + server.getAddress().getPort())),
+        try (var keys = new JwksKeyCache(settings(URI.create("http://127.0.0.1:" + server.getAddress().getPort())),
                 clock)) {
             assertThat(keys.get("first").getKeyID()).isEqualTo("first");
             for (int i = 0; i < 10; i++)
@@ -102,9 +102,9 @@ class SecurityPolicyTest {
     @Test
     void jwtRejectsInvalidClaimsAndSignatures() throws Exception {
         ECKey key = new ECKeyGenerator(Curve.P_256).keyID("test").generate();
-        var keys = org.mockito.Mockito.mock(JwksKeys.class);
+        var keys = org.mockito.Mockito.mock(JwksKeyCache.class);
         org.mockito.Mockito.when(keys.get("test")).thenReturn(key.toPublicJWK());
-        var verifier = new AccessTokens(keys, settings(URI.create("http://localhost:1")));
+        var verifier = new AccessTokenVerifier(keys, settings(URI.create("http://localhost:1")));
         Instant now = Instant.now();
         var valid = claims(now);
         assertThat(verifier.verify(sign(key, valid.build())).userId()).isNotNull();
@@ -126,7 +126,7 @@ class SecurityPolicyTest {
     void missingSettingsAndCertificatesFailStartup() {
         new ApplicationContextRunner().withUserConfiguration(SettingsConfiguration.class)
                 .run(context -> assertThat(context).hasFailed());
-        assertThatThrownBy(() -> new SessionAccess(settings(URI.create("http://localhost:1")),
+        assertThatThrownBy(() -> new SessionVerificationClient(settings(URI.create("http://localhost:1")),
                 new io.micrometer.core.instrument.simple.SimpleMeterRegistry())).isInstanceOf(Exception.class);
     }
 

@@ -1,8 +1,8 @@
 # Read-only MVP каталога упражнений
 
-> **Статус:** draft  
-> **Номер:** 007  
-> **Связанные документы:** [контракт Catalog](../../system-design/services/exercise-catalog/57-exercise-catalog-service.md), [снимок задания](../../system-design/services/exercise-catalog/49-task-metric-contract.md), [подготовка PostgreSQL](../../docs/database-provisioning.md), [конституция](../constitution.md)  
+> **Статус:** draft
+> **Номер:** 007
+> **Связанные документы:** [контракт Catalog](../../system-design/services/exercise-catalog/57-exercise-catalog-service.md), [снимок задания](../../system-design/services/exercise-catalog/49-task-metric-contract.md), [подготовка PostgreSQL](../../docs/database-setup.md), [конституция](../constitution.md)
 > **Заменяет / заменена:** —
 
 ## Цель
@@ -40,7 +40,7 @@
 | Авторизованный пользователь | Через API Gateway читать активные категории, упражнения и вариации. Не может менять каталог. |
 | API Gateway | Проверять пользовательский access token и направлять разрешённый REST-запрос в Catalog. |
 | `challenge-service` | Вызывать внутренний gRPC для проверки вариации и цели перед публикацией. |
-| Администратор PostgreSQL | Один раз создаёт базу и прикладную роль по provisioning-документу. |
+| Администратор PostgreSQL | Один раз создаёт базу и прикладную роль по инструкции подготовки базы. |
 | Администратор каталога | В MVP не имеет endpoint для изменения данных. |
 
 ## Сценарии

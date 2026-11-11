@@ -25,10 +25,10 @@ import org.springframework.context.annotation.Configuration;
 /** Загружает и проверяет локальные или серверные JWT-ключи. */
 @Configuration
 public class AccessTokenConfiguration {
+
     @Bean
     JwtKeyMaterial jwtKeyMaterial(@Value("${identity.jwt.private-key}") String privateKey,
-                                  @Value("${identity.jwt.public-key}") String publicKey)
-            throws IOException, GeneralSecurityException {
+                                  @Value("${identity.jwt.public-key}") String publicKey) throws IOException, GeneralSecurityException {
         var factory = KeyFactory.getInstance("EC");
         var loaded = factory.generatePrivate(new PKCS8EncodedKeySpec(readPem(privateKey, "PRIVATE KEY")));
         var publicLoaded = factory.generatePublic(new X509EncodedKeySpec(readPem(publicKey, "PUBLIC KEY")));

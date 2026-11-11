@@ -1,7 +1,7 @@
 package io.github.returnaction.fitness.identity.security.jwt;
 
 import io.github.returnaction.fitness.identity.registration.exception.RegistrationRateLimitException;
-import io.github.returnaction.fitness.identity.registration.web.RegistrationClientAddress;
+import io.github.returnaction.fitness.identity.registration.web.ClientIpAddressResolver;
 import io.github.returnaction.fitness.identity.registration.web.RegistrationRateLimiter;
 import io.github.returnaction.fitness.identity.shared.exception.InvalidAccessTokenException;
 import jakarta.servlet.FilterChain;
@@ -24,7 +24,7 @@ import org.springframework.web.servlet.HandlerExceptionResolver;
 @RequiredArgsConstructor
 public final class LogoutAllAuthenticationFilter extends OncePerRequestFilter {
     private final AccessTokenVerifier verifier;
-    private final RegistrationClientAddress clientAddress;
+    private final ClientIpAddressResolver clientAddress;
     private final RegistrationRateLimiter limiter;
     private final HandlerExceptionResolver exceptionResolver;
 
@@ -35,8 +35,9 @@ public final class LogoutAllAuthenticationFilter extends OncePerRequestFilter {
     }
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
-            throws ServletException, IOException {
+    protected void doFilterInternal(HttpServletRequest request,
+                                    HttpServletResponse response,
+                                    FilterChain chain) throws ServletException, IOException {
         String accept = request.getHeader("Accept");
         try {
             if (accept != null && MediaType.parseMediaTypes(accept)

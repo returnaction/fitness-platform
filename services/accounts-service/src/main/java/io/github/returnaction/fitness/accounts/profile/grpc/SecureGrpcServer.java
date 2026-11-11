@@ -23,7 +23,7 @@ public final class SecureGrpcServer implements SmartLifecycle {
     private final Server server;
     private volatile boolean running;
 
-    public SecureGrpcServer(AccountsProvisioningGrpcService service,
+    public SecureGrpcServer(ProfileCreationGrpcService service,
                             @Value("${accounts.grpc.address}") String address,
                             @Value("${accounts.grpc.port}") int port,
                             @Value("${accounts.grpc.certificate}") String certificate,

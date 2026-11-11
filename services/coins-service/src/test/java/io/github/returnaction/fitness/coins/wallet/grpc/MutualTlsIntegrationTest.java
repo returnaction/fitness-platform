@@ -6,10 +6,10 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
-import io.github.returnaction.fitness.coins.wallet.WalletProvisioningService;
-import io.github.returnaction.fitness.contracts.coins.provisioning.v1.CoinsProvisioningServiceGrpc;
-import io.github.returnaction.fitness.contracts.coins.provisioning.v1.EnsureWalletRequest;
-import io.github.returnaction.fitness.contracts.coins.provisioning.v1.ProvisioningStatus;
+import io.github.returnaction.fitness.coins.wallet.service.WalletCreationService;
+import io.github.returnaction.fitness.contracts.coins.wallet.creation.v1.WalletCreationServiceGrpc;
+import io.github.returnaction.fitness.contracts.coins.wallet.creation.v1.CreateWalletIfAbsentRequest;
+import io.github.returnaction.fitness.contracts.coins.wallet.creation.v1.CreationStatus;
 import io.grpc.ManagedChannel;
 import io.grpc.Server;
 import io.grpc.ServerInterceptors;
@@ -45,13 +45,17 @@ import org.bouncycastle.cert.jcajce.JcaX509v3CertificateBuilder;
 import org.bouncycastle.openssl.jcajce.JcaPEMWriter;
 import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.junit.jupiter.api.io.TempDir;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.core.env.MapPropertySource;
 
 class MutualTlsIntegrationTest {
-    @Test
-    void springStartsActualServerAndRejectsMissingCertificates(@TempDir Path directory) throws Exception {
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void springStartsActualServerAndRejectsInvalidCertificates(boolean malformed,
+                                                               @TempDir Path directory) throws Exception {
         KeyPair caKey = keyPair();
         X500Name caName = new X500Name("CN=Test CA");
         X509Certificate ca = certificate(caName, caName, caKey, caKey, null, true);
@@ -70,15 +74,17 @@ class MutualTlsIntegrationTest {
         try (ServerSocket socket = new ServerSocket(0)) {
             port = socket.getLocalPort();
         }
-        WalletProvisioningService provisioning = mock(WalletProvisioningService.class);
+        WalletCreationService creation = mock(WalletCreationService.class);
+        Path invalidCertificate = directory.resolve("invalid.pem");
+        if (malformed) {
+            Files.writeString(invalidCertificate, "not a PEM certificate");
+        }
         try (var context = new AnnotationConfigApplicationContext()) {
             context.getEnvironment()
                     .getPropertySources()
                     .addFirst(new MapPropertySource(
                             "test",
                             Map.of(
-                                    "coins.grpc.enabled",
-                                    "true",
                                     "coins.grpc.address",
                                     "127.0.0.1",
                                     "coins.grpc.port",
@@ -89,20 +95,20 @@ class MutualTlsIntegrationTest {
                                     keyFile.toString(),
                                     "coins.grpc.trust-certificate",
                                     caFile.toString())));
-            context.registerBean(WalletProvisioningService.class, () -> provisioning);
-            context.register(CoinsProvisioningGrpcService.class, SecureGrpcServer.class);
+            context.registerBean(WalletCreationService.class, () -> creation);
+            context.register(WalletCreationGrpcService.class, SecureGrpcServer.class);
             context.refresh();
             assertThat(context.getBean(SecureGrpcServer.class).isRunning()).isTrue();
             ManagedChannel anonymous = channel(port, ca, null, null);
             try {
-                var request = EnsureWalletRequest.newBuilder()
+                var request = CreateWalletIfAbsentRequest.newBuilder()
                         .setUserId(UUID.randomUUID().toString())
                         .setRequestId(UUID.randomUUID().toString())
                         .setRegistrationOperationId(UUID.randomUUID().toString())
                         .build();
-                assertThatThrownBy(() -> CoinsProvisioningServiceGrpc.newBlockingStub(anonymous)
+                assertThatThrownBy(() -> WalletCreationServiceGrpc.newBlockingStub(anonymous)
                         .withDeadlineAfter(5, TimeUnit.SECONDS)
-                        .ensureWallet(request));
+                        .createWalletIfAbsent(request));
             } finally {
                 anonymous.shutdownNow();
             }
@@ -113,20 +119,18 @@ class MutualTlsIntegrationTest {
                     .addFirst(new MapPropertySource(
                             "test",
                             Map.of(
-                                    "coins.grpc.enabled",
-                                    "true",
                                     "coins.grpc.address",
                                     "127.0.0.1",
                                     "coins.grpc.port",
                                     port,
                                     "coins.grpc.certificate",
-                                    directory.resolve("missing.pem").toString(),
+                                    invalidCertificate.toString(),
                                     "coins.grpc.private-key",
                                     keyFile.toString(),
                                     "coins.grpc.trust-certificate",
                                     caFile.toString())));
-            context.registerBean(WalletProvisioningService.class, () -> provisioning);
-            context.register(CoinsProvisioningGrpcService.class, SecureGrpcServer.class);
+            context.registerBean(WalletCreationService.class, () -> creation);
+            context.register(WalletCreationGrpcService.class, SecureGrpcServer.class);
             assertThatThrownBy(context::refresh).isInstanceOf(org.springframework.beans.BeansException.class);
         }
     }
@@ -140,7 +144,7 @@ class MutualTlsIntegrationTest {
     }
 
     @Test
-    void onlyIdentityWithTrustedClientCertificateCanProvision() throws Exception {
+    void onlyIdentityWithTrustedClientCertificateCanCreateWallet() throws Exception {
         KeyPair caKey = keyPair();
         X500Name caName = new X500Name("CN=Test CA");
         X509Certificate ca = certificate(caName, caName, caKey, caKey, null, true);
@@ -188,14 +192,14 @@ class MutualTlsIntegrationTest {
                 foreignCaKey,
                 new GeneralName(GeneralName.uniformResourceIdentifier, "spiffe://fitness.local/identity-service"),
                 false);
-        WalletProvisioningService provisioning = mock(WalletProvisioningService.class);
+        WalletCreationService creation = mock(WalletCreationService.class);
         Server server = NettyServerBuilder.forAddress(new InetSocketAddress("127.0.0.1", 0))
                 .sslContext(GrpcSslContexts.configure(SslContextBuilder.forServer(serverKey.getPrivate(), serverCert))
                         .trustManager(ca)
                         .clientAuth(ClientAuth.REQUIRE)
                         .build())
                 .addService(ServerInterceptors.intercept(
-                        new CoinsProvisioningGrpcService(provisioning), new IdentityAuthorizationInterceptor()))
+                        new WalletCreationGrpcService(creation), new IdentityAuthorizationInterceptor()))
                 .build()
                 .start();
         ManagedChannel identity = channel(server.getPort(), ca, identityKey, identityCert);
@@ -205,37 +209,39 @@ class MutualTlsIntegrationTest {
         ManagedChannel foreign = channel(server.getPort(), ca, foreignKey, foreignCert);
         try {
             UUID user = UUID.randomUUID();
-            EnsureWalletRequest request = EnsureWalletRequest.newBuilder()
+            CreateWalletIfAbsentRequest request = CreateWalletIfAbsentRequest.newBuilder()
                     .setUserId(user.toString())
                     .setRequestId(UUID.randomUUID().toString())
                     .setRegistrationOperationId(UUID.randomUUID().toString())
                     .build();
-            assertThat(CoinsProvisioningServiceGrpc.newBlockingStub(identity)
+            assertThat(WalletCreationServiceGrpc.newBlockingStub(identity)
                     .withDeadlineAfter(5, TimeUnit.SECONDS)
-                    .ensureWallet(request)
+                    .createWalletIfAbsent(request)
                     .getStatus())
-                    .isEqualTo(ProvisioningStatus.PROVISIONING_STATUS_READY);
-            verify(provisioning).ensureWallet(user);
-            assertThatThrownBy(() -> CoinsProvisioningServiceGrpc.newBlockingStub(other)
+                    .isEqualTo(CreationStatus.CREATION_STATUS_READY);
+            verify(creation).createWalletIfAbsent(user);
+            assertThatThrownBy(() -> WalletCreationServiceGrpc.newBlockingStub(other)
                     .withDeadlineAfter(5, TimeUnit.SECONDS)
-                    .ensureWallet(request))
+                    .createWalletIfAbsent(request))
                     .satisfies(error -> assertThat(Status.fromThrowable(error).getCode())
                             .isEqualTo(Status.Code.PERMISSION_DENIED));
             UUID anonymousUser = UUID.randomUUID();
-            EnsureWalletRequest anonymousRequest = request.toBuilder().setUserId(anonymousUser.toString()).build();
-            assertThatThrownBy(() -> CoinsProvisioningServiceGrpc.newBlockingStub(anonymous)
+            CreateWalletIfAbsentRequest anonymousRequest = request.toBuilder()
+                    .setUserId(anonymousUser.toString())
+                    .build();
+            assertThatThrownBy(() -> WalletCreationServiceGrpc.newBlockingStub(anonymous)
                     .withDeadlineAfter(5, TimeUnit.SECONDS)
-                    .ensureWallet(anonymousRequest))
+                    .createWalletIfAbsent(anonymousRequest))
                     .satisfies(error -> assertThat(Status.fromThrowable(error).isOk()).isFalse());
-            verify(provisioning, never()).ensureWallet(anonymousUser);
+            verify(creation, never()).createWalletIfAbsent(anonymousUser);
             for (ManagedChannel invalid : List.of(expired, foreign)) {
                 UUID rejectedUser = UUID.randomUUID();
                 var rejectedRequest = request.toBuilder().setUserId(rejectedUser.toString()).build();
-                assertThatThrownBy(() -> CoinsProvisioningServiceGrpc.newBlockingStub(invalid)
+                assertThatThrownBy(() -> WalletCreationServiceGrpc.newBlockingStub(invalid)
                         .withDeadlineAfter(5, TimeUnit.SECONDS)
-                        .ensureWallet(rejectedRequest))
+                        .createWalletIfAbsent(rejectedRequest))
                         .satisfies(error -> assertThat(Status.fromThrowable(error).isOk()).isFalse());
-                verify(provisioning, never()).ensureWallet(rejectedUser);
+                verify(creation, never()).createWalletIfAbsent(rejectedUser);
             }
         } finally {
             identity.shutdownNow();
@@ -248,8 +254,10 @@ class MutualTlsIntegrationTest {
         }
     }
 
-    private static ManagedChannel channel(int port, X509Certificate ca, KeyPair key, X509Certificate certificate)
-            throws Exception {
+    private static ManagedChannel channel(int port,
+                                          X509Certificate ca,
+                                          KeyPair key,
+                                          X509Certificate certificate) throws Exception {
         var ssl = GrpcSslContexts.forClient().trustManager(ca);
         if (key != null) {
             ssl.keyManager(key.getPrivate(), certificate);
@@ -266,9 +274,12 @@ class MutualTlsIntegrationTest {
     }
 
     private static X509Certificate certificate(
-                                               X500Name issuer, X500Name subject, KeyPair subjectKey, KeyPair issuerKey,
-                                               GeneralName san, boolean ca)
-            throws Exception {
+                                               X500Name issuer,
+                                               X500Name subject,
+                                               KeyPair subjectKey,
+                                               KeyPair issuerKey,
+                                               GeneralName san,
+                                               boolean ca) throws Exception {
         Instant now = Instant.now();
         return certificate(
                 issuer, subject, subjectKey, issuerKey, san, ca, now.minusSeconds(60), now.plusSeconds(3600));
@@ -282,8 +293,7 @@ class MutualTlsIntegrationTest {
                                                GeneralName san,
                                                boolean ca,
                                                Instant validFrom,
-                                               Instant validUntil)
-            throws Exception {
+                                               Instant validUntil) throws Exception {
         var builder = new JcaX509v3CertificateBuilder(
                 issuer,
                 new BigInteger(128, new SecureRandom()).abs(),

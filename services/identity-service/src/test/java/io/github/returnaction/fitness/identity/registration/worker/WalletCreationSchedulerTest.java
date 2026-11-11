@@ -1,0 +1,28 @@
+package io.github.returnaction.fitness.identity.registration.worker;
+
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import io.github.returnaction.fitness.identity.registration.repository.RegistrationLeaseRepository;
+import java.util.List;
+import java.util.UUID;
+import org.junit.jupiter.api.Test;
+
+class WalletCreationSchedulerTest {
+    @Test
+    void processesOnlyConfiguredBatchAndClaimsOneAtATime() {
+        var repository = mock(RegistrationLeaseRepository.class);
+        var processor = mock(WalletCreationProcessor.class);
+        var lease = new RegistrationLeaseRepository.Lease(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), 1);
+        when(repository.claimWalletCreation(any(), eq(1), eq(30))).thenReturn(List.of(lease));
+        try (var runner = new RegistrationTaskRunner(4, 4)) {
+            new WalletCreationScheduler(repository, processor, runner, 30).poll();
+        }
+        verify(repository, times(4)).claimWalletCreation(any(), eq(1), eq(30));
+        verify(processor, times(4)).process(lease);
+    }
+}

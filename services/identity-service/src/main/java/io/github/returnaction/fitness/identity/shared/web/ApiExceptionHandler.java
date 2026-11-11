@@ -222,6 +222,6 @@ public class ApiExceptionHandler {
         Object requestId = request.getAttribute(RequestIdFilter.REQUEST_ID_ATTRIBUTE);
         return requestId instanceof String value
                 ? value
-                : RequestIdResolver.resolve(null).toString();
+                : RequestIdResolver.parseOrGenerate(null).toString();
     }
 }

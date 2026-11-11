@@ -118,7 +118,7 @@
 
 #### Внутренний контракт создания профиля и кошелька
 
-Identity вызывает Accounts `EnsureProfile` и Coins `EnsureWallet` по gRPC.
+Identity вызывает Accounts `CreateProfileIfAbsent` и Coins `CreateWalletIfAbsent` по gRPC.
 Оба метода доступны только сервисной identity Identity с правом
 `identity.registration.provision` у соответствующего получателя. Канал
 защищён, токен сервиса предъявляется с аудиторией конкретного получателя;
@@ -239,7 +239,7 @@ NULL; это не удаляет пользователя и не освобож
 
 #### Сервисные credentials и разблокировка обработки
 
-Для первой версии `EnsureProfile` / `EnsureWallet` используют mTLS с
+Для первой версии `CreateProfileIfAbsent` / `CreateWalletIfAbsent` используют mTLS с
 клиентским сертификатом от собственной private CA проекта. URI SAN
 `spiffe://fitness.local/identity-service` определяет service identity Identity;
 получатель разрешает ей только `identity.registration.provision`. Пользовательский

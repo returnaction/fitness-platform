@@ -15,7 +15,7 @@ public class RefreshTokenRepository {
         this.entityManager = entityManager;
     }
 
-    public Location findLocation(UUID id) {
+    public SessionAndUserIds findSessionAndUserIds(UUID id) {
         var rows = entityManager.createNativeQuery("""
                 SELECT s.id, s.user_id FROM refresh_tokens t
                 JOIN auth_sessions s ON s.id=t.session_id WHERE t.id=:id
@@ -23,7 +23,7 @@ public class RefreshTokenRepository {
         if (rows.isEmpty())
             return null;
         Object[] row = (Object[]) rows.getFirst();
-        return new Location((UUID) row[0], (UUID) row[1]);
+        return new SessionAndUserIds((UUID) row[0], (UUID) row[1]);
     }
 
     public String lockUser(UUID id) {
@@ -101,7 +101,7 @@ public class RefreshTokenRepository {
                 .executeUpdate();
     }
 
-    public record Location(UUID sessionId, UUID userId) {
+    public record SessionAndUserIds(UUID sessionId, UUID userId) {
     }
 
     public record Session(Instant expiresAt, Instant revokedAt, Instant checkedAt) {

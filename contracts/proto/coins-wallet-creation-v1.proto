@@ -1,0 +1,28 @@
+syntax = "proto3";
+
+package fitness.coins.wallet.creation.v1;
+
+option java_multiple_files = true;
+option java_package = "io.github.returnaction.fitness.contracts.coins.wallet.creation.v1";
+option java_outer_classname = "WalletCreationV1Proto";
+
+
+service WalletCreationService {
+  rpc CreateWalletIfAbsent(CreateWalletIfAbsentRequest) returns (CreateWalletIfAbsentResponse);
+}
+
+message CreateWalletIfAbsentRequest {
+  string request_id = 1;
+  string registration_operation_id = 2;
+  string user_id = 3;
+}
+
+message CreateWalletIfAbsentResponse {
+  string user_id = 1;
+  CreationStatus status = 2;
+}
+
+enum CreationStatus {
+  CREATION_STATUS_UNSPECIFIED = 0;
+  CREATION_STATUS_READY = 1;
+}

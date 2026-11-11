@@ -36,7 +36,6 @@ server:
   port: ${SERVER_PORT}
 coins:
   grpc:
-    enabled: ${COINS_GRPC_ENABLED}
     address: ${COINS_GRPC_ADDRESS}
     port: ${COINS_GRPC_PORT}
     certificate: ${COINS_GRPC_CERTIFICATE}

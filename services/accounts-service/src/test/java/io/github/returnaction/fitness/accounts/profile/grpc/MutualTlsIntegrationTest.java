@@ -7,9 +7,9 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 import io.github.returnaction.fitness.accounts.profile.service.ProfileCreationService;
-import io.github.returnaction.fitness.contracts.accounts.provisioning.v1.AccountsProvisioningServiceGrpc;
-import io.github.returnaction.fitness.contracts.accounts.provisioning.v1.EnsureProfileRequest;
-import io.github.returnaction.fitness.contracts.accounts.provisioning.v1.ProvisioningStatus;
+import io.github.returnaction.fitness.contracts.accounts.profile.creation.v1.ProfileCreationServiceGrpc;
+import io.github.returnaction.fitness.contracts.accounts.profile.creation.v1.CreateProfileIfAbsentRequest;
+import io.github.returnaction.fitness.contracts.accounts.profile.creation.v1.CreationStatus;
 import io.grpc.ManagedChannel;
 import io.grpc.Server;
 import io.grpc.ServerInterceptors;
@@ -71,7 +71,7 @@ class MutualTlsIntegrationTest {
         try (ServerSocket socket = new ServerSocket(0)) {
             port = socket.getLocalPort();
         }
-        ProfileCreationService provisioning = mock(ProfileCreationService.class);
+        ProfileCreationService creation = mock(ProfileCreationService.class);
         try (var context = new AnnotationConfigApplicationContext()) {
             context.getEnvironment()
                     .getPropertySources()
@@ -88,20 +88,20 @@ class MutualTlsIntegrationTest {
                                     keyFile.toString(),
                                     "accounts.grpc.trust-certificate",
                                     caFile.toString())));
-            context.registerBean(ProfileCreationService.class, () -> provisioning);
-            context.register(AccountsProvisioningGrpcService.class, SecureGrpcServer.class);
+            context.registerBean(ProfileCreationService.class, () -> creation);
+            context.register(ProfileCreationGrpcService.class, SecureGrpcServer.class);
             context.refresh();
             assertThat(context.getBean(SecureGrpcServer.class).isRunning()).isTrue();
             ManagedChannel anonymous = channel(port, ca, null, null);
             try {
-                var request = EnsureProfileRequest.newBuilder()
+                var request = CreateProfileIfAbsentRequest.newBuilder()
                         .setUserId(UUID.randomUUID().toString())
                         .setRequestId(UUID.randomUUID().toString())
                         .setRegistrationOperationId(UUID.randomUUID().toString())
                         .build();
-                assertThatThrownBy(() -> AccountsProvisioningServiceGrpc.newBlockingStub(anonymous)
+                assertThatThrownBy(() -> ProfileCreationServiceGrpc.newBlockingStub(anonymous)
                         .withDeadlineAfter(5, TimeUnit.SECONDS)
-                        .ensureProfile(request));
+                        .createProfileIfAbsent(request));
             } finally {
                 anonymous.shutdownNow();
             }
@@ -122,8 +122,8 @@ class MutualTlsIntegrationTest {
                                     keyFile.toString(),
                                     "accounts.grpc.trust-certificate",
                                     caFile.toString())));
-            context.registerBean(ProfileCreationService.class, () -> provisioning);
-            context.register(AccountsProvisioningGrpcService.class, SecureGrpcServer.class);
+            context.registerBean(ProfileCreationService.class, () -> creation);
+            context.register(ProfileCreationGrpcService.class, SecureGrpcServer.class);
             assertThatThrownBy(context::refresh).isInstanceOf(BeansException.class);
         }
     }
@@ -137,7 +137,7 @@ class MutualTlsIntegrationTest {
     }
 
     @Test
-    void onlyIdentityWithTrustedClientCertificateCanProvision() throws Exception {
+    void onlyIdentityWithTrustedClientCertificateCanCreateProfile() throws Exception {
         KeyPair caKey = keyPair();
         X500Name caName = new X500Name("CN=Test CA");
         X509Certificate ca = certificate(caName, caName, caKey, caKey, null, true);
@@ -185,14 +185,14 @@ class MutualTlsIntegrationTest {
                 foreignCaKey,
                 new GeneralName(GeneralName.uniformResourceIdentifier, "spiffe://fitness.local/identity-service"),
                 false);
-        ProfileCreationService provisioning = mock(ProfileCreationService.class);
+        ProfileCreationService creation = mock(ProfileCreationService.class);
         Server server = NettyServerBuilder.forAddress(new InetSocketAddress("127.0.0.1", 0))
                 .sslContext(GrpcSslContexts.configure(SslContextBuilder.forServer(serverKey.getPrivate(), serverCert))
                         .trustManager(ca)
                         .clientAuth(ClientAuth.REQUIRE)
                         .build())
                 .addService(ServerInterceptors.intercept(
-                        new AccountsProvisioningGrpcService(provisioning), new IdentityAuthorizationInterceptor()))
+                        new ProfileCreationGrpcService(creation), new IdentityAuthorizationInterceptor()))
                 .build()
                 .start();
         ManagedChannel identity = channel(server.getPort(), ca, identityKey, identityCert);
@@ -202,37 +202,39 @@ class MutualTlsIntegrationTest {
         ManagedChannel foreign = channel(server.getPort(), ca, foreignKey, foreignCert);
         try {
             UUID user = UUID.randomUUID();
-            EnsureProfileRequest request = EnsureProfileRequest.newBuilder()
+            CreateProfileIfAbsentRequest request = CreateProfileIfAbsentRequest.newBuilder()
                     .setUserId(user.toString())
                     .setRequestId(UUID.randomUUID().toString())
                     .setRegistrationOperationId(UUID.randomUUID().toString())
                     .build();
-            assertThat(AccountsProvisioningServiceGrpc.newBlockingStub(identity)
+            assertThat(ProfileCreationServiceGrpc.newBlockingStub(identity)
                     .withDeadlineAfter(5, TimeUnit.SECONDS)
-                    .ensureProfile(request)
+                    .createProfileIfAbsent(request)
                     .getStatus())
-                    .isEqualTo(ProvisioningStatus.PROVISIONING_STATUS_READY);
-            verify(provisioning).createIfAbsent(user);
-            assertThatThrownBy(() -> AccountsProvisioningServiceGrpc.newBlockingStub(other)
+                    .isEqualTo(CreationStatus.CREATION_STATUS_READY);
+            verify(creation).createIfAbsent(user);
+            assertThatThrownBy(() -> ProfileCreationServiceGrpc.newBlockingStub(other)
                     .withDeadlineAfter(5, TimeUnit.SECONDS)
-                    .ensureProfile(request))
+                    .createProfileIfAbsent(request))
                     .satisfies(error -> assertThat(Status.fromThrowable(error).getCode())
                             .isEqualTo(Status.Code.PERMISSION_DENIED));
             UUID anonymousUser = UUID.randomUUID();
-            EnsureProfileRequest anonymousRequest = request.toBuilder().setUserId(anonymousUser.toString()).build();
-            assertThatThrownBy(() -> AccountsProvisioningServiceGrpc.newBlockingStub(anonymous)
+            CreateProfileIfAbsentRequest anonymousRequest = request.toBuilder()
+                    .setUserId(anonymousUser.toString())
+                    .build();
+            assertThatThrownBy(() -> ProfileCreationServiceGrpc.newBlockingStub(anonymous)
                     .withDeadlineAfter(5, TimeUnit.SECONDS)
-                    .ensureProfile(anonymousRequest))
+                    .createProfileIfAbsent(anonymousRequest))
                     .satisfies(error -> assertThat(Status.fromThrowable(error).isOk()).isFalse());
-            verify(provisioning, never()).createIfAbsent(anonymousUser);
+            verify(creation, never()).createIfAbsent(anonymousUser);
             for (ManagedChannel invalid : List.of(expired, foreign)) {
                 UUID rejectedUser = UUID.randomUUID();
                 var rejectedRequest = request.toBuilder().setUserId(rejectedUser.toString()).build();
-                assertThatThrownBy(() -> AccountsProvisioningServiceGrpc.newBlockingStub(invalid)
+                assertThatThrownBy(() -> ProfileCreationServiceGrpc.newBlockingStub(invalid)
                         .withDeadlineAfter(5, TimeUnit.SECONDS)
-                        .ensureProfile(rejectedRequest))
+                        .createProfileIfAbsent(rejectedRequest))
                         .satisfies(error -> assertThat(Status.fromThrowable(error).isOk()).isFalse());
-                verify(provisioning, never()).createIfAbsent(rejectedUser);
+                verify(creation, never()).createIfAbsent(rejectedUser);
             }
         } finally {
             identity.shutdownNow();
@@ -245,8 +247,10 @@ class MutualTlsIntegrationTest {
         }
     }
 
-    private static ManagedChannel channel(int port, X509Certificate ca, KeyPair key, X509Certificate certificate)
-            throws Exception {
+    private static ManagedChannel channel(int port,
+                                          X509Certificate ca,
+                                          KeyPair key,
+                                          X509Certificate certificate) throws Exception {
         var ssl = GrpcSslContexts.forClient().trustManager(ca);
         if (key != null) {
             ssl.keyManager(key.getPrivate(), certificate);
@@ -263,9 +267,12 @@ class MutualTlsIntegrationTest {
     }
 
     private static X509Certificate certificate(
-                                               X500Name issuer, X500Name subject, KeyPair subjectKey, KeyPair issuerKey,
-                                               GeneralName san, boolean ca)
-            throws Exception {
+                                               X500Name issuer,
+                                               X500Name subject,
+                                               KeyPair subjectKey,
+                                               KeyPair issuerKey,
+                                               GeneralName san,
+                                               boolean ca) throws Exception {
         Instant now = Instant.now();
         return certificate(
                 issuer, subject, subjectKey, issuerKey, san, ca, now.minusSeconds(60), now.plusSeconds(3600));
@@ -279,8 +286,7 @@ class MutualTlsIntegrationTest {
                                                GeneralName san,
                                                boolean ca,
                                                Instant validFrom,
-                                               Instant validUntil)
-            throws Exception {
+                                               Instant validUntil) throws Exception {
         var builder = new JcaX509v3CertificateBuilder(
                 issuer,
                 new BigInteger(128, new SecureRandom()).abs(),

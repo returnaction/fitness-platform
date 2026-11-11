@@ -17,7 +17,7 @@ public final class GatewayException extends RuntimeException {
     public String code() {
         return code;
     }
-    public static GatewayException invalid() {
+    public static GatewayException invalidAccessToken() {
         return new GatewayException(401, "invalid_access_token");
     }
     public static GatewayException unavailable() {

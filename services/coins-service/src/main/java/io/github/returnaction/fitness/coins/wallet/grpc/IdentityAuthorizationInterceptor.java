@@ -7,13 +7,15 @@ import io.grpc.ServerCallHandler;
 import io.grpc.ServerInterceptor;
 import io.grpc.Status;
 import java.security.cert.X509Certificate;
+import java.security.cert.Certificate;
+import java.security.cert.CertificateParsingException;
 import java.util.Collection;
 import java.util.List;
 import javax.net.ssl.SSLPeerUnverifiedException;
 import javax.net.ssl.SSLSession;
 
 /**
- * Разрешает provisioning только service identity Identity из проверенного
+ * Разрешает создание кошелька только Identity по URI SAN проверенного
  * TLS-сертификата.
  */
 public final class IdentityAuthorizationInterceptor implements ServerInterceptor {
@@ -21,7 +23,8 @@ public final class IdentityAuthorizationInterceptor implements ServerInterceptor
 
     @Override
     public <ReqT, RespT> ServerCall.Listener<ReqT> interceptCall(
-                                                                 ServerCall<ReqT, RespT> call, Metadata headers,
+                                                                 ServerCall<ReqT, RespT> call,
+                                                                 Metadata headers,
                                                                  ServerCallHandler<ReqT, RespT> next) {
         SSLSession session = call.getAttributes().get(Grpc.TRANSPORT_ATTR_SSL_SESSION);
         if (!authorized(session)) {
@@ -37,7 +40,7 @@ public final class IdentityAuthorizationInterceptor implements ServerInterceptor
             return false;
         }
         try {
-            java.security.cert.Certificate[] chain = session.getPeerCertificates();
+            Certificate[] chain = session.getPeerCertificates();
             if (chain.length == 0 || !(chain[0] instanceof X509Certificate certificate)) {
                 return false;
             }
@@ -47,7 +50,7 @@ public final class IdentityAuthorizationInterceptor implements ServerInterceptor
                             .anyMatch(name -> name.size() >= 2
                                     && Integer.valueOf(6).equals(name.get(0))
                                     && IDENTITY.equals(name.get(1)));
-        } catch (SSLPeerUnverifiedException | java.security.cert.CertificateParsingException exception) {
+        } catch (SSLPeerUnverifiedException | CertificateParsingException exception) {
             return false;
         }
     }

@@ -2,10 +2,10 @@ package io.github.returnaction.fitness.contracts;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import io.github.returnaction.fitness.contracts.accounts.provisioning.v1.AccountsProvisioningServiceGrpc;
-import io.github.returnaction.fitness.contracts.accounts.provisioning.v1.EnsureProfileRequest;
-import io.github.returnaction.fitness.contracts.coins.provisioning.v1.CoinsProvisioningServiceGrpc;
-import io.github.returnaction.fitness.contracts.coins.provisioning.v1.EnsureWalletRequest;
+import io.github.returnaction.fitness.contracts.accounts.profile.creation.v1.ProfileCreationServiceGrpc;
+import io.github.returnaction.fitness.contracts.accounts.profile.creation.v1.CreateProfileIfAbsentRequest;
+import io.github.returnaction.fitness.contracts.coins.wallet.creation.v1.WalletCreationServiceGrpc;
+import io.github.returnaction.fitness.contracts.coins.wallet.creation.v1.CreateWalletIfAbsentRequest;
 import io.github.returnaction.fitness.contracts.identity.session.v1.IdentitySessionServiceGrpc;
 import org.junit.jupiter.api.Test;
 
@@ -23,8 +23,8 @@ class GrpcContractsGenerationTest {
     }
 
     @Test
-    void generatesAccountsProvisioningContract() {
-        EnsureProfileRequest request = EnsureProfileRequest.newBuilder()
+    void generatesProfileCreationContract() {
+        CreateProfileIfAbsentRequest request = CreateProfileIfAbsentRequest.newBuilder()
                 .setRequestId("00000000-0000-4000-8000-000000000001")
                 .setRegistrationOperationId("00000000-0000-4000-8000-000000000002")
                 .setUserId("00000000-0000-4000-8000-000000000003")
@@ -32,13 +32,13 @@ class GrpcContractsGenerationTest {
 
         assertEquals("00000000-0000-4000-8000-000000000003", request.getUserId());
         assertEquals(
-                "fitness.accounts.provisioning.v1.AccountsProvisioningService/EnsureProfile",
-                AccountsProvisioningServiceGrpc.getEnsureProfileMethod().getFullMethodName());
+                "fitness.accounts.profile.creation.v1.ProfileCreationService/CreateProfileIfAbsent",
+                ProfileCreationServiceGrpc.getCreateProfileIfAbsentMethod().getFullMethodName());
     }
 
     @Test
-    void generatesCoinsProvisioningContract() {
-        EnsureWalletRequest request = EnsureWalletRequest.newBuilder()
+    void generatesWalletCreationContract() {
+        CreateWalletIfAbsentRequest request = CreateWalletIfAbsentRequest.newBuilder()
                 .setRequestId("00000000-0000-4000-8000-000000000001")
                 .setRegistrationOperationId("00000000-0000-4000-8000-000000000002")
                 .setUserId("00000000-0000-4000-8000-000000000003")
@@ -46,7 +46,7 @@ class GrpcContractsGenerationTest {
 
         assertEquals("00000000-0000-4000-8000-000000000003", request.getUserId());
         assertEquals(
-                "fitness.coins.provisioning.v1.CoinsProvisioningService/EnsureWallet",
-                CoinsProvisioningServiceGrpc.getEnsureWalletMethod().getFullMethodName());
+                "fitness.coins.wallet.creation.v1.WalletCreationService/CreateWalletIfAbsent",
+                WalletCreationServiceGrpc.getCreateWalletIfAbsentMethod().getFullMethodName());
     }
 }

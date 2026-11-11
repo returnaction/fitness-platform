@@ -22,6 +22,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
  */
 @RequiredArgsConstructor
 public final class RecoveryAuthenticationFilter extends OncePerRequestFilter {
+
     private static final String PREFIX = "/api/v1/admin/identity/registration-operations/";
     private final RecoveryAccessVerifier verifier;
 
@@ -32,8 +33,9 @@ public final class RecoveryAuthenticationFilter extends OncePerRequestFilter {
     }
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
-            throws ServletException, IOException {
+    protected void doFilterInternal(HttpServletRequest request,
+                                    HttpServletResponse response,
+                                    FilterChain chain) throws ServletException, IOException {
         String authorization = request.getHeader("Authorization");
         if (authorization == null || !authorization.startsWith("Bearer ") || authorization.length() <= 7) {
             fail(request, response, 401, "invalid_access_token", "Authentication required.");
@@ -63,8 +65,11 @@ public final class RecoveryAuthenticationFilter extends OncePerRequestFilter {
         chain.doFilter(request, response);
     }
 
-    private void fail(HttpServletRequest request, HttpServletResponse response, int status, String code, String message)
-            throws IOException {
+    private void fail(HttpServletRequest request,
+                      HttpServletResponse response,
+                      int status,
+                      String code,
+                      String message) throws IOException {
         Object id = request.getAttribute(RequestIdFilter.REQUEST_ID_ATTRIBUTE);
         response.setStatus(status);
         response.setContentType("application/json");

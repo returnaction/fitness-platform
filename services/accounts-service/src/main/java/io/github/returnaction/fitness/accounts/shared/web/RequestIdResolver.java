@@ -7,7 +7,7 @@ public final class RequestIdResolver {
     private RequestIdResolver() {
     }
 
-    public static UUID resolve(String requestIdHeader) {
+    public static UUID parseOrGenerate(String requestIdHeader) {
         if (requestIdHeader == null || requestIdHeader.isBlank()) {
             return UUID.randomUUID();
         }
