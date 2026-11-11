@@ -98,6 +98,19 @@ tokens.
 
 ## Checks
 
+For a manual phone fault test, start the real backend, then from the repository
+root run `python scripts/mobile-fault-proxy.py --mode 503` in a separate terminal.
+Temporarily map `adb -s <device-id> reverse tcp:8088 tcp:18088`. Sign in and
+restart the app: the first refresh receives a synthetic 503 before reaching
+Gateway; `Try again` forwards the next refresh normally. Stop the fixture with
+Ctrl+C and restart with `--mode drop` to discard the first successful refresh
+response from the real Gateway. Restarting the app again must not send another
+refresh after the lost response. The fixture prints only paths/statuses.
+Always stop it and restore `adb -s <device-id> reverse tcp:8088 tcp:8088` when
+finished. These are injected failures, not evidence of a real Identity outage.
+
+Run the normal checks from `apps/mobile`:
+
 ```powershell
 C:\development\flutter\bin\flutter.bat analyze
 C:\development\flutter\bin\flutter.bat test
