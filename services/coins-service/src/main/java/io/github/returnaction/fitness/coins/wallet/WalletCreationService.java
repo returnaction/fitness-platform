@@ -8,15 +8,15 @@ import org.springframework.transaction.annotation.Transactional;
 
 /** Создаёт кошелёк только при отсутствии и не меняет существующий баланс. */
 @Service
-public class WalletProvisioningService {
+public class WalletCreationService {
     private final JdbcClient jdbc;
 
-    public WalletProvisioningService(JdbcClient jdbc) {
+    public WalletCreationService(JdbcClient jdbc) {
         this.jdbc = jdbc;
     }
 
     @Transactional
-    public void ensureWallet(UUID userId) {
+    public void createWalletIfAbsent(UUID userId) {
         Objects.requireNonNull(userId, "userId");
         jdbc.sql("INSERT INTO coin_wallets (user_id) VALUES (:userId) ON CONFLICT (user_id) DO NOTHING")
                 .param("userId", userId)

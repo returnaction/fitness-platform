@@ -11,38 +11,38 @@ import static org.mockito.Mockito.verifyNoInteractions;
 
 import io.github.returnaction.fitness.accounts.profile.exception.ProfileCreationExhaustedException;
 import io.github.returnaction.fitness.accounts.profile.service.ProfileCreationService;
-import io.github.returnaction.fitness.contracts.accounts.provisioning.v1.EnsureProfileRequest;
-import io.github.returnaction.fitness.contracts.accounts.provisioning.v1.EnsureProfileResponse;
-import io.github.returnaction.fitness.contracts.accounts.provisioning.v1.ProvisioningStatus;
+import io.github.returnaction.fitness.contracts.accounts.profile.creation.v1.CreateProfileIfAbsentRequest;
+import io.github.returnaction.fitness.contracts.accounts.profile.creation.v1.CreateProfileIfAbsentResponse;
+import io.github.returnaction.fitness.contracts.accounts.profile.creation.v1.CreationStatus;
 import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
-class AccountsProvisioningGrpcServiceTest {
+class ProfileCreationGrpcServiceTest {
     private final ProfileCreationService profileCreationService = mock(ProfileCreationService.class);
-    private final AccountsProvisioningGrpcService service = new AccountsProvisioningGrpcService(profileCreationService);
+    private final ProfileCreationGrpcService service = new ProfileCreationGrpcService(profileCreationService);
 
     @Test
-    void returnsReadyAfterProvisioning() {
+    void returnsReadyAfterCreation() {
         UUID user = UUID.randomUUID();
-        EnsureProfileRequest request = request(user.toString());
-        StreamObserver<EnsureProfileResponse> observer = mockObserver();
-        service.ensureProfile(request, observer);
+        CreateProfileIfAbsentRequest request = request(user.toString());
+        StreamObserver<CreateProfileIfAbsentResponse> observer = mockObserver();
+        service.createProfileIfAbsent(request, observer);
         var order = inOrder(profileCreationService, observer);
         order.verify(profileCreationService).createIfAbsent(user);
-        ArgumentCaptor<EnsureProfileResponse> response = ArgumentCaptor.forClass(EnsureProfileResponse.class);
+        ArgumentCaptor<CreateProfileIfAbsentResponse> response = ArgumentCaptor.forClass(CreateProfileIfAbsentResponse.class);
         order.verify(observer).onNext(response.capture());
         order.verify(observer).onCompleted();
-        assertThat(response.getValue().getStatus()).isEqualTo(ProvisioningStatus.PROVISIONING_STATUS_READY);
+        assertThat(response.getValue().getStatus()).isEqualTo(CreationStatus.CREATION_STATUS_READY);
         assertThat(response.getValue().getUserId()).isEqualTo(user.toString());
     }
 
     @Test
     void rejectsInvalidUuidWithoutCreatingProfile() {
-        StreamObserver<EnsureProfileResponse> observer = mockObserver();
-        service.ensureProfile(request("invalid"), observer);
+        StreamObserver<CreateProfileIfAbsentResponse> observer = mockObserver();
+        service.createProfileIfAbsent(request("invalid"), observer);
         ArgumentCaptor<Throwable> error = ArgumentCaptor.forClass(Throwable.class);
         verify(observer).onError(error.capture());
         assertThat(Status.fromThrowable(error.getValue()).getCode()).isEqualTo(Status.Code.INVALID_ARGUMENT);
@@ -53,8 +53,8 @@ class AccountsProvisioningGrpcServiceTest {
     void neverReturnsReadyWhenPersistenceFails() {
         UUID user = UUID.randomUUID();
         doThrow(new IllegalStateException("private detail")).when(profileCreationService).createIfAbsent(user);
-        StreamObserver<EnsureProfileResponse> observer = mockObserver();
-        service.ensureProfile(request(user.toString()), observer);
+        StreamObserver<CreateProfileIfAbsentResponse> observer = mockObserver();
+        service.createProfileIfAbsent(request(user.toString()), observer);
         ArgumentCaptor<Throwable> error = ArgumentCaptor.forClass(Throwable.class);
         verify(observer).onError(error.capture());
         assertThat(Status.fromThrowable(error.getValue()).getCode()).isEqualTo(Status.Code.INTERNAL);
@@ -67,9 +67,9 @@ class AccountsProvisioningGrpcServiceTest {
     void returnsAbortedWhenProfileCreationAttemptsAreExhausted() {
         UUID user = UUID.randomUUID();
         doThrow(new ProfileCreationExhaustedException()).when(profileCreationService).createIfAbsent(user);
-        StreamObserver<EnsureProfileResponse> observer = mockObserver();
+        StreamObserver<CreateProfileIfAbsentResponse> observer = mockObserver();
 
-        service.ensureProfile(request(user.toString()), observer);
+        service.createProfileIfAbsent(request(user.toString()), observer);
 
         ArgumentCaptor<Throwable> error = ArgumentCaptor.forClass(Throwable.class);
         verify(observer).onError(error.capture());
@@ -78,8 +78,8 @@ class AccountsProvisioningGrpcServiceTest {
         verify(observer, never()).onCompleted();
     }
 
-    private EnsureProfileRequest request(String user) {
-        return EnsureProfileRequest.newBuilder()
+    private CreateProfileIfAbsentRequest request(String user) {
+        return CreateProfileIfAbsentRequest.newBuilder()
                 .setRequestId(UUID.randomUUID().toString())
                 .setRegistrationOperationId(UUID.randomUUID().toString())
                 .setUserId(user)
@@ -87,7 +87,7 @@ class AccountsProvisioningGrpcServiceTest {
     }
 
     @SuppressWarnings("unchecked")
-    private StreamObserver<EnsureProfileResponse> mockObserver() {
+    private StreamObserver<CreateProfileIfAbsentResponse> mockObserver() {
         return mock(StreamObserver.class);
     }
 }

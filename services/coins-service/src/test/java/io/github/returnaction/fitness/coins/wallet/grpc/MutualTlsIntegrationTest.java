@@ -6,10 +6,10 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
-import io.github.returnaction.fitness.coins.wallet.WalletProvisioningService;
-import io.github.returnaction.fitness.contracts.coins.provisioning.v1.CoinsProvisioningServiceGrpc;
-import io.github.returnaction.fitness.contracts.coins.provisioning.v1.EnsureWalletRequest;
-import io.github.returnaction.fitness.contracts.coins.provisioning.v1.ProvisioningStatus;
+import io.github.returnaction.fitness.coins.wallet.WalletCreationService;
+import io.github.returnaction.fitness.contracts.coins.wallet.creation.v1.WalletCreationServiceGrpc;
+import io.github.returnaction.fitness.contracts.coins.wallet.creation.v1.CreateWalletIfAbsentRequest;
+import io.github.returnaction.fitness.contracts.coins.wallet.creation.v1.CreationStatus;
 import io.grpc.ManagedChannel;
 import io.grpc.Server;
 import io.grpc.ServerInterceptors;
@@ -70,7 +70,7 @@ class MutualTlsIntegrationTest {
         try (ServerSocket socket = new ServerSocket(0)) {
             port = socket.getLocalPort();
         }
-        WalletProvisioningService provisioning = mock(WalletProvisioningService.class);
+        WalletCreationService creation = mock(WalletCreationService.class);
         try (var context = new AnnotationConfigApplicationContext()) {
             context.getEnvironment()
                     .getPropertySources()
@@ -89,20 +89,20 @@ class MutualTlsIntegrationTest {
                                     keyFile.toString(),
                                     "coins.grpc.trust-certificate",
                                     caFile.toString())));
-            context.registerBean(WalletProvisioningService.class, () -> provisioning);
-            context.register(CoinsProvisioningGrpcService.class, SecureGrpcServer.class);
+            context.registerBean(WalletCreationService.class, () -> creation);
+            context.register(WalletCreationGrpcService.class, SecureGrpcServer.class);
             context.refresh();
             assertThat(context.getBean(SecureGrpcServer.class).isRunning()).isTrue();
             ManagedChannel anonymous = channel(port, ca, null, null);
             try {
-                var request = EnsureWalletRequest.newBuilder()
+                var request = CreateWalletIfAbsentRequest.newBuilder()
                         .setUserId(UUID.randomUUID().toString())
                         .setRequestId(UUID.randomUUID().toString())
                         .setRegistrationOperationId(UUID.randomUUID().toString())
                         .build();
-                assertThatThrownBy(() -> CoinsProvisioningServiceGrpc.newBlockingStub(anonymous)
+                assertThatThrownBy(() -> WalletCreationServiceGrpc.newBlockingStub(anonymous)
                         .withDeadlineAfter(5, TimeUnit.SECONDS)
-                        .ensureWallet(request));
+                        .createWalletIfAbsent(request));
             } finally {
                 anonymous.shutdownNow();
             }
@@ -125,8 +125,8 @@ class MutualTlsIntegrationTest {
                                     keyFile.toString(),
                                     "coins.grpc.trust-certificate",
                                     caFile.toString())));
-            context.registerBean(WalletProvisioningService.class, () -> provisioning);
-            context.register(CoinsProvisioningGrpcService.class, SecureGrpcServer.class);
+            context.registerBean(WalletCreationService.class, () -> creation);
+            context.register(WalletCreationGrpcService.class, SecureGrpcServer.class);
             assertThatThrownBy(context::refresh).isInstanceOf(org.springframework.beans.BeansException.class);
         }
     }
@@ -188,14 +188,14 @@ class MutualTlsIntegrationTest {
                 foreignCaKey,
                 new GeneralName(GeneralName.uniformResourceIdentifier, "spiffe://fitness.local/identity-service"),
                 false);
-        WalletProvisioningService provisioning = mock(WalletProvisioningService.class);
+        WalletCreationService creation = mock(WalletCreationService.class);
         Server server = NettyServerBuilder.forAddress(new InetSocketAddress("127.0.0.1", 0))
                 .sslContext(GrpcSslContexts.configure(SslContextBuilder.forServer(serverKey.getPrivate(), serverCert))
                         .trustManager(ca)
                         .clientAuth(ClientAuth.REQUIRE)
                         .build())
                 .addService(ServerInterceptors.intercept(
-                        new CoinsProvisioningGrpcService(provisioning), new IdentityAuthorizationInterceptor()))
+                        new WalletCreationGrpcService(creation), new IdentityAuthorizationInterceptor()))
                 .build()
                 .start();
         ManagedChannel identity = channel(server.getPort(), ca, identityKey, identityCert);
@@ -205,37 +205,37 @@ class MutualTlsIntegrationTest {
         ManagedChannel foreign = channel(server.getPort(), ca, foreignKey, foreignCert);
         try {
             UUID user = UUID.randomUUID();
-            EnsureWalletRequest request = EnsureWalletRequest.newBuilder()
+            CreateWalletIfAbsentRequest request = CreateWalletIfAbsentRequest.newBuilder()
                     .setUserId(user.toString())
                     .setRequestId(UUID.randomUUID().toString())
                     .setRegistrationOperationId(UUID.randomUUID().toString())
                     .build();
-            assertThat(CoinsProvisioningServiceGrpc.newBlockingStub(identity)
+            assertThat(WalletCreationServiceGrpc.newBlockingStub(identity)
                     .withDeadlineAfter(5, TimeUnit.SECONDS)
-                    .ensureWallet(request)
+                    .createWalletIfAbsent(request)
                     .getStatus())
-                    .isEqualTo(ProvisioningStatus.PROVISIONING_STATUS_READY);
-            verify(provisioning).ensureWallet(user);
-            assertThatThrownBy(() -> CoinsProvisioningServiceGrpc.newBlockingStub(other)
+                    .isEqualTo(CreationStatus.CREATION_STATUS_READY);
+            verify(creation).createWalletIfAbsent(user);
+            assertThatThrownBy(() -> WalletCreationServiceGrpc.newBlockingStub(other)
                     .withDeadlineAfter(5, TimeUnit.SECONDS)
-                    .ensureWallet(request))
+                    .createWalletIfAbsent(request))
                     .satisfies(error -> assertThat(Status.fromThrowable(error).getCode())
                             .isEqualTo(Status.Code.PERMISSION_DENIED));
             UUID anonymousUser = UUID.randomUUID();
-            EnsureWalletRequest anonymousRequest = request.toBuilder().setUserId(anonymousUser.toString()).build();
-            assertThatThrownBy(() -> CoinsProvisioningServiceGrpc.newBlockingStub(anonymous)
+            CreateWalletIfAbsentRequest anonymousRequest = request.toBuilder().setUserId(anonymousUser.toString()).build();
+            assertThatThrownBy(() -> WalletCreationServiceGrpc.newBlockingStub(anonymous)
                     .withDeadlineAfter(5, TimeUnit.SECONDS)
-                    .ensureWallet(anonymousRequest))
+                    .createWalletIfAbsent(anonymousRequest))
                     .satisfies(error -> assertThat(Status.fromThrowable(error).isOk()).isFalse());
-            verify(provisioning, never()).ensureWallet(anonymousUser);
+            verify(creation, never()).createWalletIfAbsent(anonymousUser);
             for (ManagedChannel invalid : List.of(expired, foreign)) {
                 UUID rejectedUser = UUID.randomUUID();
                 var rejectedRequest = request.toBuilder().setUserId(rejectedUser.toString()).build();
-                assertThatThrownBy(() -> CoinsProvisioningServiceGrpc.newBlockingStub(invalid)
+                assertThatThrownBy(() -> WalletCreationServiceGrpc.newBlockingStub(invalid)
                         .withDeadlineAfter(5, TimeUnit.SECONDS)
-                        .ensureWallet(rejectedRequest))
+                        .createWalletIfAbsent(rejectedRequest))
                         .satisfies(error -> assertThat(Status.fromThrowable(error).isOk()).isFalse());
-                verify(provisioning, never()).ensureWallet(rejectedUser);
+                verify(creation, never()).createWalletIfAbsent(rejectedUser);
             }
         } finally {
             identity.shutdownNow();

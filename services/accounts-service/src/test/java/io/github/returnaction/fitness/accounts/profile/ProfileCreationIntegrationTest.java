@@ -5,16 +5,16 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.doReturn;
 
 import io.github.returnaction.fitness.accounts.profile.entity.UserProfileEntity;
-import io.github.returnaction.fitness.accounts.profile.grpc.AccountsProvisioningGrpcService;
+import io.github.returnaction.fitness.accounts.profile.grpc.ProfileCreationGrpcService;
 import io.github.returnaction.fitness.accounts.profile.grpc.SecureGrpcServer;
 import io.github.returnaction.fitness.accounts.profile.grpc.TestMtlsCertificates;
 import io.github.returnaction.fitness.accounts.profile.helpers.NicknameGenerator;
 import io.github.returnaction.fitness.accounts.profile.repository.ProfileRepository;
 import io.github.returnaction.fitness.accounts.profile.service.ProfileCreationService;
-import io.github.returnaction.fitness.contracts.accounts.provisioning.v1.AccountsProvisioningServiceGrpc;
-import io.github.returnaction.fitness.contracts.accounts.provisioning.v1.EnsureProfileRequest;
-import io.github.returnaction.fitness.contracts.accounts.provisioning.v1.EnsureProfileResponse;
-import io.github.returnaction.fitness.contracts.accounts.provisioning.v1.ProvisioningStatus;
+import io.github.returnaction.fitness.contracts.accounts.profile.creation.v1.ProfileCreationServiceGrpc;
+import io.github.returnaction.fitness.contracts.accounts.profile.creation.v1.CreateProfileIfAbsentRequest;
+import io.github.returnaction.fitness.contracts.accounts.profile.creation.v1.CreateProfileIfAbsentResponse;
+import io.github.returnaction.fitness.contracts.accounts.profile.creation.v1.CreationStatus;
 import io.grpc.Server;
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
@@ -47,7 +47,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 @Testcontainers(disabledWithoutDocker = true)
 @SpringBootTest
 @ActiveProfiles("test")
-class ProfileProvisioningIntegrationTest {
+class ProfileCreationIntegrationTest {
 
     @Container
     static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:17-alpine");
@@ -72,7 +72,7 @@ class ProfileProvisioningIntegrationTest {
     NicknameGenerator nicknameGenerator;
 
     @Autowired
-    AccountsProvisioningGrpcService grpcService;
+    ProfileCreationGrpcService grpcService;
 
     @MockitoBean
     SecureGrpcServer secureGrpcServer;
@@ -80,13 +80,13 @@ class ProfileProvisioningIntegrationTest {
     @Test
     void retriesGrpcRequestAfterCommittedProfileResponseIsLost() throws Exception {
         var loseFirstResponse = new AtomicBoolean(true);
-        var faultInjectedService = new AccountsProvisioningServiceGrpc.AccountsProvisioningServiceImplBase() {
+        var faultInjectedService = new ProfileCreationServiceGrpc.ProfileCreationServiceImplBase() {
             @Override
-            public void ensureProfile(EnsureProfileRequest request, StreamObserver<EnsureProfileResponse> observer) {
+            public void createProfileIfAbsent(CreateProfileIfAbsentRequest request, StreamObserver<CreateProfileIfAbsentResponse> observer) {
                 boolean drop = loseFirstResponse.getAndSet(false);
-                grpcService.ensureProfile(request, new StreamObserver<>() {
+                grpcService.createProfileIfAbsent(request, new StreamObserver<>() {
                     @Override
-                    public void onNext(EnsureProfileResponse response) {
+                    public void onNext(CreateProfileIfAbsentResponse response) {
                         if (!drop)
                             observer.onNext(response);
                     }
@@ -115,21 +115,21 @@ class ProfileProvisioningIntegrationTest {
                 .build();
         try {
             UUID userId = UUID.randomUUID();
-            var request = EnsureProfileRequest.newBuilder()
+            var request = CreateProfileIfAbsentRequest.newBuilder()
                     .setUserId(userId.toString())
                     .setRequestId(UUID.randomUUID().toString())
                     .setRegistrationOperationId(UUID.randomUUID().toString())
                     .build();
-            var stub = AccountsProvisioningServiceGrpc.newBlockingStub(channel).withDeadlineAfter(5, TimeUnit.SECONDS);
-            assertThatThrownBy(() -> stub.ensureProfile(request))
+            var stub = ProfileCreationServiceGrpc.newBlockingStub(channel).withDeadlineAfter(5, TimeUnit.SECONDS);
+            assertThatThrownBy(() -> stub.createProfileIfAbsent(request))
                     .isInstanceOfSatisfying(
                             StatusRuntimeException.class,
                             error -> assertThat(error.getStatus().getCode()).isEqualTo(Status.Code.UNAVAILABLE));
             String nickname = profile(userId).getNickname();
             assertThat(stub.withDeadlineAfter(5, TimeUnit.SECONDS)
-                    .ensureProfile(request)
+                    .createProfileIfAbsent(request)
                     .getStatus())
-                    .isEqualTo(ProvisioningStatus.PROVISIONING_STATUS_READY);
+                    .isEqualTo(CreationStatus.CREATION_STATUS_READY);
             assertThat(profile(userId).getNickname()).isEqualTo(nickname);
             assertThat(profileCount(userId)).isOne();
         } finally {
@@ -165,17 +165,17 @@ class ProfileProvisioningIntegrationTest {
             try {
                 UUID userId = UUID.randomUUID();
                 UUID operationId = UUID.randomUUID();
-                var request = EnsureProfileRequest.newBuilder()
+                var request = CreateProfileIfAbsentRequest.newBuilder()
                         .setUserId(userId.toString())
                         .setRegistrationOperationId(operationId.toString())
                         .setRequestId(UUID.randomUUID().toString())
                         .build();
-                var stub = AccountsProvisioningServiceGrpc.newBlockingStub(channel)
+                var stub = ProfileCreationServiceGrpc.newBlockingStub(channel)
                         .withDeadlineAfter(5, TimeUnit.SECONDS);
-                assertThat(stub.ensureProfile(request).getStatus())
-                        .isEqualTo(ProvisioningStatus.PROVISIONING_STATUS_READY);
-                assertThat(stub.ensureProfile(request).getStatus())
-                        .isEqualTo(ProvisioningStatus.PROVISIONING_STATUS_READY);
+                assertThat(stub.createProfileIfAbsent(request).getStatus())
+                        .isEqualTo(CreationStatus.CREATION_STATUS_READY);
+                assertThat(stub.createProfileIfAbsent(request).getStatus())
+                        .isEqualTo(CreationStatus.CREATION_STATUS_READY);
                 assertThat(profile(userId).getUserId()).isEqualTo(userId);
                 assertThat(profileCount(userId)).isOne();
             } finally {

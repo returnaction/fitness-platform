@@ -45,9 +45,12 @@
 
 ## Реализация
 
-- [ ] T003 (после T002): Обновить v1 gRPC-адаптеры в Accounts и Coins;
+- [x] T003 (после T002): Обновить v1 gRPC-адаптеры в Accounts и Coins;
   переименовать локальные сервисы в
   `ProfileCreationService` и `WalletCreationService`.
+  Проверено: reactor test Accounts/Coins/Identity завершён успешно; в Coins
+  10 тестов без пропусков, включая PostgreSQL и mTLS. Локальный step-ca smoke
+  Accounts пропущен; автоматические mTLS-проверки выполнены.
 - [x] T004 (после T003): Обновить v1-клиенты Identity и переименовать
   процессоры, schedulers и общий batch runner по результату операции, не меняя
   lease, retry и транзакционные границы.
@@ -74,9 +77,11 @@
   `GatewayException.invalid`, `RegistrationRecoveryController.read`,
   `ResumeRequest` и `ResumeResponse` по таблице плана; обновить вызовы и тесты,
   сохранив внешний REST-контракт и поведение ошибок.
-- [ ] T008 (после T003): Провести полный аудит Coins относительно стандартов и
+- [x] T008 (после T003): Провести полный аудит Coins относительно стандартов и
   Spec 010: схема, транзакции, пакеты, конфигурация gRPC/mTLS, ошибки и тесты;
   зафиксировать реальные несоответствия и решение по `coins.grpc.enabled`.
+  Результат: [аудит Coins](coins-audit.md); для рабочего сервиса gRPC обязателен,
+  как в Accounts. Проверены код, тесты, миграция, POM и настройки.
 - [ ] T009 (после T008): Заменить `JdbcClient` на JPA entity и Spring Data
   repository; сохранить атомарное создание при отсутствии, существующую схему,
   значения баланса и транзакционные границы.

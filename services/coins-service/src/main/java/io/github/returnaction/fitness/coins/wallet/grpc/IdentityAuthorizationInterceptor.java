@@ -13,7 +13,7 @@ import javax.net.ssl.SSLPeerUnverifiedException;
 import javax.net.ssl.SSLSession;
 
 /**
- * Разрешает provisioning только service identity Identity из проверенного
+ * Разрешает creation только service identity Identity из проверенного
  * TLS-сертификата.
  */
 public final class IdentityAuthorizationInterceptor implements ServerInterceptor {

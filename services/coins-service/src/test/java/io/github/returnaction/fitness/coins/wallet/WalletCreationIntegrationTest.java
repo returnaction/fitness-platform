@@ -3,11 +3,11 @@ package io.github.returnaction.fitness.coins.wallet;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import io.github.returnaction.fitness.coins.wallet.grpc.CoinsProvisioningGrpcService;
-import io.github.returnaction.fitness.contracts.coins.provisioning.v1.CoinsProvisioningServiceGrpc;
-import io.github.returnaction.fitness.contracts.coins.provisioning.v1.EnsureWalletRequest;
-import io.github.returnaction.fitness.contracts.coins.provisioning.v1.EnsureWalletResponse;
-import io.github.returnaction.fitness.contracts.coins.provisioning.v1.ProvisioningStatus;
+import io.github.returnaction.fitness.coins.wallet.grpc.WalletCreationGrpcService;
+import io.github.returnaction.fitness.contracts.coins.wallet.creation.v1.WalletCreationServiceGrpc;
+import io.github.returnaction.fitness.contracts.coins.wallet.creation.v1.CreateWalletIfAbsentRequest;
+import io.github.returnaction.fitness.contracts.coins.wallet.creation.v1.CreateWalletIfAbsentResponse;
+import io.github.returnaction.fitness.contracts.coins.wallet.creation.v1.CreationStatus;
 import io.grpc.Server;
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
@@ -34,18 +34,18 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 @Testcontainers(disabledWithoutDocker = true)
 @SpringBootTest
 @ActiveProfiles("test")
-class WalletProvisioningIntegrationTest {
+class WalletCreationIntegrationTest {
     @Container
     static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:17-alpine");
 
     @Autowired
-    private WalletProvisioningService service;
+    private WalletCreationService service;
 
     @Autowired
     private JdbcClient jdbc;
 
     @Autowired
-    private CoinsProvisioningGrpcService grpcService;
+    private WalletCreationGrpcService grpcService;
 
     @DynamicPropertySource
     static void databaseProperties(DynamicPropertyRegistry registry) {
@@ -57,13 +57,13 @@ class WalletProvisioningIntegrationTest {
     @Test
     void retriesGrpcRequestAfterCommittedWalletResponseIsLost() throws Exception {
         var loseFirstResponse = new AtomicBoolean(true);
-        var faultInjectedService = new CoinsProvisioningServiceGrpc.CoinsProvisioningServiceImplBase() {
+        var faultInjectedService = new WalletCreationServiceGrpc.WalletCreationServiceImplBase() {
             @Override
-            public void ensureWallet(EnsureWalletRequest request, StreamObserver<EnsureWalletResponse> observer) {
+            public void createWalletIfAbsent(CreateWalletIfAbsentRequest request, StreamObserver<CreateWalletIfAbsentResponse> observer) {
                 boolean drop = loseFirstResponse.getAndSet(false);
-                grpcService.ensureWallet(request, new StreamObserver<>() {
+                grpcService.createWalletIfAbsent(request, new StreamObserver<>() {
                     @Override
-                    public void onNext(EnsureWalletResponse response) {
+                    public void onNext(CreateWalletIfAbsentResponse response) {
                         if (!drop)
                             observer.onNext(response);
                     }
@@ -92,13 +92,13 @@ class WalletProvisioningIntegrationTest {
                 .build();
         try {
             UUID userId = UUID.randomUUID();
-            var request = EnsureWalletRequest.newBuilder()
+            var request = CreateWalletIfAbsentRequest.newBuilder()
                     .setUserId(userId.toString())
                     .setRequestId(UUID.randomUUID().toString())
                     .setRegistrationOperationId(UUID.randomUUID().toString())
                     .build();
-            var stub = CoinsProvisioningServiceGrpc.newBlockingStub(channel).withDeadlineAfter(5, TimeUnit.SECONDS);
-            assertThatThrownBy(() -> stub.ensureWallet(request))
+            var stub = WalletCreationServiceGrpc.newBlockingStub(channel).withDeadlineAfter(5, TimeUnit.SECONDS);
+            assertThatThrownBy(() -> stub.createWalletIfAbsent(request))
                     .isInstanceOfSatisfying(
                             StatusRuntimeException.class,
                             error -> assertThat(error.getStatus().getCode()).isEqualTo(Status.Code.UNAVAILABLE));
@@ -111,9 +111,9 @@ class WalletProvisioningIntegrationTest {
                     .param("id", userId)
                     .update();
             assertThat(stub.withDeadlineAfter(5, TimeUnit.SECONDS)
-                    .ensureWallet(request)
+                    .createWalletIfAbsent(request)
                     .getStatus())
-                    .isEqualTo(ProvisioningStatus.PROVISIONING_STATUS_READY);
+                    .isEqualTo(CreationStatus.CREATION_STATUS_READY);
             assertThat(jdbc.sql("SELECT available_balance FROM coin_wallets WHERE user_id=:id")
                     .param("id", userId)
                     .query(Long.class)
@@ -134,8 +134,8 @@ class WalletProvisioningIntegrationTest {
     void concurrentRequestsCreateOneWalletAndRepeatsPreserveBalance() throws Exception {
         UUID userId = UUID.randomUUID();
         try (var executor = Executors.newFixedThreadPool(2)) {
-            var first = executor.submit(() -> service.ensureWallet(userId));
-            var second = executor.submit(() -> service.ensureWallet(userId));
+            var first = executor.submit(() -> service.createWalletIfAbsent(userId));
+            var second = executor.submit(() -> service.createWalletIfAbsent(userId));
             first.get();
             second.get();
         }
@@ -152,7 +152,7 @@ class WalletProvisioningIntegrationTest {
         jdbc.sql("UPDATE coin_wallets SET available_balance = 25, locked_balance = 4 WHERE user_id = :id")
                 .param("id", userId)
                 .update();
-        service.ensureWallet(userId);
+        service.createWalletIfAbsent(userId);
         assertThat(jdbc.sql("SELECT available_balance + locked_balance FROM coin_wallets WHERE user_id = :id")
                 .param("id", userId)
                 .query(Long.class)

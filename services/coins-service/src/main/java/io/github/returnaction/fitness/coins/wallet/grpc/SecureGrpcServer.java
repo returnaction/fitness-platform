@@ -24,7 +24,7 @@ public final class SecureGrpcServer implements SmartLifecycle {
     private volatile boolean running;
 
     public SecureGrpcServer(
-                            CoinsProvisioningGrpcService service,
+                            WalletCreationGrpcService service,
                             @Value("${coins.grpc.address}") String address,
                             @Value("${coins.grpc.port}") int port,
                             @Value("${coins.grpc.certificate}") String certificate,

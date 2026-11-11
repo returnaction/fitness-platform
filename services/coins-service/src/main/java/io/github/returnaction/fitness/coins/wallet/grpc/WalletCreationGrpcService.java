@@ -1,10 +1,10 @@
 package io.github.returnaction.fitness.coins.wallet.grpc;
 
-import io.github.returnaction.fitness.coins.wallet.WalletProvisioningService;
-import io.github.returnaction.fitness.contracts.coins.provisioning.v1.CoinsProvisioningServiceGrpc;
-import io.github.returnaction.fitness.contracts.coins.provisioning.v1.EnsureWalletRequest;
-import io.github.returnaction.fitness.contracts.coins.provisioning.v1.EnsureWalletResponse;
-import io.github.returnaction.fitness.contracts.coins.provisioning.v1.ProvisioningStatus;
+import io.github.returnaction.fitness.coins.wallet.WalletCreationService;
+import io.github.returnaction.fitness.contracts.coins.wallet.creation.v1.WalletCreationServiceGrpc;
+import io.github.returnaction.fitness.contracts.coins.wallet.creation.v1.CreateWalletIfAbsentRequest;
+import io.github.returnaction.fitness.contracts.coins.wallet.creation.v1.CreateWalletIfAbsentResponse;
+import io.github.returnaction.fitness.contracts.coins.wallet.creation.v1.CreationStatus;
 import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
 import java.util.UUID;
@@ -15,15 +15,15 @@ import org.springframework.stereotype.Component;
  * авторизации.
  */
 @Component
-public class CoinsProvisioningGrpcService extends CoinsProvisioningServiceGrpc.CoinsProvisioningServiceImplBase {
-    private final WalletProvisioningService provisioning;
+public class WalletCreationGrpcService extends WalletCreationServiceGrpc.WalletCreationServiceImplBase {
+    private final WalletCreationService creation;
 
-    public CoinsProvisioningGrpcService(WalletProvisioningService provisioning) {
-        this.provisioning = provisioning;
+    public WalletCreationGrpcService(WalletCreationService creation) {
+        this.creation = creation;
     }
 
     @Override
-    public void ensureWallet(EnsureWalletRequest request, StreamObserver<EnsureWalletResponse> observer) {
+    public void createWalletIfAbsent(CreateWalletIfAbsentRequest request, StreamObserver<CreateWalletIfAbsentResponse> observer) {
         UUID userId;
         try {
             canonicalUuid(request.getRequestId());
@@ -35,15 +35,15 @@ public class CoinsProvisioningGrpcService extends CoinsProvisioningServiceGrpc.C
             return;
         }
         try {
-            provisioning.ensureWallet(userId);
-            observer.onNext(EnsureWalletResponse.newBuilder()
+            creation.createWalletIfAbsent(userId);
+            observer.onNext(CreateWalletIfAbsentResponse.newBuilder()
                     .setUserId(userId.toString())
-                    .setStatus(ProvisioningStatus.PROVISIONING_STATUS_READY)
+                    .setStatus(CreationStatus.CREATION_STATUS_READY)
                     .build());
             observer.onCompleted();
         } catch (RuntimeException exception) {
             observer.onError(Status.INTERNAL
-                    .withDescription("Wallet provisioning failed")
+                    .withDescription("Wallet creation failed")
                     .asRuntimeException());
         }
     }
