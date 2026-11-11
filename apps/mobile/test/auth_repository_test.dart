@@ -59,6 +59,46 @@ void main() {
     expect(result.localTokensCleared, isTrue);
     expect(await storage.read(), isNull);
   });
+
+  test('sends registration through the shared API client with its key',
+      () async {
+    final api = _FakeAuthApiClient(
+      postAction: (_, {data, headers}) => Future.value({
+        'session': {'access_token': 'access', 'refresh_token': 'refresh'},
+      }),
+    );
+    final storage = TokenStorage(_MemorySecureValueStore());
+    final repository = AuthRepository(
+      api,
+      storage,
+      SessionOperationCoordinator(),
+    );
+
+    await repository.register(
+      email: 'anna@example.com',
+      password: 'correct horse battery staple',
+      idempotencyKey: 'f76d6ed9-2dcf-4f79-91b1-123456789abc',
+    );
+
+    expect(api.lastPostPath, '/api/v1/auth/register');
+    expect(api.lastPostHeaders?['Idempotency-Key'], isNotNull);
+    expect((await storage.read())?.accessToken, 'access');
+  });
+
+  test('sends the access token only for logout-all', () async {
+    final api = _FakeAuthApiClient();
+    final storage = await _storageWithTokens();
+    final repository = AuthRepository(
+      api,
+      storage,
+      SessionOperationCoordinator(),
+    );
+
+    await repository.logoutAll();
+
+    expect(api.lastPostWithoutResponsePath, '/api/v1/auth/logout-all');
+    expect(api.lastPostWithoutResponseHeaders?['Authorization'], 'Bearer access');
+  });
 }
 
 Future<TokenStorage> _storageWithTokens() async {
@@ -84,24 +124,34 @@ class _FakeAuthApiClient implements AuthApiClient {
     Map<String, String>? headers,
   })?
   postWithoutResponseAction;
+  String? lastPostPath;
+  Map<String, String>? lastPostHeaders;
+  String? lastPostWithoutResponsePath;
+  Map<String, String>? lastPostWithoutResponseHeaders;
 
   @override
   Future<Map<String, dynamic>> post(
     String path, {
     Object? data,
     Map<String, String>? headers,
-  }) =>
-      postAction?.call(path, data: data, headers: headers) ??
-      Future<Map<String, dynamic>>.value({});
+  }) {
+    lastPostPath = path;
+    lastPostHeaders = headers;
+    return postAction?.call(path, data: data, headers: headers) ??
+        Future<Map<String, dynamic>>.value({});
+  }
 
   @override
   Future<void> postWithoutResponse(
     String path, {
     Object? data,
     Map<String, String>? headers,
-  }) =>
-      postWithoutResponseAction?.call(path, data: data, headers: headers) ??
-      Future<void>.value();
+  }) {
+    lastPostWithoutResponsePath = path;
+    lastPostWithoutResponseHeaders = headers;
+    return postWithoutResponseAction?.call(path, data: data, headers: headers) ??
+        Future<void>.value();
+  }
 }
 
 class _MemorySecureValueStore implements SecureValueStore {
