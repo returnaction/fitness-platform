@@ -8,7 +8,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
-import io.github.returnaction.fitness.identity.registration.grpc.CoinsProvisioningClient;
+import io.github.returnaction.fitness.identity.registration.grpc.ProfileCreationClient;
 import io.github.returnaction.fitness.identity.registration.repository.RegistrationLeaseRepository;
 import io.grpc.Status;
 import java.util.UUID;
@@ -16,28 +16,28 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
-class CoinsProvisioningProcessorTest {
-    private final CoinsProvisioningClient client = mock(CoinsProvisioningClient.class);
+class ProfileCreationProcessorTest {
+    private final ProfileCreationClient client = mock(ProfileCreationClient.class);
     private final RegistrationLeaseRepository repository = mock(RegistrationLeaseRepository.class);
-    private final CoinsProvisioningProcessor processor = new CoinsProvisioningProcessor(client, repository);
+    private final ProfileCreationProcessor processor = new ProfileCreationProcessor(client, repository);
     private final RegistrationLeaseRepository.Lease lease = new RegistrationLeaseRepository.Lease(UUID.randomUUID(),
             UUID.randomUUID(), UUID.randomUUID(), 1);
 
     @Test
     void recordsReadyAfterSuccessfulCall() {
         processor.process(lease);
-        verify(repository).markWalletReady(lease);
+        verify(repository).markProfileReady(lease);
     }
 
     @Test
     void retriesUnavailableAndBlocksPermissionFailure() {
         doThrow(Status.UNAVAILABLE.asRuntimeException(), Status.PERMISSION_DENIED.asRuntimeException())
                 .when(client)
-                .ensureWallet(any(), eq(lease.operationId()), eq(lease.userId()));
+                .createProfileIfAbsent(any(), eq(lease.operationId()), eq(lease.userId()));
         processor.process(lease);
         processor.process(lease);
-        verify(repository).recordFailure(lease, true, "COINS_UNAVAILABLE");
-        verify(repository).recordFailure(lease, false, "COINS_PERMISSION_DENIED");
+        verify(repository).recordFailure(lease, true, "ACCOUNTS_UNAVAILABLE");
+        verify(repository).recordFailure(lease, false, "ACCOUNTS_PERMISSION_DENIED");
     }
 
     @Test
@@ -45,12 +45,12 @@ class CoinsProvisioningProcessorTest {
         doThrow(Status.DEADLINE_EXCEEDED.asRuntimeException())
                 .doNothing()
                 .when(client)
-                .ensureWallet(any(), eq(lease.operationId()), eq(lease.userId()));
+                .createProfileIfAbsent(any(), eq(lease.operationId()), eq(lease.userId()));
         processor.process(lease);
         processor.process(lease);
         var order = inOrder(repository);
-        order.verify(repository).recordFailure(lease, true, "COINS_DEADLINE_EXCEEDED");
-        order.verify(repository).markWalletReady(lease);
+        order.verify(repository).recordFailure(lease, true, "ACCOUNTS_DEADLINE_EXCEEDED");
+        order.verify(repository).markProfileReady(lease);
     }
 
     @ParameterizedTest
@@ -59,10 +59,10 @@ class CoinsProvisioningProcessorTest {
     void retriesTransientGrpcErrors(Status.Code code) {
         doThrow(code.toStatus().asRuntimeException())
                 .when(client)
-                .ensureWallet(any(), eq(lease.operationId()), eq(lease.userId()));
+                .createProfileIfAbsent(any(), eq(lease.operationId()), eq(lease.userId()));
         processor.process(lease);
-        verify(repository).recordFailure(lease, true, "COINS_" + code.name());
-        verify(repository, never()).markWalletReady(lease);
+        verify(repository).recordFailure(lease, true, "ACCOUNTS_" + code.name());
+        verify(repository, never()).markProfileReady(lease);
     }
 
     @ParameterizedTest
@@ -71,19 +71,19 @@ class CoinsProvisioningProcessorTest {
     void blocksPermanentGrpcErrors(Status.Code code) {
         doThrow(code.toStatus().asRuntimeException())
                 .when(client)
-                .ensureWallet(any(), eq(lease.operationId()), eq(lease.userId()));
+                .createProfileIfAbsent(any(), eq(lease.operationId()), eq(lease.userId()));
         processor.process(lease);
-        verify(repository).recordFailure(lease, false, "COINS_" + code.name());
-        verify(repository, never()).markWalletReady(lease);
+        verify(repository).recordFailure(lease, false, "ACCOUNTS_" + code.name());
+        verify(repository, never()).markProfileReady(lease);
     }
 
     @Test
     void blocksInvalidServiceResponse() {
         doThrow(new IllegalStateException("invalid response"))
                 .when(client)
-                .ensureWallet(any(), eq(lease.operationId()), eq(lease.userId()));
+                .createProfileIfAbsent(any(), eq(lease.operationId()), eq(lease.userId()));
         processor.process(lease);
-        verify(repository).recordFailure(lease, false, "COINS_INVALID_RESPONSE");
-        verify(repository, never()).markWalletReady(lease);
+        verify(repository).recordFailure(lease, false, "ACCOUNTS_INVALID_RESPONSE");
+        verify(repository, never()).markProfileReady(lease);
     }
 }

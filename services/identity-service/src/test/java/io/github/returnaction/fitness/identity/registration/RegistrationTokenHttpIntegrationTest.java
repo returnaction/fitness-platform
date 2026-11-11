@@ -47,16 +47,16 @@ import tools.jackson.databind.json.JsonMapper;
 class RegistrationTokenHttpIntegrationTest {
     // Тестируем HTTP и БД без запуска фоновых задач и реальных gRPC-соединений.
     @org.springframework.test.context.bean.override.mockito.MockitoBean
-    private io.github.returnaction.fitness.identity.registration.grpc.AccountsProvisioningClient accountsClient;
+    private io.github.returnaction.fitness.identity.registration.grpc.ProfileCreationClient accountsClient;
 
     @org.springframework.test.context.bean.override.mockito.MockitoBean
-    private io.github.returnaction.fitness.identity.registration.grpc.CoinsProvisioningClient coinsClient;
+    private io.github.returnaction.fitness.identity.registration.grpc.WalletCreationClient coinsClient;
 
     @org.springframework.test.context.bean.override.mockito.MockitoBean
-    private io.github.returnaction.fitness.identity.registration.worker.AccountsProvisioningScheduler accountsScheduler;
+    private io.github.returnaction.fitness.identity.registration.worker.ProfileCreationScheduler accountsScheduler;
 
     @org.springframework.test.context.bean.override.mockito.MockitoBean
-    private io.github.returnaction.fitness.identity.registration.worker.CoinsProvisioningScheduler coinsScheduler;
+    private io.github.returnaction.fitness.identity.registration.worker.WalletCreationScheduler coinsScheduler;
 
     @org.springframework.test.context.bean.override.mockito.MockitoBean
     private io.github.returnaction.fitness.identity.session.grpc.SecureSessionGrpcServer sessionGrpcServer;
@@ -646,7 +646,7 @@ class RegistrationTokenHttpIntegrationTest {
     }
 
     @Test
-    void registrationReturnsVerifiableTokensOnlyAfterProvisioning() throws Exception {
+    void registrationReturnsVerifiableTokensOnlyAfterCreation() throws Exception {
         String key = UUID.randomUUID().toString();
         String body = "{\"email\":\" JWT-HTTP@example.com \",\"password\":\"a\"}";
         long started = System.nanoTime();
@@ -704,7 +704,7 @@ class RegistrationTokenHttpIntegrationTest {
     }
 
     @Test
-    void firstRequestWaitsForProvisioningAndReturnsCreated() throws Exception {
+    void firstRequestWaitsForCreationAndReturnsCreated() throws Exception {
         String email = "wait-" + UUID.randomUUID() + "@example.com";
         UUID key = UUID.randomUUID();
         var operation = registration.start(key, new RegisterUserRequest(email, "a"));

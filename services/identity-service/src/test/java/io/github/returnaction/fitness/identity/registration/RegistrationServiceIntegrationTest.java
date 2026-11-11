@@ -15,18 +15,18 @@ import io.github.returnaction.fitness.identity.registration.dto.RegisterUserRequ
 import io.github.returnaction.fitness.identity.registration.exception.RecoveryConflictException;
 import io.github.returnaction.fitness.identity.registration.exception.RegistrationConflictException;
 import io.github.returnaction.fitness.identity.registration.exception.RegistrationNotReadyException;
-import io.github.returnaction.fitness.identity.registration.grpc.AccountsProvisioningClient;
-import io.github.returnaction.fitness.identity.registration.grpc.CoinsProvisioningClient;
+import io.github.returnaction.fitness.identity.registration.grpc.ProfileCreationClient;
+import io.github.returnaction.fitness.identity.registration.grpc.WalletCreationClient;
 import io.github.returnaction.fitness.identity.registration.model.RegistrationStartResult;
 import io.github.returnaction.fitness.identity.registration.repository.RegistrationLeaseRepository;
 import io.github.returnaction.fitness.identity.registration.service.RegistrationRecoveryService;
 import io.github.returnaction.fitness.identity.registration.service.RegistrationService;
 import io.github.returnaction.fitness.identity.registration.service.RegistrationSessionService;
 import io.github.returnaction.fitness.identity.session.service.SessionTokenService;
-import io.github.returnaction.fitness.identity.registration.worker.AccountsProvisioningProcessor;
-import io.github.returnaction.fitness.identity.registration.worker.AccountsProvisioningScheduler;
-import io.github.returnaction.fitness.identity.registration.worker.CoinsProvisioningProcessor;
-import io.github.returnaction.fitness.identity.registration.worker.ProvisioningBatchRunner;
+import io.github.returnaction.fitness.identity.registration.worker.ProfileCreationProcessor;
+import io.github.returnaction.fitness.identity.registration.worker.ProfileCreationScheduler;
+import io.github.returnaction.fitness.identity.registration.worker.WalletCreationProcessor;
+import io.github.returnaction.fitness.identity.registration.worker.RegistrationTaskRunner;
 import io.github.returnaction.fitness.identity.security.jwt.AccessTokenSigner;
 import io.github.returnaction.fitness.identity.session.repository.SessionVerificationRepository;
 import io.github.returnaction.fitness.identity.session.service.RefreshTokenService;
@@ -70,16 +70,16 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 class RegistrationServiceIntegrationTest {
     // Тестируем HTTP и БД без запуска фоновых задач и реальных gRPC-соединений.
     @org.springframework.test.context.bean.override.mockito.MockitoBean
-    private io.github.returnaction.fitness.identity.registration.grpc.AccountsProvisioningClient accountsClient;
+    private io.github.returnaction.fitness.identity.registration.grpc.ProfileCreationClient accountsClient;
 
     @org.springframework.test.context.bean.override.mockito.MockitoBean
-    private io.github.returnaction.fitness.identity.registration.grpc.CoinsProvisioningClient coinsClient;
+    private io.github.returnaction.fitness.identity.registration.grpc.WalletCreationClient coinsClient;
 
     @org.springframework.test.context.bean.override.mockito.MockitoBean
-    private io.github.returnaction.fitness.identity.registration.worker.AccountsProvisioningScheduler accountsScheduler;
+    private io.github.returnaction.fitness.identity.registration.worker.ProfileCreationScheduler accountsScheduler;
 
     @org.springframework.test.context.bean.override.mockito.MockitoBean
-    private io.github.returnaction.fitness.identity.registration.worker.CoinsProvisioningScheduler coinsScheduler;
+    private io.github.returnaction.fitness.identity.registration.worker.WalletCreationScheduler coinsScheduler;
 
     @org.springframework.test.context.bean.override.mockito.MockitoBean
     private io.github.returnaction.fitness.identity.session.grpc.SecureSessionGrpcServer sessionGrpcServer;
@@ -153,7 +153,7 @@ class RegistrationServiceIntegrationTest {
     void workerClaimsAndRecordsProfileReadinessWithoutNetworkTransaction() {
         var operation = registrationService.start(
                 UUID.randomUUID(), new RegisterUserRequest("worker-" + UUID.randomUUID() + "@example.com", "a"));
-        var client = org.mockito.Mockito.mock(AccountsProvisioningClient.class);
+        var client = org.mockito.Mockito.mock(ProfileCreationClient.class);
         org.mockito.Mockito.doAnswer(invocation -> {
             assertThat(org.springframework.transaction.support.TransactionSynchronizationManager
                     .isActualTransactionActive())
@@ -161,13 +161,13 @@ class RegistrationServiceIntegrationTest {
             return null;
         })
                 .when(client)
-                .ensureProfile(
+                .createProfileIfAbsent(
                         org.mockito.ArgumentMatchers.any(),
                         org.mockito.ArgumentMatchers.any(),
                         org.mockito.ArgumentMatchers.any());
-        var processor = new AccountsProvisioningProcessor(client, leases);
-        try (var runner = new ProvisioningBatchRunner(4, 4)) {
-            var scheduler = new AccountsProvisioningScheduler(leases, processor, runner, 30);
+        var processor = new ProfileCreationProcessor(client, leases);
+        try (var runner = new RegistrationTaskRunner(4, 4)) {
+            var scheduler = new ProfileCreationScheduler(leases, processor, runner, 30);
             for (int attempt = 0; attempt < 10; attempt++) {
                 scheduler.poll();
                 boolean ready = jdbcClient
@@ -205,7 +205,7 @@ class RegistrationServiceIntegrationTest {
         }
         var started = new CountDownLatch(4);
         var users = ConcurrentHashMap.<UUID>newKeySet();
-        var client = org.mockito.Mockito.mock(AccountsProvisioningClient.class);
+        var client = org.mockito.Mockito.mock(ProfileCreationClient.class);
         org.mockito.Mockito.doAnswer(invocation -> {
             assertThat(org.springframework.transaction.support.TransactionSynchronizationManager
                     .isActualTransactionActive())
@@ -216,12 +216,12 @@ class RegistrationServiceIntegrationTest {
             return null;
         })
                 .when(client)
-                .ensureProfile(
+                .createProfileIfAbsent(
                         org.mockito.ArgumentMatchers.any(),
                         org.mockito.ArgumentMatchers.any(),
                         org.mockito.ArgumentMatchers.any());
-        try (var runner = new ProvisioningBatchRunner(8, 4)) {
-            new AccountsProvisioningScheduler(leases, new AccountsProvisioningProcessor(client, leases), runner, 30)
+        try (var runner = new RegistrationTaskRunner(8, 4)) {
+            new ProfileCreationScheduler(leases, new ProfileCreationProcessor(client, leases), runner, 30)
                     .poll();
         }
         assertThat(users)
@@ -241,15 +241,15 @@ class RegistrationServiceIntegrationTest {
     void workerRetriesUnavailableAccountsAndEventuallyMarksProfileReady() {
         var operation = registrationService.start(
                 UUID.randomUUID(), new RegisterUserRequest("recovery-" + UUID.randomUUID() + "@example.com", "a"));
-        var client = org.mockito.Mockito.mock(AccountsProvisioningClient.class);
+        var client = org.mockito.Mockito.mock(ProfileCreationClient.class);
         org.mockito.Mockito.doThrow(io.grpc.Status.UNAVAILABLE.asRuntimeException())
                 .doNothing()
                 .when(client)
-                .ensureProfile(
+                .createProfileIfAbsent(
                         org.mockito.ArgumentMatchers.any(),
                         org.mockito.ArgumentMatchers.eq(operation.operationId()),
                         org.mockito.ArgumentMatchers.eq(operation.userId()));
-        var processor = new AccountsProvisioningProcessor(client, leases);
+        var processor = new ProfileCreationProcessor(client, leases);
         var first = leases.claim(UUID.randomUUID(), 100, 30)
                 .stream()
                 .filter(lease -> lease.operationId().equals(operation.operationId()))
@@ -305,7 +305,7 @@ class RegistrationServiceIntegrationTest {
                 .filter(lease -> lease.operationId().equals(operation.operationId()))
                 .findFirst()
                 .orElseThrow();
-        var client = org.mockito.Mockito.mock(CoinsProvisioningClient.class);
+        var client = org.mockito.Mockito.mock(WalletCreationClient.class);
         org.mockito.Mockito.doAnswer(invocation -> {
             assertThat(org.springframework.transaction.support.TransactionSynchronizationManager
                     .isActualTransactionActive())
@@ -313,11 +313,11 @@ class RegistrationServiceIntegrationTest {
             return null;
         })
                 .when(client)
-                .ensureWallet(
+                .createWalletIfAbsent(
                         org.mockito.ArgumentMatchers.any(),
                         org.mockito.ArgumentMatchers.eq(operation.operationId()),
                         org.mockito.ArgumentMatchers.eq(operation.userId()));
-        new CoinsProvisioningProcessor(client, leases).process(walletLease);
+        new WalletCreationProcessor(client, leases).process(walletLease);
         assertThat(jdbcClient
                 .sql("SELECT profile_ready AND wallet_ready FROM registration_operations WHERE id = :id")
                 .param("id", operation.operationId())

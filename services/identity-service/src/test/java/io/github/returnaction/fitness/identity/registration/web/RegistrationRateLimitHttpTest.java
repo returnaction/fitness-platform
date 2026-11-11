@@ -38,16 +38,16 @@ import org.springframework.transaction.support.TransactionTemplate;
 class RegistrationRateLimitHttpTest {
     // Тестируем HTTP и БД без запуска фоновых задач и реальных gRPC-соединений.
     @org.springframework.test.context.bean.override.mockito.MockitoBean
-    private io.github.returnaction.fitness.identity.registration.grpc.AccountsProvisioningClient accountsClient;
+    private io.github.returnaction.fitness.identity.registration.grpc.ProfileCreationClient accountsClient;
 
     @org.springframework.test.context.bean.override.mockito.MockitoBean
-    private io.github.returnaction.fitness.identity.registration.grpc.CoinsProvisioningClient coinsClient;
+    private io.github.returnaction.fitness.identity.registration.grpc.WalletCreationClient coinsClient;
 
     @org.springframework.test.context.bean.override.mockito.MockitoBean
-    private io.github.returnaction.fitness.identity.registration.worker.AccountsProvisioningScheduler accountsScheduler;
+    private io.github.returnaction.fitness.identity.registration.worker.ProfileCreationScheduler accountsScheduler;
 
     @org.springframework.test.context.bean.override.mockito.MockitoBean
-    private io.github.returnaction.fitness.identity.registration.worker.CoinsProvisioningScheduler coinsScheduler;
+    private io.github.returnaction.fitness.identity.registration.worker.WalletCreationScheduler coinsScheduler;
 
     @org.springframework.test.context.bean.override.mockito.MockitoBean
     private io.github.returnaction.fitness.identity.session.grpc.SecureSessionGrpcServer sessionGrpcServer;

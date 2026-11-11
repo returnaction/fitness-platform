@@ -16,15 +16,15 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 import org.slf4j.LoggerFactory;
 
-class ProvisioningBatchRunnerTest {
+class RegistrationTaskRunnerTest {
     @Test
     void workerFailuresDoNotLogPrivateExceptionDetails() {
-        Logger logger = (Logger) LoggerFactory.getLogger(ProvisioningBatchRunner.class);
+        Logger logger = (Logger) LoggerFactory.getLogger(RegistrationTaskRunner.class);
         var appender = new ListAppender<ILoggingEvent>();
         appender.start();
         logger.addAppender(appender);
         var lease = new RegistrationLeaseRepository.Lease(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), 1);
-        try (var runner = new ProvisioningBatchRunner(1, 1)) {
+        try (var runner = new RegistrationTaskRunner(1, 1)) {
             runner.runPass(
                     () -> {
                         throw new IllegalStateException("private@example.com");
@@ -53,7 +53,7 @@ class ProvisioningBatchRunnerTest {
         var started = new CountDownLatch(4);
         var release = new CountDownLatch(1);
         var lease = new RegistrationLeaseRepository.Lease(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), 1);
-        try (var runner = new ProvisioningBatchRunner(20, 4);
+        try (var runner = new RegistrationTaskRunner(20, 4);
                 var coordinator = Executors.newSingleThreadExecutor()) {
             var pass = coordinator.submit(() -> runner.runPass(
                     () -> {
@@ -97,7 +97,7 @@ class ProvisioningBatchRunnerTest {
 
     @Test
     void rejectsSettingsOutsideAgreedLimits() {
-        assertThatThrownBy(() -> new ProvisioningBatchRunner(21, 4)).isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> new ProvisioningBatchRunner(20, 5)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> new RegistrationTaskRunner(21, 4)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> new RegistrationTaskRunner(20, 5)).isInstanceOf(IllegalArgumentException.class);
     }
 }

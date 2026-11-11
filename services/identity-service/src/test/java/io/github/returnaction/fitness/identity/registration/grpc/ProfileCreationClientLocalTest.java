@@ -3,10 +3,10 @@ package io.github.returnaction.fitness.identity.registration.grpc;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import io.github.returnaction.fitness.contracts.coins.provisioning.v1.CoinsProvisioningServiceGrpc;
-import io.github.returnaction.fitness.contracts.coins.provisioning.v1.EnsureWalletRequest;
-import io.github.returnaction.fitness.contracts.coins.provisioning.v1.EnsureWalletResponse;
-import io.github.returnaction.fitness.contracts.coins.provisioning.v1.ProvisioningStatus;
+import io.github.returnaction.fitness.contracts.accounts.profile.creation.v1.ProfileCreationServiceGrpc;
+import io.github.returnaction.fitness.contracts.accounts.profile.creation.v1.CreateProfileIfAbsentRequest;
+import io.github.returnaction.fitness.contracts.accounts.profile.creation.v1.CreateProfileIfAbsentResponse;
+import io.github.returnaction.fitness.contracts.accounts.profile.creation.v1.CreationStatus;
 import io.grpc.Server;
 import io.grpc.netty.shaded.io.grpc.netty.GrpcSslContexts;
 import io.grpc.netty.shaded.io.grpc.netty.NettyServerBuilder;
@@ -21,33 +21,33 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 
 /**
- * Локальная проверка Coins-клиента с сертификатами step-ca, без
- * пользовательской БД.
+ * Локальная проверка клиента с сертификатами step-ca, без пользовательской БД.
  */
 @EnabledIfSystemProperty(named = "fitness.localStepCaSmoke", matches = "true")
-class CoinsProvisioningClientLocalTest {
+class ProfileCreationClientLocalTest {
     @Test
-    void identityClientConnectsToCoinsUsingStepCaCertificates() throws Exception {
+    void identityClientConnectsUsingStepCaCertificates() throws Exception {
         File secrets = new File("../../secrets");
         var calls = new AtomicInteger();
         Server server = NettyServerBuilder.forAddress(new InetSocketAddress("127.0.0.1", 0))
                 .sslContext(GrpcSslContexts.forServer(
-                        new File(secrets, "coins-server.crt"), new File(secrets, "coins-server-pkcs8.key"))
+                        new File(secrets, "accounts-server.crt"),
+                        new File(secrets, "accounts-server-pkcs8.key"))
                         .trustManager(new File(secrets, "ca.crt"))
                         .clientAuth(ClientAuth.REQUIRE)
                         .build())
-                .addService(new CoinsProvisioningServiceGrpc.CoinsProvisioningServiceImplBase() {
+                .addService(new ProfileCreationServiceGrpc.ProfileCreationServiceImplBase() {
                     @Override
-                    public void ensureWallet(
-                                             EnsureWalletRequest request,
-                                             StreamObserver<EnsureWalletResponse> observer) {
+                    public void createProfileIfAbsent(
+                                              CreateProfileIfAbsentRequest request,
+                                              StreamObserver<CreateProfileIfAbsentResponse> observer) {
                         int call = calls.incrementAndGet();
-                        observer.onNext(EnsureWalletResponse.newBuilder()
+                        observer.onNext(CreateProfileIfAbsentResponse.newBuilder()
                                 .setUserId(call == 2 ? UUID.randomUUID().toString() : request.getUserId())
                                 .setStatus(
                                         call == 3
-                                                ? ProvisioningStatus.PROVISIONING_STATUS_UNSPECIFIED
-                                                : ProvisioningStatus.PROVISIONING_STATUS_READY)
+                                                ? CreationStatus.CREATION_STATUS_UNSPECIFIED
+                                                : CreationStatus.CREATION_STATUS_READY)
                                 .build());
                         observer.onCompleted();
                     }
@@ -55,17 +55,17 @@ class CoinsProvisioningClientLocalTest {
                 .build()
                 .start();
         try {
-            var client = new CoinsProvisioningClient(
+            var client = new ProfileCreationClient(
                     "localhost",
                     server.getPort(),
                     new File(secrets, "identity-client.crt").getPath(),
                     new File(secrets, "identity-client-pkcs8.key").getPath(),
                     new File(secrets, "ca.crt").getPath());
             try {
-                client.ensureWallet(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID());
-                assertThatThrownBy(() -> client.ensureWallet(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID()))
+                client.createProfileIfAbsent(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID());
+                assertThatThrownBy(() -> client.createProfileIfAbsent(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID()))
                         .isInstanceOf(IllegalStateException.class);
-                assertThatThrownBy(() -> client.ensureWallet(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID()))
+                assertThatThrownBy(() -> client.createProfileIfAbsent(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID()))
                         .isInstanceOf(IllegalStateException.class);
                 assertThat(server.isShutdown()).isFalse();
             } finally {

@@ -1,8 +1,8 @@
 package io.github.returnaction.fitness.identity.registration.grpc;
 
-import io.github.returnaction.fitness.contracts.accounts.provisioning.v1.AccountsProvisioningServiceGrpc;
-import io.github.returnaction.fitness.contracts.accounts.provisioning.v1.EnsureProfileRequest;
-import io.github.returnaction.fitness.contracts.accounts.provisioning.v1.ProvisioningStatus;
+import io.github.returnaction.fitness.contracts.coins.wallet.creation.v1.WalletCreationServiceGrpc;
+import io.github.returnaction.fitness.contracts.coins.wallet.creation.v1.CreateWalletIfAbsentRequest;
+import io.github.returnaction.fitness.contracts.coins.wallet.creation.v1.CreationStatus;
 import io.grpc.ManagedChannel;
 import io.grpc.netty.shaded.io.grpc.netty.GrpcSslContexts;
 import io.grpc.netty.shaded.io.grpc.netty.NettyChannelBuilder;
@@ -16,15 +16,15 @@ import org.springframework.stereotype.Component;
 
 /** Внутренний mTLS-клиент, используемый обработчиком регистрации. */
 @Component
-public final class AccountsProvisioningClient {
+public final class WalletCreationClient {
     private final ManagedChannel channel;
 
-    public AccountsProvisioningClient(
-                                      @Value("${identity.accounts-grpc.host}") String host,
-                                      @Value("${identity.accounts-grpc.port}") int port,
-                                      @Value("${identity.accounts-grpc.certificate}") String certificate,
-                                      @Value("${identity.accounts-grpc.private-key}") String privateKey,
-                                      @Value("${identity.accounts-grpc.trust-certificate}") String trustCertificate)
+    public WalletCreationClient(
+                                   @Value("${identity.coins-grpc.host}") String host,
+                                   @Value("${identity.coins-grpc.port}") int port,
+                                   @Value("${identity.coins-grpc.certificate}") String certificate,
+                                   @Value("${identity.coins-grpc.private-key}") String privateKey,
+                                   @Value("${identity.coins-grpc.trust-certificate}") String trustCertificate)
             throws IOException {
         channel = NettyChannelBuilder.forAddress(host, port)
                 .sslContext(GrpcSslContexts.forClient()
@@ -34,17 +34,17 @@ public final class AccountsProvisioningClient {
                 .build();
     }
 
-    public void ensureProfile(UUID requestId, UUID operationId, UUID userId) {
-        var response = AccountsProvisioningServiceGrpc.newBlockingStub(channel)
+    public void createWalletIfAbsent(UUID requestId, UUID operationId, UUID userId) {
+        var response = WalletCreationServiceGrpc.newBlockingStub(channel)
                 .withDeadlineAfter(3, TimeUnit.SECONDS)
-                .ensureProfile(EnsureProfileRequest.newBuilder()
+                .createWalletIfAbsent(CreateWalletIfAbsentRequest.newBuilder()
                         .setRequestId(requestId.toString())
                         .setRegistrationOperationId(operationId.toString())
                         .setUserId(userId.toString())
                         .build());
         if (!response.getUserId().equals(userId.toString())
-                || response.getStatus() != ProvisioningStatus.PROVISIONING_STATUS_READY) {
-            throw new IllegalStateException("Invalid Accounts provisioning response");
+                || response.getStatus() != CreationStatus.CREATION_STATUS_READY) {
+            throw new IllegalStateException("Invalid Coins creation response");
         }
     }
 

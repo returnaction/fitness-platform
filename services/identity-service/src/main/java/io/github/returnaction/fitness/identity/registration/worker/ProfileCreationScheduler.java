@@ -7,21 +7,21 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
-/** Запускает обработку кошельков в общем ограниченном пуле. */
+/** Запускает обработку профилей в общем ограниченном пуле. */
 @Component
 @EnableScheduling
-public final class CoinsProvisioningScheduler {
+public final class ProfileCreationScheduler {
     private final UUID owner = UUID.randomUUID();
     private final RegistrationLeaseRepository leases;
-    private final CoinsProvisioningProcessor processor;
-    private final ProvisioningBatchRunner batchRunner;
+    private final ProfileCreationProcessor processor;
+    private final RegistrationTaskRunner batchRunner;
     private final int leaseSeconds;
 
-    public CoinsProvisioningScheduler(
-                                      RegistrationLeaseRepository leases,
-                                      CoinsProvisioningProcessor processor,
-                                      ProvisioningBatchRunner batchRunner,
-                                      @Value("${identity.registration.worker.lease-seconds}") int leaseSeconds) {
+    public ProfileCreationScheduler(
+                                         RegistrationLeaseRepository leases,
+                                         ProfileCreationProcessor processor,
+                                         RegistrationTaskRunner batchRunner,
+                                         @Value("${identity.registration.worker.lease-seconds}") int leaseSeconds) {
         if (leaseSeconds < 16) {
             throw new IllegalArgumentException("Invalid worker lease");
         }
@@ -33,6 +33,6 @@ public final class CoinsProvisioningScheduler {
 
     @Scheduled(fixedDelayString = "${identity.registration.worker.poll-ms}")
     public void poll() {
-        batchRunner.runPass(() -> leases.claimWallet(owner, 1, leaseSeconds), processor::process);
+        batchRunner.runPass(() -> leases.claim(owner, 1, leaseSeconds), processor::process);
     }
 }

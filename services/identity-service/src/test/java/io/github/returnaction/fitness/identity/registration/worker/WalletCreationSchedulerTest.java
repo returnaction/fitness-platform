@@ -12,15 +12,15 @@ import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
-class CoinsProvisioningSchedulerTest {
+class WalletCreationSchedulerTest {
     @Test
     void processesOnlyConfiguredBatchAndClaimsOneAtATime() {
         var repository = mock(RegistrationLeaseRepository.class);
-        var processor = mock(CoinsProvisioningProcessor.class);
+        var processor = mock(WalletCreationProcessor.class);
         var lease = new RegistrationLeaseRepository.Lease(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), 1);
         when(repository.claimWallet(any(), eq(1), eq(30))).thenReturn(List.of(lease));
-        try (var runner = new ProvisioningBatchRunner(4, 4)) {
-            new CoinsProvisioningScheduler(repository, processor, runner, 30).poll();
+        try (var runner = new RegistrationTaskRunner(4, 4)) {
+            new WalletCreationScheduler(repository, processor, runner, 30).poll();
         }
         verify(repository, times(4)).claimWallet(any(), eq(1), eq(30));
         verify(processor, times(4)).process(lease);

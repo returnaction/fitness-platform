@@ -19,14 +19,14 @@ import org.springframework.stereotype.Component;
 
 /** Общий ограниченный пул: задача арендуется только в свободном потоке. */
 @Component
-public final class ProvisioningBatchRunner implements AutoCloseable {
-    private static final Logger LOGGER = LoggerFactory.getLogger(ProvisioningBatchRunner.class);
+public final class RegistrationTaskRunner implements AutoCloseable {
+    private static final Logger LOGGER = LoggerFactory.getLogger(RegistrationTaskRunner.class);
     private final int batchSize;
     private final int parallelism;
     private final ExecutorService executor;
     private final ReentrantLock passLock = new ReentrantLock();
 
-    public ProvisioningBatchRunner(
+    public RegistrationTaskRunner(
                                    @Value("${identity.registration.worker.batch-size}") int batchSize,
                                    @Value("${identity.registration.worker.parallelism}") int parallelism) {
         if (batchSize < 1 || batchSize > 20 || parallelism < 1 || parallelism > 4) {
@@ -59,7 +59,7 @@ public final class ProvisioningBatchRunner implements AutoCloseable {
                         return;
                     } catch (ExecutionException exception) {
                         LOGGER.error(
-                                "Provisioning worker failed; error_type={}",
+                                "Creation worker failed; error_type={}",
                                 exception.getCause().getClass().getName());
                     }
                 }
@@ -81,7 +81,7 @@ public final class ProvisioningBatchRunner implements AutoCloseable {
             process.accept(leases.getFirst());
         } catch (RuntimeException exception) {
             LOGGER.error(
-                    "Provisioning failed; lease will expire, error_type={}",
+                    "Creation failed; lease will expire, error_type={}",
                     exception.getClass().getName());
         }
         return true;
