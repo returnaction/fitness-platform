@@ -11,15 +11,15 @@ import org.springframework.stereotype.Component;
  * проверками.
  */
 @Component
-public final class RegistrationReadinessWaiter {
+public final class RegistrationCompletionWaiter {
     private final RegistrationReadinessRepository repository;
     private final long waitMillis;
     private final long pollMillis;
 
-    public RegistrationReadinessWaiter(
-                                       RegistrationReadinessRepository repository,
-                                       @Value("${identity.registration.response-wait-ms}") long waitMillis,
-                                       @Value("${identity.registration.response-poll-ms}") long pollMillis) {
+    public RegistrationCompletionWaiter(
+                                        RegistrationReadinessRepository repository,
+                                        @Value("${identity.registration.response-wait-ms}") long waitMillis,
+                                        @Value("${identity.registration.response-poll-ms}") long pollMillis) {
         if (waitMillis < 1 || waitMillis > 30000 || pollMillis < 1 || pollMillis > waitMillis) {
             throw new IllegalArgumentException("Invalid registration response wait configuration");
         }

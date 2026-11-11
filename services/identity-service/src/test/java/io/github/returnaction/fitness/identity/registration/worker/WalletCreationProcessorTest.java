@@ -26,7 +26,7 @@ class WalletCreationProcessorTest {
     @Test
     void recordsReadyAfterSuccessfulCall() {
         processor.process(lease);
-        verify(repository).markWalletReady(lease);
+        verify(repository).completeRegistrationAndActivateUser(lease);
     }
 
     @Test
@@ -50,7 +50,7 @@ class WalletCreationProcessorTest {
         processor.process(lease);
         var order = inOrder(repository);
         order.verify(repository).recordFailure(lease, true, "COINS_DEADLINE_EXCEEDED");
-        order.verify(repository).markWalletReady(lease);
+        order.verify(repository).completeRegistrationAndActivateUser(lease);
     }
 
     @ParameterizedTest
@@ -62,7 +62,7 @@ class WalletCreationProcessorTest {
                 .createWalletIfAbsent(any(), eq(lease.operationId()), eq(lease.userId()));
         processor.process(lease);
         verify(repository).recordFailure(lease, true, "COINS_" + code.name());
-        verify(repository, never()).markWalletReady(lease);
+        verify(repository, never()).completeRegistrationAndActivateUser(lease);
     }
 
     @ParameterizedTest
@@ -74,7 +74,7 @@ class WalletCreationProcessorTest {
                 .createWalletIfAbsent(any(), eq(lease.operationId()), eq(lease.userId()));
         processor.process(lease);
         verify(repository).recordFailure(lease, false, "COINS_" + code.name());
-        verify(repository, never()).markWalletReady(lease);
+        verify(repository, never()).completeRegistrationAndActivateUser(lease);
     }
 
     @Test
@@ -84,6 +84,6 @@ class WalletCreationProcessorTest {
                 .createWalletIfAbsent(any(), eq(lease.operationId()), eq(lease.userId()));
         processor.process(lease);
         verify(repository).recordFailure(lease, false, "COINS_INVALID_RESPONSE");
-        verify(repository, never()).markWalletReady(lease);
+        verify(repository, never()).completeRegistrationAndActivateUser(lease);
     }
 }

@@ -35,7 +35,7 @@ public class LogoutService {
         } catch (IllegalArgumentException invalid) {
             return;
         }
-        var location = repository.findLocation(tokenId);
+        var location = repository.findSessionAndUserIds(tokenId);
         if (location == null)
             return;
         transactions.executeWithoutResult(status -> {

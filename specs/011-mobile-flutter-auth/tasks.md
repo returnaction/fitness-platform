@@ -56,7 +56,7 @@
   lease, retry и транзакционные границы.
   Проверено: тесты Identity — 136, ошибок нет; два local step-ca smoke пропущены
   по условиям окружения, PostgreSQL-тесты выполнены. Адаптеры T003 уже обновлены,
-  их проверки продолжаются в том же reactor build.
+  их проверки прошли в том же reactor build.
 - [x] T005 (после T004): Обновить тесты, актуальные документы и примеры;
   удалить старые продуктовые имена.
   Проверено: поиск по services/contracts/docs/system-design/platform/scripts
@@ -69,19 +69,25 @@
   обновить ссылки по проекту и проверить их, сохранив исторический смысл.
   Проверено: ссылки на `database-setup.md` существуют, старых ссылок вне
   описания переименования Spec 011 нет; `git diff --check` прошёл.
-- [ ] T005b: Переименовать методы `claim`, `claimWallet` и `markWalletReady`,
+- [x] T005b: Переименовать методы `claim`, `claimWallet` и `markWalletReady`,
   `RegistrationReadinessWaiter`, `RegistrationWriter`, `ProvisioningBatchRunner`,
   а также Gateway `SessionAccess` и `AccessTokens` по таблице плана; обновить
   использования и тесты, сохранив поведение и транзакционные границы.
-- [ ] T005c: Переименовать `JwksKeys`, `RequestLimits`,
+  Проверено: 136 тестов Identity (2 ручных smoke пропущены) и 25 Gateway;
+  повторная чистая компиляция и те же тесты прошли в изолированной копии.
+- [x] T005c: Переименовать `JwksKeys`, `RequestLimits`,
   `RegistrationClientAddress`, методы `SessionTokenService.create` и
   `createLogin`, `RefreshTokenService.Result.remaining` и метод
   `RequestIdResolver.resolve` во всех сервисах по таблице плана; обновить
   вызовы и тесты и пояснить JWKS в комментарии.
-- [ ] T005d: Переименовать `RefreshTokenRepository.findLocation` и `Location`,
+  Проверено: тесты кеша/лимитов Gateway, IP, токенов и RequestId Identity
+  прошли; все вызовы RequestIdResolver обновлены по репозиторному поиску.
+- [x] T005d: Переименовать `RefreshTokenRepository.findLocation` и `Location`,
   `GatewayException.invalid`, `RegistrationRecoveryController.read`,
   `ResumeRequest` и `ResumeResponse` по таблице плана; обновить вызовы и тесты,
   сохранив внешний REST-контракт и поведение ошибок.
+  Проверено: интеграционные тесты refresh/logout/recovery и Gateway прошли;
+  diff контроллера и DTO не изменяет пути и поля JSON.
 - [x] T008 (после T003): Провести полный аудит Coins относительно стандартов и
   Spec 010: схема, транзакции, пакеты, конфигурация gRPC/mTLS, ошибки и тесты;
   зафиксировать реальные несоответствия и решение по `coins.grpc.enabled`.

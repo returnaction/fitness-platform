@@ -133,8 +133,10 @@ class SessionMutualTlsTest {
         }
     }
 
-    private static ManagedChannel channel(int port, X509Certificate ca, KeyPair key, X509Certificate cert)
-            throws Exception {
+    private static ManagedChannel channel(int port,
+                                          X509Certificate ca,
+                                          KeyPair key,
+                                          X509Certificate cert) throws Exception {
         var ssl = GrpcSslContexts.forClient().trustManager(ca);
         if (key != null)
             ssl.keyManager(key.getPrivate(), cert);
@@ -158,9 +160,12 @@ class SessionMutualTlsTest {
     }
 
     private static X509Certificate cert(
-                                        X500Name issuer, X500Name subject, KeyPair subjectKey, KeyPair issuerKey,
-                                        GeneralName san, boolean isCa)
-            throws Exception {
+                                        X500Name issuer,
+                                        X500Name subject,
+                                        KeyPair subjectKey,
+                                        KeyPair issuerKey,
+                                        GeneralName san,
+                                        boolean isCa) throws Exception {
         Instant now = Instant.now();
         var builder = new JcaX509v3CertificateBuilder(
                 issuer,

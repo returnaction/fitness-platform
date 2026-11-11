@@ -18,10 +18,10 @@ public final class WalletCreationScheduler {
     private final int leaseSeconds;
 
     public WalletCreationScheduler(
-                                      RegistrationLeaseRepository leases,
-                                      WalletCreationProcessor processor,
-                                      RegistrationTaskRunner batchRunner,
-                                      @Value("${identity.registration.worker.lease-seconds}") int leaseSeconds) {
+                                   RegistrationLeaseRepository leases,
+                                   WalletCreationProcessor processor,
+                                   RegistrationTaskRunner batchRunner,
+                                   @Value("${identity.registration.worker.lease-seconds}") int leaseSeconds) {
         if (leaseSeconds < 16) {
             throw new IllegalArgumentException("Invalid worker lease");
         }
@@ -33,6 +33,6 @@ public final class WalletCreationScheduler {
 
     @Scheduled(fixedDelayString = "${identity.registration.worker.poll-ms}")
     public void poll() {
-        batchRunner.runPass(() -> leases.claimWallet(owner, 1, leaseSeconds), processor::process);
+        batchRunner.runPass(() -> leases.claimWalletCreation(owner, 1, leaseSeconds), processor::process);
     }
 }

@@ -110,8 +110,7 @@ public final class TestMtlsCertificates {
                                                KeyPair subjectKeyPair,
                                                KeyPair issuerKeyPair,
                                                GeneralName subjectAlternativeName,
-                                               boolean certificateAuthority)
-            throws Exception {
+                                               boolean certificateAuthority) throws Exception {
         Instant now = Instant.now();
         var builder = new JcaX509v3CertificateBuilder(
                 issuer,

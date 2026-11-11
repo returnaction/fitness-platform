@@ -27,8 +27,8 @@ public final class RegistrationTaskRunner implements AutoCloseable {
     private final ReentrantLock passLock = new ReentrantLock();
 
     public RegistrationTaskRunner(
-                                   @Value("${identity.registration.worker.batch-size}") int batchSize,
-                                   @Value("${identity.registration.worker.parallelism}") int parallelism) {
+                                  @Value("${identity.registration.worker.batch-size}") int batchSize,
+                                  @Value("${identity.registration.worker.parallelism}") int parallelism) {
         if (batchSize < 1 || batchSize > 20 || parallelism < 1 || parallelism > 4) {
             throw new IllegalArgumentException("Invalid worker batch size or parallelism");
         }

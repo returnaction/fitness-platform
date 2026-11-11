@@ -39,8 +39,8 @@ class WalletCreationClientLocalTest {
                 .addService(new WalletCreationServiceGrpc.WalletCreationServiceImplBase() {
                     @Override
                     public void createWalletIfAbsent(
-                                             CreateWalletIfAbsentRequest request,
-                                             StreamObserver<CreateWalletIfAbsentResponse> observer) {
+                                                     CreateWalletIfAbsentRequest request,
+                                                     StreamObserver<CreateWalletIfAbsentResponse> observer) {
                         int call = calls.incrementAndGet();
                         observer.onNext(CreateWalletIfAbsentResponse.newBuilder()
                                 .setUserId(call == 2 ? UUID.randomUUID().toString() : request.getUserId())
@@ -63,9 +63,11 @@ class WalletCreationClientLocalTest {
                     new File(secrets, "ca.crt").getPath());
             try {
                 client.createWalletIfAbsent(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID());
-                assertThatThrownBy(() -> client.createWalletIfAbsent(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID()))
+                assertThatThrownBy(
+                        () -> client.createWalletIfAbsent(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID()))
                         .isInstanceOf(IllegalStateException.class);
-                assertThatThrownBy(() -> client.createWalletIfAbsent(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID()))
+                assertThatThrownBy(
+                        () -> client.createWalletIfAbsent(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID()))
                         .isInstanceOf(IllegalStateException.class);
                 assertThat(server.isShutdown()).isFalse();
             } finally {

@@ -7,10 +7,10 @@ import org.springframework.stereotype.Component;
 
 /** Заголовкам доверяем лишь при прямом соединении от явно заданного прокси. */
 @Component
-public final class RegistrationClientAddress {
+public final class ClientIpAddressResolver {
     private final String trustedProxy;
 
-    public RegistrationClientAddress(@Value("${identity.registration.rate-limit.trusted-proxy-ip}") String proxy) {
+    public ClientIpAddressResolver(@Value("${identity.registration.rate-limit.trusted-proxy-ip}") String proxy) {
         trustedProxy = proxy.isBlank() ? null : canonical(proxy);
         if (!proxy.isBlank() && trustedProxy == null) {
             throw new IllegalArgumentException("Trusted proxy must be a literal IP address");

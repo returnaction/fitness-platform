@@ -12,13 +12,13 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 public class RegistrationRateLimitConfiguration implements WebMvcConfigurer {
 
     private final RegistrationRateLimiter limiter;
-    private final RegistrationClientAddress clientAddress;
+    private final ClientIpAddressResolver clientAddress;
     private final RegistrationRateLimiter loginLimiter;
     private final RegistrationRateLimiter refreshLimiter;
     private final RegistrationRateLimiter logoutLimiter;
 
     public RegistrationRateLimitConfiguration(RegistrationRateLimiter limiter,
-                                              RegistrationClientAddress clientAddress,
+                                              ClientIpAddressResolver clientAddress,
                                               @Value("${identity.registration.login-rate-capacity}") long loginCapacity,
                                               @Value("${identity.registration.refresh-rate-capacity}") long refreshCapacity,
                                               @Value("${identity.registration.logout-rate-capacity}") long logoutCapacity,

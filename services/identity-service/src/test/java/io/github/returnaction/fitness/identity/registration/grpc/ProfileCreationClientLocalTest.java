@@ -39,8 +39,8 @@ class ProfileCreationClientLocalTest {
                 .addService(new ProfileCreationServiceGrpc.ProfileCreationServiceImplBase() {
                     @Override
                     public void createProfileIfAbsent(
-                                              CreateProfileIfAbsentRequest request,
-                                              StreamObserver<CreateProfileIfAbsentResponse> observer) {
+                                                      CreateProfileIfAbsentRequest request,
+                                                      StreamObserver<CreateProfileIfAbsentResponse> observer) {
                         int call = calls.incrementAndGet();
                         observer.onNext(CreateProfileIfAbsentResponse.newBuilder()
                                 .setUserId(call == 2 ? UUID.randomUUID().toString() : request.getUserId())
@@ -63,9 +63,11 @@ class ProfileCreationClientLocalTest {
                     new File(secrets, "ca.crt").getPath());
             try {
                 client.createProfileIfAbsent(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID());
-                assertThatThrownBy(() -> client.createProfileIfAbsent(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID()))
+                assertThatThrownBy(
+                        () -> client.createProfileIfAbsent(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID()))
                         .isInstanceOf(IllegalStateException.class);
-                assertThatThrownBy(() -> client.createProfileIfAbsent(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID()))
+                assertThatThrownBy(
+                        () -> client.createProfileIfAbsent(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID()))
                         .isInstanceOf(IllegalStateException.class);
                 assertThat(server.isShutdown()).isFalse();
             } finally {

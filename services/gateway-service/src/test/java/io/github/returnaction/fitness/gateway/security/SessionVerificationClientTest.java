@@ -40,7 +40,7 @@ import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.net.URI;
 import java.util.concurrent.atomic.AtomicInteger;
 
-class SessionAccessTest {
+class SessionVerificationClientTest {
     @Test
     void verifiesTlsAndDoesNotCacheSessionsOrRetryFailures(@TempDir Path dir) throws Exception {
         var caKey = keyPair();
@@ -86,10 +86,11 @@ class SessionAccessTest {
         String certificate = pem(dir.resolve("client.crt"), clientCert).toString();
         String privateKey = pem(dir.resolve("client.key"), clientKey.getPrivate()).toString();
         String trust = pem(dir.resolve("ca.crt"), ca).toString();
-        var principal = new AccessTokens.Principal(UUID.randomUUID(), UUID.randomUUID());
+        var principal = new AccessTokenVerifier.Principal(UUID.randomUUID(), UUID.randomUUID());
         String requestId = UUID.randomUUID().toString();
         try {
-            try (var client = new SessionAccess(settings(server.getPort(), "localhost", certificate, privateKey, trust),
+            try (var client = new SessionVerificationClient(
+                    settings(server.getPort(), "localhost", certificate, privateKey, trust),
                     new SimpleMeterRegistry())) {
                 client.check(principal, requestId);
                 mode.set(1);
@@ -100,7 +101,7 @@ class SessionAccessTest {
                 assertThatThrownBy(() -> client.check(principal, requestId)).hasMessage("identity_unavailable");
                 assertThat(calls).hasValue(4);
             }
-            try (var wrongHost = new SessionAccess(
+            try (var wrongHost = new SessionVerificationClient(
                     settings(server.getPort(), "127.0.0.1", certificate, privateKey, trust),
                     new SimpleMeterRegistry())) {
                 assertThatThrownBy(() -> wrongHost.check(principal, requestId)).hasMessage("identity_unavailable");
@@ -109,7 +110,7 @@ class SessionAccessTest {
             var otherKey = keyPair();
             var otherCa = cert(new X500Name("CN=other"), new X500Name("CN=other"), otherKey, otherKey, null, true);
             String otherTrust = pem(dir.resolve("other.crt"), otherCa).toString();
-            try (var wrongCa = new SessionAccess(
+            try (var wrongCa = new SessionVerificationClient(
                     settings(server.getPort(), "localhost", certificate, privateKey, otherTrust),
                     new SimpleMeterRegistry())) {
                 assertThatThrownBy(() -> wrongCa.check(principal, requestId)).hasMessage("identity_unavailable");
@@ -140,9 +141,12 @@ class SessionAccessTest {
     }
 
     private static X509Certificate cert(
-                                        X500Name issuer, X500Name subject, KeyPair subjectKey, KeyPair issuerKey,
-                                        GeneralName san, boolean isCa)
-            throws Exception {
+                                        X500Name issuer,
+                                        X500Name subject,
+                                        KeyPair subjectKey,
+                                        KeyPair issuerKey,
+                                        GeneralName san,
+                                        boolean isCa) throws Exception {
         Instant now = Instant.now();
         var builder = new JcaX509v3CertificateBuilder(
                 issuer,

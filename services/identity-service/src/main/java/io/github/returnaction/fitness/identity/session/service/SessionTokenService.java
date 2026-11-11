@@ -20,7 +20,7 @@ public class SessionTokenService {
     private final UserRoleRepository roles;
 
     @Transactional
-    public IssuedTokens create(UUID operationId, String password) {
+    public IssuedTokens createForRegistration(UUID operationId, String password) {
 
         RegistrationSessionService.IssuedSession session = sessions.create(operationId, password);
         String access = signer.sign(session.userId(), session.sessionId(), session.expiresAt(),
@@ -30,7 +30,7 @@ public class SessionTokenService {
     }
 
     @Transactional
-    public IssuedTokens createLogin(UUID userId, String passwordHash, String upgradedHash) {
+    public IssuedTokens createForLogin(UUID userId, String passwordHash, String upgradedHash) {
 
         RegistrationSessionService.IssuedSession session = sessions.createLogin(userId, passwordHash, upgradedHash);
         String access = signer.sign(session.userId(), session.sessionId(), session.expiresAt(),

@@ -1,10 +1,10 @@
 package io.github.returnaction.fitness.gateway.web;
 
 import io.github.returnaction.fitness.gateway.configuration.GatewayProperties;
-import io.github.returnaction.fitness.gateway.security.AccessTokens;
+import io.github.returnaction.fitness.gateway.security.AccessTokenVerifier;
 import io.github.returnaction.fitness.gateway.exception.GatewayException;
-import io.github.returnaction.fitness.gateway.security.RequestLimits;
-import io.github.returnaction.fitness.gateway.security.SessionAccess;
+import io.github.returnaction.fitness.gateway.security.RequestRateLimiter;
+import io.github.returnaction.fitness.gateway.security.SessionVerificationClient;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -24,15 +24,19 @@ public final class GatewayFilter extends OncePerRequestFilter {
     public static final Set<String> PATHS = Set.of("/api/v1/auth/register", "/api/v1/auth/login",
             "/api/v1/auth/refresh", "/api/v1/auth/logout", "/api/v1/auth/logout-all");
     private final GatewayProperties settings;
-    private final AccessTokens tokens;
-    private final SessionAccess sessions;
-    private final RequestLimits limits;
+    private final AccessTokenVerifier tokens;
+    private final SessionVerificationClient sessions;
+    private final RequestRateLimiter limits;
     private final ApiErrors errors;
     private final Environment environment;
 
     @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "EI_EXPOSE_REP2", justification = "Stateless error writer is an injected shared component")
-    public GatewayFilter(GatewayProperties settings, AccessTokens tokens, SessionAccess sessions,
-                         RequestLimits limits, ApiErrors errors, Environment environment) {
+    public GatewayFilter(GatewayProperties settings,
+                         AccessTokenVerifier tokens,
+                         SessionVerificationClient sessions,
+                         RequestRateLimiter limits,
+                         ApiErrors errors,
+                         Environment environment) {
         this.settings = settings;
         this.tokens = tokens;
         this.sessions = sessions;
@@ -49,8 +53,9 @@ public final class GatewayFilter extends OncePerRequestFilter {
     }
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
-            throws ServletException, IOException {
+    protected void doFilterInternal(HttpServletRequest request,
+                                    HttpServletResponse response,
+                                    FilterChain chain) throws ServletException, IOException {
         String requestId = requestId(request.getHeader("X-Request-Id"));
         request.setAttribute("request_id", requestId);
         response.setHeader("X-Request-Id", requestId);
@@ -78,7 +83,7 @@ public final class GatewayFilter extends OncePerRequestFilter {
             if (request.getRequestURI().equals("/api/v1/auth/logout-all")) {
                 var headers = Collections.list(request.getHeaders("Authorization"));
                 if (headers.size() != 1 || !headers.getFirst().startsWith("Bearer "))
-                    throw GatewayException.invalid();
+                    throw GatewayException.invalidAccessToken();
                 var principal = tokens.verify(headers.getFirst().substring(7));
                 sessions.check(principal, requestId);
                 SecurityContextHolder.getContext()

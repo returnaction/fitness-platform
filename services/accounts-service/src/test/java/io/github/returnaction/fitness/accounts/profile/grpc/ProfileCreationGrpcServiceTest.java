@@ -32,7 +32,8 @@ class ProfileCreationGrpcServiceTest {
         service.createProfileIfAbsent(request, observer);
         var order = inOrder(profileCreationService, observer);
         order.verify(profileCreationService).createIfAbsent(user);
-        ArgumentCaptor<CreateProfileIfAbsentResponse> response = ArgumentCaptor.forClass(CreateProfileIfAbsentResponse.class);
+        ArgumentCaptor<CreateProfileIfAbsentResponse> response = ArgumentCaptor
+                .forClass(CreateProfileIfAbsentResponse.class);
         order.verify(observer).onNext(response.capture());
         order.verify(observer).onCompleted();
         assertThat(response.getValue().getStatus()).isEqualTo(CreationStatus.CREATION_STATUS_READY);

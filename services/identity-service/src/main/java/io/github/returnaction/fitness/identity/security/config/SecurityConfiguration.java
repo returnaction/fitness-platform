@@ -2,7 +2,7 @@ package io.github.returnaction.fitness.identity.security.config;
 
 import io.github.returnaction.fitness.identity.registration.security.RecoveryAccessVerifier;
 import io.github.returnaction.fitness.identity.registration.security.RecoveryAuthenticationFilter;
-import io.github.returnaction.fitness.identity.registration.web.RegistrationClientAddress;
+import io.github.returnaction.fitness.identity.registration.web.ClientIpAddressResolver;
 import io.github.returnaction.fitness.identity.registration.web.RegistrationRateLimiter;
 import io.github.returnaction.fitness.identity.security.jwt.AccessTokenVerifier;
 import io.github.returnaction.fitness.identity.security.jwt.LogoutAllAuthenticationFilter;
@@ -22,15 +22,15 @@ import org.springframework.web.servlet.HandlerExceptionResolver;
 public class SecurityConfiguration {
 
     @Bean
-    SecurityFilterChain securityFilterChain(HttpSecurity http, RecoveryAccessVerifier verifier,
+    SecurityFilterChain securityFilterChain(HttpSecurity http,
+                                            RecoveryAccessVerifier verifier,
                                             AccessTokenVerifier accessVerifier,
-                                            RegistrationClientAddress clientAddress,
+                                            ClientIpAddressResolver clientAddress,
                                             @Qualifier("handlerExceptionResolver") HandlerExceptionResolver exceptionResolver,
                                             @Value("${identity.registration.logout-all-rate-capacity}") long capacity,
                                             @Value("${identity.registration.rate-limit.period-seconds}") long period,
                                             @Value("${identity.registration.rate-limit.cache-size}") long cacheSize,
-                                            @Value("${identity.registration.rate-limit.cache-expiry-seconds}") long expiry)
-            throws Exception {
+                                            @Value("${identity.registration.rate-limit.cache-expiry-seconds}") long expiry) throws Exception {
         return http.csrf(AbstractHttpConfigurer::disable)
                 .httpBasic(AbstractHttpConfigurer::disable)
                 .formLogin(AbstractHttpConfigurer::disable)

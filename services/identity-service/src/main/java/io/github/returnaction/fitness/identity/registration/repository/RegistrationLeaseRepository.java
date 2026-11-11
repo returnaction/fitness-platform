@@ -29,12 +29,12 @@ public class RegistrationLeaseRepository {
     }
 
     @Transactional
-    public List<Lease> claim(UUID owner, int limit, int leaseSeconds) {
+    public List<Lease> claimProfileCreation(UUID owner, int limit, int leaseSeconds) {
         return claimStage(owner, limit, leaseSeconds, false);
     }
 
     @Transactional
-    public List<Lease> claimWallet(UUID owner, int limit, int leaseSeconds) {
+    public List<Lease> claimWalletCreation(UUID owner, int limit, int leaseSeconds) {
         return claimStage(owner, limit, leaseSeconds, true);
     }
 
@@ -90,7 +90,7 @@ public class RegistrationLeaseRepository {
     }
 
     @Transactional
-    public boolean markWalletReady(Lease lease) {
+    public boolean completeRegistrationAndActivateUser(Lease lease) {
         // Сначала блокируем пользователя, как при выдаче и отзыве сессии.
         var users = entityManager.createNativeQuery("SELECT id FROM users WHERE id=:userId FOR UPDATE")
                 .setParameter("userId", lease.userId())

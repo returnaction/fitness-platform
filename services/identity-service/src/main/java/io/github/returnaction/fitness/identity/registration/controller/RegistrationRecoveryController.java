@@ -1,8 +1,8 @@
 package io.github.returnaction.fitness.identity.registration.controller;
 
 import io.github.returnaction.fitness.identity.registration.dto.RegistrationRecoveryResponse;
-import io.github.returnaction.fitness.identity.registration.dto.ResumeRequest;
-import io.github.returnaction.fitness.identity.registration.dto.ResumeResponse;
+import io.github.returnaction.fitness.identity.registration.dto.ResumeRegistrationRequest;
+import io.github.returnaction.fitness.identity.registration.dto.ResumeRegistrationResponse;
 import io.github.returnaction.fitness.identity.registration.service.RegistrationRecoveryService;
 import jakarta.validation.Valid;
 import java.util.UUID;
@@ -22,16 +22,17 @@ public class RegistrationRecoveryController {
     private final RegistrationRecoveryService recovery;
 
     @GetMapping("/{id}")
-    public RegistrationRecoveryResponse read(@PathVariable UUID id) {
+    public RegistrationRecoveryResponse getRegistrationRecovery(@PathVariable UUID id) {
         var state = recovery.read(id);
         return new RegistrationRecoveryResponse(
                 state.operationId(), state.status(), state.version(), state.recoveryBlockedAt(), state.lastErrorCode());
     }
 
     @PostMapping("/{id}/resume")
-    public ResumeResponse resume(@PathVariable UUID id, @AuthenticationPrincipal UUID actor,
-                                 @Valid @RequestBody ResumeRequest request) {
+    public ResumeRegistrationResponse resume(@PathVariable UUID id,
+                                             @AuthenticationPrincipal UUID actor,
+                                             @Valid @RequestBody ResumeRegistrationRequest request) {
         var state = recovery.resume(id, actor, request.expectedVersion(), request.reason());
-        return new ResumeResponse(state.operationId(), state.status(), state.version());
+        return new ResumeRegistrationResponse(state.operationId(), state.status(), state.version());
     }
 }

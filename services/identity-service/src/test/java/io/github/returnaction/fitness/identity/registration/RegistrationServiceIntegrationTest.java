@@ -250,7 +250,7 @@ class RegistrationServiceIntegrationTest {
                         org.mockito.ArgumentMatchers.eq(operation.operationId()),
                         org.mockito.ArgumentMatchers.eq(operation.userId()));
         var processor = new ProfileCreationProcessor(client, leases);
-        var first = leases.claim(UUID.randomUUID(), 100, 30)
+        var first = leases.claimProfileCreation(UUID.randomUUID(), 100, 30)
                 .stream()
                 .filter(lease -> lease.operationId().equals(operation.operationId()))
                 .findFirst()
@@ -265,14 +265,14 @@ class RegistrationServiceIntegrationTest {
                 .query(Boolean.class)
                 .single())
                 .isTrue();
-        assertThat(leases.claim(UUID.randomUUID(), 100, 30))
+        assertThat(leases.claimProfileCreation(UUID.randomUUID(), 100, 30))
                 .noneMatch(lease -> lease.operationId().equals(operation.operationId()));
 
         jdbcClient
                 .sql("UPDATE registration_operations SET next_retry_at = clock_timestamp() WHERE id = :id")
                 .param("id", operation.operationId())
                 .update();
-        var second = leases.claim(UUID.randomUUID(), 100, 30)
+        var second = leases.claimProfileCreation(UUID.randomUUID(), 100, 30)
                 .stream()
                 .filter(lease -> lease.operationId().equals(operation.operationId()))
                 .findFirst()
@@ -292,15 +292,15 @@ class RegistrationServiceIntegrationTest {
     void walletWorkerClaimsOnlyAfterProfileAndActivatesUser() {
         var operation = registrationService.start(
                 UUID.randomUUID(), new RegisterUserRequest("wallet-" + UUID.randomUUID() + "@example.com", "a"));
-        assertThat(leases.claimWallet(UUID.randomUUID(), 100, 30))
+        assertThat(leases.claimWalletCreation(UUID.randomUUID(), 100, 30))
                 .noneMatch(lease -> lease.operationId().equals(operation.operationId()));
-        var profileLease = leases.claim(UUID.randomUUID(), 100, 30)
+        var profileLease = leases.claimProfileCreation(UUID.randomUUID(), 100, 30)
                 .stream()
                 .filter(lease -> lease.operationId().equals(operation.operationId()))
                 .findFirst()
                 .orElseThrow();
         assertThat(leases.markProfileReady(profileLease)).isTrue();
-        var walletLease = leases.claimWallet(UUID.randomUUID(), 100, 30)
+        var walletLease = leases.claimWalletCreation(UUID.randomUUID(), 100, 30)
                 .stream()
                 .filter(lease -> lease.operationId().equals(operation.operationId()))
                 .findFirst()
@@ -324,7 +324,7 @@ class RegistrationServiceIntegrationTest {
                 .query(Boolean.class)
                 .single())
                 .isTrue();
-        assertThat(leases.markWalletReady(walletLease)).isFalse();
+        assertThat(leases.completeRegistrationAndActivateUser(walletLease)).isFalse();
         assertThat(userRepository.findById(operation.userId()).orElseThrow().getStatus())
                 .isEqualTo(UserStatus.ACTIVE);
         assertThat(jdbcClient
@@ -339,13 +339,13 @@ class RegistrationServiceIntegrationTest {
     void walletCompletionRollsBackWhenUserCannotBeActivated() {
         var operation = registrationService.start(
                 UUID.randomUUID(), new RegisterUserRequest("disabled-" + UUID.randomUUID() + "@example.com", "a"));
-        var profileLease = leases.claim(UUID.randomUUID(), 100, 30)
+        var profileLease = leases.claimProfileCreation(UUID.randomUUID(), 100, 30)
                 .stream()
                 .filter(lease -> lease.operationId().equals(operation.operationId()))
                 .findFirst()
                 .orElseThrow();
         assertThat(leases.markProfileReady(profileLease)).isTrue();
-        var walletLease = leases.claimWallet(UUID.randomUUID(), 100, 30)
+        var walletLease = leases.claimWalletCreation(UUID.randomUUID(), 100, 30)
                 .stream()
                 .filter(lease -> lease.operationId().equals(operation.operationId()))
                 .findFirst()
@@ -354,7 +354,7 @@ class RegistrationServiceIntegrationTest {
                 .sql("UPDATE users SET status = 'DISABLED' WHERE id = :id")
                 .param("id", operation.userId())
                 .update();
-        assertThatThrownBy(() -> leases.markWalletReady(walletLease))
+        assertThatThrownBy(() -> leases.completeRegistrationAndActivateUser(walletLease))
                 .hasRootCauseInstanceOf(IllegalStateException.class);
         assertThat(jdbcClient
                 .sql(
@@ -371,18 +371,18 @@ class RegistrationServiceIntegrationTest {
                 UUID.randomUUID(), new RegisterUserRequest("session-" + UUID.randomUUID() + "@example.com", "a"));
         assertThatThrownBy(() -> sessionService.create(operation.operationId(), "a"))
                 .isInstanceOf(RegistrationNotReadyException.class);
-        var profileLease = leases.claim(UUID.randomUUID(), 100, 30)
+        var profileLease = leases.claimProfileCreation(UUID.randomUUID(), 100, 30)
                 .stream()
                 .filter(lease -> lease.operationId().equals(operation.operationId()))
                 .findFirst()
                 .orElseThrow();
         leases.markProfileReady(profileLease);
-        var walletLease = leases.claimWallet(UUID.randomUUID(), 100, 30)
+        var walletLease = leases.claimWalletCreation(UUID.randomUUID(), 100, 30)
                 .stream()
                 .filter(lease -> lease.operationId().equals(operation.operationId()))
                 .findFirst()
                 .orElseThrow();
-        leases.markWalletReady(walletLease);
+        leases.completeRegistrationAndActivateUser(walletLease);
         assertThatThrownBy(() -> sessionService.create(operation.operationId(), "wrong"))
                 .isInstanceOf(RegistrationConflictException.class);
         var first = sessionService.create(operation.operationId(), "a");
@@ -418,18 +418,18 @@ class RegistrationServiceIntegrationTest {
     void tokenSigningFailureRollsBackSessionAndKeepsPreviousSession() {
         var operation = registrationService.start(
                 UUID.randomUUID(), new RegisterUserRequest("tokens-" + UUID.randomUUID() + "@example.com", "a"));
-        var profileLease = leases.claim(UUID.randomUUID(), 100, 30)
+        var profileLease = leases.claimProfileCreation(UUID.randomUUID(), 100, 30)
                 .stream()
                 .filter(lease -> lease.operationId().equals(operation.operationId()))
                 .findFirst()
                 .orElseThrow();
         leases.markProfileReady(profileLease);
-        var walletLease = leases.claimWallet(UUID.randomUUID(), 100, 30)
+        var walletLease = leases.claimWalletCreation(UUID.randomUUID(), 100, 30)
                 .stream()
                 .filter(lease -> lease.operationId().equals(operation.operationId()))
                 .findFirst()
                 .orElseThrow();
-        leases.markWalletReady(walletLease);
+        leases.completeRegistrationAndActivateUser(walletLease);
         var previous = sessionService.create(operation.operationId(), "a");
         var signer = org.mockito.Mockito.mock(AccessTokenSigner.class);
         org.mockito.Mockito.when(signer.sign(
@@ -439,7 +439,8 @@ class RegistrationServiceIntegrationTest {
                 org.mockito.ArgumentMatchers.any()))
                 .thenThrow(new IllegalStateException("signing failed"));
         var service = new SessionTokenService(sessionService, signer, userRoleRepository);
-        assertThatThrownBy(() -> transactionTemplate.execute(status -> service.create(operation.operationId(), "a")))
+        assertThatThrownBy(() -> transactionTemplate
+                .execute(status -> service.createForRegistration(operation.operationId(), "a")))
                 .isInstanceOf(IllegalStateException.class);
         assertThat(jdbcClient
                 .sql("SELECT count(*) FROM auth_sessions WHERE registration_operation_id = :id")
@@ -510,7 +511,7 @@ class RegistrationServiceIntegrationTest {
     void blockedRegistrationCanBeResumedOnlyOnceWithAudit() throws Exception {
         var operation = registrationService.start(
                 UUID.randomUUID(), new RegisterUserRequest("recover-" + UUID.randomUUID() + "@example.com", "a"));
-        var lease = leases.claim(UUID.randomUUID(), 100, 30)
+        var lease = leases.claimProfileCreation(UUID.randomUUID(), 100, 30)
                 .stream()
                 .filter(item -> item.operationId().equals(operation.operationId()))
                 .findFirst()
@@ -565,7 +566,7 @@ class RegistrationServiceIntegrationTest {
     void auditFailureRollsBackRecovery() {
         var operation = registrationService.start(
                 UUID.randomUUID(), new RegisterUserRequest("audit-" + UUID.randomUUID() + "@example.com", "a"));
-        var lease = leases.claim(UUID.randomUUID(), 100, 30)
+        var lease = leases.claimProfileCreation(UUID.randomUUID(), 100, 30)
                 .stream()
                 .filter(item -> item.operationId().equals(operation.operationId()))
                 .findFirst()
@@ -694,7 +695,7 @@ class RegistrationServiceIntegrationTest {
                 .thenThrow(new IllegalStateException("signing failed"));
         var service = new SessionTokenService(sessionService, signer, userRoleRepository);
         assertThatThrownBy(
-                () -> transactionTemplate.execute(status -> service.createLogin(operation.userId(), hash, null)))
+                () -> transactionTemplate.execute(status -> service.createForLogin(operation.userId(), hash, null)))
                 .isInstanceOf(IllegalStateException.class);
         assertThat(jdbcClient
                 .sql("SELECT count(*) FROM auth_sessions WHERE user_id=:id")
@@ -755,7 +756,7 @@ class RegistrationServiceIntegrationTest {
     void retryAndPermanentFailureRespectLeaseAndScheduling() {
         var operation = registrationService.start(
                 UUID.randomUUID(), new RegisterUserRequest("retry-" + UUID.randomUUID() + "@example.com", "a"));
-        var first = leases.claim(UUID.randomUUID(), 100, 30)
+        var first = leases.claimProfileCreation(UUID.randomUUID(), 100, 30)
                 .stream()
                 .filter(lease -> lease.operationId().equals(operation.operationId()))
                 .findFirst()
@@ -774,13 +775,13 @@ class RegistrationServiceIntegrationTest {
                 .query(Boolean.class)
                 .single())
                 .isTrue();
-        assertThat(leases.claim(UUID.randomUUID(), 100, 30))
+        assertThat(leases.claimProfileCreation(UUID.randomUUID(), 100, 30))
                 .noneMatch(l -> l.operationId().equals(operation.operationId()));
         jdbcClient
                 .sql("UPDATE registration_operations SET next_retry_at = clock_timestamp() WHERE id = :id")
                 .param("id", operation.operationId())
                 .update();
-        var second = leases.claim(UUID.randomUUID(), 100, 30)
+        var second = leases.claimProfileCreation(UUID.randomUUID(), 100, 30)
                 .stream()
                 .filter(lease -> lease.operationId().equals(operation.operationId()))
                 .findFirst()
@@ -793,7 +794,7 @@ class RegistrationServiceIntegrationTest {
                 .query(Boolean.class)
                 .single())
                 .isTrue();
-        assertThat(leases.claim(UUID.randomUUID(), 100, 30))
+        assertThat(leases.claimProfileCreation(UUID.randomUUID(), 100, 30))
                 .noneMatch(l -> l.operationId().equals(operation.operationId()));
     }
 
@@ -801,7 +802,7 @@ class RegistrationServiceIntegrationTest {
     void expiredLeaseCannotCompleteAfterAnotherWorkerClaims() {
         var operation = registrationService.start(UUID.randomUUID(),
                 new RegisterUserRequest("lease-test@example.com", "a"));
-        var first = leases.claim(UUID.randomUUID(), 20, 30)
+        var first = leases.claimProfileCreation(UUID.randomUUID(), 20, 30)
                 .stream()
                 .filter(lease -> lease.operationId().equals(operation.operationId()))
                 .findFirst()
@@ -811,7 +812,7 @@ class RegistrationServiceIntegrationTest {
                         "UPDATE registration_operations SET lease_until = clock_timestamp() - interval '1 second' WHERE id = :id")
                 .param("id", operation.operationId())
                 .update();
-        var second = leases.claim(UUID.randomUUID(), 20, 30)
+        var second = leases.claimProfileCreation(UUID.randomUUID(), 20, 30)
                 .stream()
                 .filter(lease -> lease.operationId().equals(operation.operationId()))
                 .findFirst()

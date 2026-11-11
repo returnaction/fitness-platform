@@ -19,7 +19,7 @@ public class RegistrationFacade {
 
     private final RegistrationService registrationService;
     private final SessionTokenService tokenService;
-    private final RegistrationReadinessWaiter readinessWaiter;
+    private final RegistrationCompletionWaiter readinessWaiter;
     private final IdempotencyKeyValidator keyValidator;
 
     /**
@@ -46,7 +46,7 @@ public class RegistrationFacade {
             throw new RegistrationUnavailableException();
         }
         try {
-            IssuedTokens tokens = tokenService.create(operation.operationId(), request.password());
+            IssuedTokens tokens = tokenService.createForRegistration(operation.operationId(), request.password());
 
             return new RegisterResponse(
                     new RegisteredUser(

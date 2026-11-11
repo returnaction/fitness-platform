@@ -26,7 +26,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 /** Создаёт локальные записи регистрации в короткой транзакции. */
 @Service
 @RequiredArgsConstructor
-public class RegistrationWriter {
+public class RegistrationCreationService {
     private final PasswordEncoder passwordEncoder;
     private final UserRepository userRepository;
     private final UserCredentialRepository userCredentialRepository;

@@ -17,13 +17,14 @@ import java.util.concurrent.TimeUnit;
 import org.springframework.stereotype.Component;
 
 @Component
-public final class SessionAccess implements AutoCloseable {
+public final class SessionVerificationClient implements AutoCloseable {
     private final ManagedChannel channel;
     private final int timeout;
     private final MeterRegistry meters;
 
     @SuppressFBWarnings(value = "EI_EXPOSE_REP2", justification = "Shared application metrics registry is injected intentionally")
-    public SessionAccess(GatewayProperties settings, MeterRegistry meters) throws javax.net.ssl.SSLException {
+    public SessionVerificationClient(GatewayProperties settings,
+                                     MeterRegistry meters) throws javax.net.ssl.SSLException {
         this.meters = meters;
         timeout = settings.sessionTimeoutMillis();
         channel = NettyChannelBuilder.forAddress(settings.sessionHost(), settings.sessionPort())
@@ -36,7 +37,7 @@ public final class SessionAccess implements AutoCloseable {
         channel.getState(true);
     }
 
-    public void check(AccessTokens.Principal principal, String requestId) {
+    public void check(AccessTokenVerifier.Principal principal, String requestId) {
         long start = System.nanoTime();
         String outcome = "unavailable";
         try {
@@ -49,13 +50,13 @@ public final class SessionAccess implements AutoCloseable {
                             .build());
             if (result.getStatus() == SessionStatus.SESSION_STATUS_INVALID) {
                 outcome = "invalid";
-                throw GatewayException.invalid();
+                throw GatewayException.invalidAccessToken();
             }
             if (result.getStatus() != SessionStatus.SESSION_STATUS_ACTIVE)
                 throw GatewayException.unavailable();
             outcome = "active";
         } catch (StatusRuntimeException exception) {
-            org.slf4j.LoggerFactory.getLogger(SessionAccess.class)
+            org.slf4j.LoggerFactory.getLogger(SessionVerificationClient.class)
                     .warn("Session verification unavailable: {}", exception.getStatus().getCode());
             throw GatewayException.unavailable();
         } finally {

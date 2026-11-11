@@ -18,10 +18,10 @@ public final class ProfileCreationScheduler {
     private final int leaseSeconds;
 
     public ProfileCreationScheduler(
-                                         RegistrationLeaseRepository leases,
-                                         ProfileCreationProcessor processor,
-                                         RegistrationTaskRunner batchRunner,
-                                         @Value("${identity.registration.worker.lease-seconds}") int leaseSeconds) {
+                                    RegistrationLeaseRepository leases,
+                                    ProfileCreationProcessor processor,
+                                    RegistrationTaskRunner batchRunner,
+                                    @Value("${identity.registration.worker.lease-seconds}") int leaseSeconds) {
         if (leaseSeconds < 16) {
             throw new IllegalArgumentException("Invalid worker lease");
         }
@@ -33,6 +33,6 @@ public final class ProfileCreationScheduler {
 
     @Scheduled(fixedDelayString = "${identity.registration.worker.poll-ms}")
     public void poll() {
-        batchRunner.runPass(() -> leases.claim(owner, 1, leaseSeconds), processor::process);
+        batchRunner.runPass(() -> leases.claimProfileCreation(owner, 1, leaseSeconds), processor::process);
     }
 }

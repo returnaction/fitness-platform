@@ -26,7 +26,7 @@ class RegistrationFacadeTest {
     private SessionTokenService tokenService;
 
     @Mock
-    private RegistrationReadinessWaiter waiter;
+    private RegistrationCompletionWaiter waiter;
 
     @Test
     void registrationBecomingUnavailableAfterWaitStillReportsUnavailable() {
@@ -36,7 +36,7 @@ class RegistrationFacadeTest {
         when(registration.start(key, request))
                 .thenReturn(new RegistrationStartResult(operation, UUID.randomUUID(), "user@example.com"));
         when(waiter.await(operation)).thenReturn(true);
-        when(tokenService.create(operation, "a")).thenThrow(new RegistrationNotReadyException());
+        when(tokenService.createForRegistration(operation, "a")).thenThrow(new RegistrationNotReadyException());
         var facade = new RegistrationFacade(registration, tokenService, waiter, new IdempotencyKeyValidator());
         assertThatThrownBy(() -> facade.register(key.toString(), request))
                 .isInstanceOf(RegistrationUnavailableException.class);
@@ -51,7 +51,7 @@ class RegistrationFacadeTest {
         when(registration.start(key, request))
                 .thenReturn(new RegistrationStartResult(operation, user, "user@example.com"));
         when(waiter.await(operation)).thenReturn(true);
-        when(tokenService.create(operation, "a")).thenReturn(new IssuedTokens("access", "refresh"));
+        when(tokenService.createForRegistration(operation, "a")).thenReturn(new IssuedTokens("access", "refresh"));
         var facade = new RegistrationFacade(registration, tokenService, waiter, new IdempotencyKeyValidator());
         var response = facade.register(key.toString(), request);
         assertThat(response.user().id()).isEqualTo(user);

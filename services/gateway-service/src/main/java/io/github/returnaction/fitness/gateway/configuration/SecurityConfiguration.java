@@ -1,8 +1,8 @@
 package io.github.returnaction.fitness.gateway.configuration;
 
-import io.github.returnaction.fitness.gateway.security.AccessTokens;
-import io.github.returnaction.fitness.gateway.security.RequestLimits;
-import io.github.returnaction.fitness.gateway.security.SessionAccess;
+import io.github.returnaction.fitness.gateway.security.AccessTokenVerifier;
+import io.github.returnaction.fitness.gateway.security.RequestRateLimiter;
+import io.github.returnaction.fitness.gateway.security.SessionVerificationClient;
 import io.github.returnaction.fitness.gateway.web.ApiErrors;
 import io.github.returnaction.fitness.gateway.web.GatewayFilter;
 import org.springframework.context.annotation.Bean;
@@ -24,10 +24,13 @@ public class SecurityConfiguration {
     }
 
     @Bean
-    SecurityFilterChain security(HttpSecurity http, GatewayProperties settings, AccessTokens tokens,
-                                 SessionAccess sessions, RequestLimits limits, ApiErrors errors,
-                                 Environment environment)
-            throws Exception {
+    SecurityFilterChain security(HttpSecurity http,
+                                 GatewayProperties settings,
+                                 AccessTokenVerifier tokens,
+                                 SessionVerificationClient sessions,
+                                 RequestRateLimiter limits,
+                                 ApiErrors errors,
+                                 Environment environment) throws Exception {
         return http.csrf(AbstractHttpConfigurer::disable)
                 .cors(AbstractHttpConfigurer::disable)
                 .httpBasic(AbstractHttpConfigurer::disable)

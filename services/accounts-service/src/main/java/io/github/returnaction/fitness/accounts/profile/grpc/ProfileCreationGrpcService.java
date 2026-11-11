@@ -25,7 +25,8 @@ public final class ProfileCreationGrpcService
     private final ProfileCreationService profileCreationService;
 
     @Override
-    public void createProfileIfAbsent(CreateProfileIfAbsentRequest request, StreamObserver<CreateProfileIfAbsentResponse> observer) {
+    public void createProfileIfAbsent(CreateProfileIfAbsentRequest request,
+                                      StreamObserver<CreateProfileIfAbsentResponse> observer) {
 
         UUID userId;
 

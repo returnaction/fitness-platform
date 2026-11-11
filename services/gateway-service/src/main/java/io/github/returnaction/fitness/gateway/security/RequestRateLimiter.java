@@ -15,18 +15,18 @@ import org.springframework.stereotype.Component;
  * of evicting limits.
  */
 @Component
-public final class RequestLimits {
+public final class RequestRateLimiter {
 
     private final GatewayProperties settings;
     private final Clock clock;
     private final Map<String, Window> clients = new HashMap<>();
 
     @Autowired
-    public RequestLimits(GatewayProperties settings) {
+    public RequestRateLimiter(GatewayProperties settings) {
         this(settings, Clock.systemUTC());
     }
 
-    RequestLimits(GatewayProperties settings, Clock clock) {
+    RequestRateLimiter(GatewayProperties settings, Clock clock) {
         this.settings = settings;
         this.clock = clock;
     }

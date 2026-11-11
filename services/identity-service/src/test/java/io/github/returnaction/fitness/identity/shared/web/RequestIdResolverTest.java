@@ -11,11 +11,11 @@ class RequestIdResolverTest {
     void keepsValidRequestId() {
         UUID requestId = UUID.randomUUID();
 
-        assertThat(RequestIdResolver.resolve(requestId.toString())).isEqualTo(requestId);
+        assertThat(RequestIdResolver.parseOrGenerate(requestId.toString())).isEqualTo(requestId);
     }
 
     @Test
     void replacesInvalidRequestId() {
-        assertThat(RequestIdResolver.resolve("not-a-uuid")).isNotNull();
+        assertThat(RequestIdResolver.parseOrGenerate("not-a-uuid")).isNotNull();
     }
 }

@@ -22,7 +22,8 @@ public final class SessionCallerAuthorization implements ServerInterceptor {
 
     @Override
     public <ReqT, RespT> ServerCall.Listener<ReqT> interceptCall(
-                                                                 ServerCall<ReqT, RespT> call, Metadata headers,
+                                                                 ServerCall<ReqT, RespT> call,
+                                                                 Metadata headers,
                                                                  ServerCallHandler<ReqT, RespT> next) {
         var session = call.getAttributes().get(Grpc.TRANSPORT_ATTR_SSL_SESSION);
         if (session == null) {

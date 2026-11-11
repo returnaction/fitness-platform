@@ -23,6 +23,6 @@ public class RefreshSessionService {
                     : INVALID_REFRESH);
         }
         return new RefreshResponse(result.access(), result.refresh(), "Bearer",
-                (int) Math.min(900, result.remaining()), result.remaining());
+                (int) Math.min(900, result.sessionRemainingSeconds()), result.sessionRemainingSeconds());
     }
 }

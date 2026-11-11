@@ -247,7 +247,7 @@ class RegistrationTokenHttpIntegrationTest {
                 statement.setObject(1, operation.operationId());
                 statement.executeQuery().close();
             }
-            var activate = executor.submit(() -> leases.markWalletReady(lease));
+            var activate = executor.submit(() -> leases.completeRegistrationAndActivateUser(lease));
             awaitBlockedConnections(1);
             var issue = executor.submit(() -> registrationSessions.create(operation.operationId(), "a"));
             awaitBlockedConnections(2);

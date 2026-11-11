@@ -82,7 +82,8 @@ class ProfileCreationIntegrationTest {
         var loseFirstResponse = new AtomicBoolean(true);
         var faultInjectedService = new ProfileCreationServiceGrpc.ProfileCreationServiceImplBase() {
             @Override
-            public void createProfileIfAbsent(CreateProfileIfAbsentRequest request, StreamObserver<CreateProfileIfAbsentResponse> observer) {
+            public void createProfileIfAbsent(CreateProfileIfAbsentRequest request,
+                                              StreamObserver<CreateProfileIfAbsentResponse> observer) {
                 boolean drop = loseFirstResponse.getAndSet(false);
                 grpcService.createProfileIfAbsent(request, new StreamObserver<>() {
                     @Override

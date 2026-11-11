@@ -17,7 +17,8 @@ public class AccessTokenVerifier {
     private final String audience;
     private final String keyId;
 
-    public AccessTokenVerifier(PublicJwtKeys keys, @Value("${identity.jwt.issuer}") String issuer,
+    public AccessTokenVerifier(PublicJwtKeys keys,
+                               @Value("${identity.jwt.issuer}") String issuer,
                                @Value("${identity.jwt.audience}") String audience,
                                @Value("${identity.jwt.key-id}") String keyId) {
         this.keys = keys;

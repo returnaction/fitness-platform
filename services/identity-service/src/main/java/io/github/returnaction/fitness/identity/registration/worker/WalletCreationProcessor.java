@@ -34,6 +34,6 @@ public class WalletCreationProcessor {
             leases.recordFailure(lease, false, "COINS_INVALID_RESPONSE");
             return;
         }
-        leases.markWalletReady(lease);
+        leases.completeRegistrationAndActivateUser(lease);
     }
 }

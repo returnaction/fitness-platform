@@ -17,7 +17,7 @@ import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
 import com.sun.net.httpserver.HttpServer;
 import io.github.returnaction.fitness.gateway.exception.GatewayException;
-import io.github.returnaction.fitness.gateway.security.SessionAccess;
+import io.github.returnaction.fitness.gateway.security.SessionVerificationClient;
 import java.net.InetSocketAddress;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -56,9 +56,9 @@ class GatewayHttpTest {
     @LocalServerPort
     private int port;
     @MockitoBean
-    private SessionAccess sessions;
+    private SessionVerificationClient sessions;
     @org.springframework.test.context.bean.override.mockito.MockitoSpyBean
-    private io.github.returnaction.fitness.gateway.security.RequestLimits limits;
+    private io.github.returnaction.fitness.gateway.security.RequestRateLimiter limits;
     @org.springframework.beans.factory.annotation.Autowired
     private org.springframework.core.env.Environment environment;
 
@@ -143,7 +143,7 @@ class GatewayHttpTest {
     @Test
     void sessionRevocationAndUnavailableFailClosed() throws Exception {
         String token = token("test-identity", Instant.now().plusSeconds(60));
-        doThrow(GatewayException.invalid()).when(sessions).check(any(), any());
+        doThrow(GatewayException.invalidAccessToken()).when(sessions).check(any(), any());
         assertThat(send("logout-all", "POST", "", Map.of("Authorization", "Bearer " + token)).statusCode())
                 .isEqualTo(401);
         doThrow(GatewayException.unavailable()).when(sessions).check(any(), any());
@@ -196,8 +196,10 @@ class GatewayHttpTest {
         assertThat(CALLS).hasValue(1);
     }
 
-    private HttpResponse<String> send(String path, String method, String payload, Map<String, String> headers)
-            throws Exception {
+    private HttpResponse<String> send(String path,
+                                      String method,
+                                      String payload,
+                                      Map<String, String> headers) throws Exception {
         var request = HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + "/api/v1/auth/" + path))
                 .header("Content-Type", "application/json")
                 .method(method, HttpRequest.BodyPublishers.ofString(payload));

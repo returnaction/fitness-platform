@@ -13,9 +13,12 @@ import java.time.Duration;
 import java.time.Instant;
 import org.springframework.stereotype.Component;
 
-/** Bounded key cache. Never caches session authorization. */
+/**
+ * Кеш JWKS — набора публичных ключей проверки токенов; не кеширует авторизацию
+ * сессии.
+ */
 @Component
-public final class JwksKeys implements AutoCloseable {
+public final class JwksKeyCache implements AutoCloseable {
 
     private final GatewayProperties settings;
     private final Clock clock;
@@ -26,11 +29,11 @@ public final class JwksKeys implements AutoCloseable {
     private boolean lastRefreshFailed;
 
     @org.springframework.beans.factory.annotation.Autowired
-    public JwksKeys(GatewayProperties settings) {
+    public JwksKeyCache(GatewayProperties settings) {
         this(settings, Clock.systemUTC());
     }
 
-    JwksKeys(GatewayProperties settings, Clock clock) {
+    JwksKeyCache(GatewayProperties settings, Clock clock) {
         this.settings = settings;
         this.clock = clock;
         client = HttpClient.newBuilder()
@@ -50,7 +53,7 @@ public final class JwksKeys implements AutoCloseable {
             throw GatewayException.unavailable();
         key = keys.getKeyByKeyId(keyId);
         if (!(key instanceof ECKey ec))
-            throw GatewayException.invalid();
+            throw GatewayException.invalidAccessToken();
         return ec;
     }
 
