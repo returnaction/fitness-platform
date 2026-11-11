@@ -4,7 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
-import io.github.returnaction.fitness.accounts.profile.service.ProfileProvisioningService;
+import io.github.returnaction.fitness.accounts.profile.service.ProfileCreationService;
 import io.github.returnaction.fitness.contracts.accounts.provisioning.v1.AccountsProvisioningServiceGrpc;
 import io.github.returnaction.fitness.contracts.accounts.provisioning.v1.EnsureProfileRequest;
 import io.github.returnaction.fitness.contracts.accounts.provisioning.v1.ProvisioningStatus;
@@ -29,7 +29,7 @@ class LocalStepCaSmokeTest {
     void connectsWithLocallyIssuedCertificates() throws Exception {
         File directory = new File("../../secrets");
         File ca = new File(directory, "ca.crt");
-        ProfileProvisioningService provisioning = mock(ProfileProvisioningService.class);
+        ProfileCreationService provisioning = mock(ProfileCreationService.class);
         Server server = NettyServerBuilder.forAddress(new InetSocketAddress("127.0.0.1", 0))
                 .sslContext(GrpcSslContexts.forServer(
                         new File(directory, "accounts-server.crt"),
@@ -61,7 +61,7 @@ class LocalStepCaSmokeTest {
                     .ensureProfile(request)
                     .getStatus())
                     .isEqualTo(ProvisioningStatus.PROVISIONING_STATUS_READY);
-            verify(provisioning).ensureProfile(user);
+            verify(provisioning).createIfAbsent(user);
         } finally {
             channel.shutdownNow();
             server.shutdownNow();

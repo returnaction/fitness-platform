@@ -52,6 +52,16 @@
     <description>Profile ownership service for the Fitness Platform.</description>
 
     <dependencies>
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.github.spotbugs</groupId>
+            <artifactId>spotbugs-annotations</artifactId>
+            <scope>provided</scope>
+        </dependency>
       <!-- Тестовая библиотека BouncyCastle для проверки SSL-сертификатов -->
         <dependency>
             <groupId>org.bouncycastle</groupId>

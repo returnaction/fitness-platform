@@ -6,7 +6,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
-import io.github.returnaction.fitness.accounts.profile.service.ProfileProvisioningService;
+import io.github.returnaction.fitness.accounts.profile.service.ProfileCreationService;
 import io.github.returnaction.fitness.contracts.accounts.provisioning.v1.AccountsProvisioningServiceGrpc;
 import io.github.returnaction.fitness.contracts.accounts.provisioning.v1.EnsureProfileRequest;
 import io.github.returnaction.fitness.contracts.accounts.provisioning.v1.ProvisioningStatus;
@@ -46,6 +46,7 @@ import org.bouncycastle.openssl.jcajce.JcaPEMWriter;
 import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.springframework.beans.BeansException;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.core.env.MapPropertySource;
 
@@ -70,15 +71,13 @@ class MutualTlsIntegrationTest {
         try (ServerSocket socket = new ServerSocket(0)) {
             port = socket.getLocalPort();
         }
-        ProfileProvisioningService provisioning = mock(ProfileProvisioningService.class);
+        ProfileCreationService provisioning = mock(ProfileCreationService.class);
         try (var context = new AnnotationConfigApplicationContext()) {
             context.getEnvironment()
                     .getPropertySources()
                     .addFirst(new MapPropertySource(
                             "test",
                             Map.of(
-                                    "accounts.grpc.enabled",
-                                    "true",
                                     "accounts.grpc.address",
                                     "127.0.0.1",
                                     "accounts.grpc.port",
@@ -89,7 +88,7 @@ class MutualTlsIntegrationTest {
                                     keyFile.toString(),
                                     "accounts.grpc.trust-certificate",
                                     caFile.toString())));
-            context.registerBean(ProfileProvisioningService.class, () -> provisioning);
+            context.registerBean(ProfileCreationService.class, () -> provisioning);
             context.register(AccountsProvisioningGrpcService.class, SecureGrpcServer.class);
             context.refresh();
             assertThat(context.getBean(SecureGrpcServer.class).isRunning()).isTrue();
@@ -113,8 +112,6 @@ class MutualTlsIntegrationTest {
                     .addFirst(new MapPropertySource(
                             "test",
                             Map.of(
-                                    "accounts.grpc.enabled",
-                                    "true",
                                     "accounts.grpc.address",
                                     "127.0.0.1",
                                     "accounts.grpc.port",
@@ -125,9 +122,9 @@ class MutualTlsIntegrationTest {
                                     keyFile.toString(),
                                     "accounts.grpc.trust-certificate",
                                     caFile.toString())));
-            context.registerBean(ProfileProvisioningService.class, () -> provisioning);
+            context.registerBean(ProfileCreationService.class, () -> provisioning);
             context.register(AccountsProvisioningGrpcService.class, SecureGrpcServer.class);
-            assertThatThrownBy(context::refresh).isInstanceOf(org.springframework.beans.BeansException.class);
+            assertThatThrownBy(context::refresh).isInstanceOf(BeansException.class);
         }
     }
 
@@ -188,7 +185,7 @@ class MutualTlsIntegrationTest {
                 foreignCaKey,
                 new GeneralName(GeneralName.uniformResourceIdentifier, "spiffe://fitness.local/identity-service"),
                 false);
-        ProfileProvisioningService provisioning = mock(ProfileProvisioningService.class);
+        ProfileCreationService provisioning = mock(ProfileCreationService.class);
         Server server = NettyServerBuilder.forAddress(new InetSocketAddress("127.0.0.1", 0))
                 .sslContext(GrpcSslContexts.configure(SslContextBuilder.forServer(serverKey.getPrivate(), serverCert))
                         .trustManager(ca)
@@ -215,7 +212,7 @@ class MutualTlsIntegrationTest {
                     .ensureProfile(request)
                     .getStatus())
                     .isEqualTo(ProvisioningStatus.PROVISIONING_STATUS_READY);
-            verify(provisioning).ensureProfile(user);
+            verify(provisioning).createIfAbsent(user);
             assertThatThrownBy(() -> AccountsProvisioningServiceGrpc.newBlockingStub(other)
                     .withDeadlineAfter(5, TimeUnit.SECONDS)
                     .ensureProfile(request))
@@ -227,7 +224,7 @@ class MutualTlsIntegrationTest {
                     .withDeadlineAfter(5, TimeUnit.SECONDS)
                     .ensureProfile(anonymousRequest))
                     .satisfies(error -> assertThat(Status.fromThrowable(error).isOk()).isFalse());
-            verify(provisioning, never()).ensureProfile(anonymousUser);
+            verify(provisioning, never()).createIfAbsent(anonymousUser);
             for (ManagedChannel invalid : List.of(expired, foreign)) {
                 UUID rejectedUser = UUID.randomUUID();
                 var rejectedRequest = request.toBuilder().setUserId(rejectedUser.toString()).build();
@@ -235,7 +232,7 @@ class MutualTlsIntegrationTest {
                         .withDeadlineAfter(5, TimeUnit.SECONDS)
                         .ensureProfile(rejectedRequest))
                         .satisfies(error -> assertThat(Status.fromThrowable(error).isOk()).isFalse());
-                verify(provisioning, never()).ensureProfile(rejectedUser);
+                verify(provisioning, never()).createIfAbsent(rejectedUser);
             }
         } finally {
             identity.shutdownNow();
