@@ -6,6 +6,8 @@ import io.grpc.ServerCall;
 import io.grpc.ServerCallHandler;
 import io.grpc.ServerInterceptor;
 import io.grpc.Status;
+import java.security.cert.Certificate;
+import java.security.cert.CertificateParsingException;
 import java.security.cert.X509Certificate;
 import java.util.Collection;
 import java.util.List;
@@ -17,13 +19,16 @@ import javax.net.ssl.SSLSession;
  * TLS-сертификата.
  */
 public final class IdentityAuthorizationInterceptor implements ServerInterceptor {
+
     private static final String IDENTITY = "spiffe://fitness.local/identity-service";
 
     @Override
-    public <ReqT, RespT> ServerCall.Listener<ReqT> interceptCall(
-                                                                 ServerCall<ReqT, RespT> call, Metadata headers,
+    public <ReqT, RespT> ServerCall.Listener<ReqT> interceptCall(ServerCall<ReqT, RespT> call,
+                                                                 Metadata headers,
                                                                  ServerCallHandler<ReqT, RespT> next) {
+
         SSLSession session = call.getAttributes().get(Grpc.TRANSPORT_ATTR_SSL_SESSION);
+
         if (!authorized(session)) {
             call.close(Status.PERMISSION_DENIED.withDescription("Service identity is not authorized"), new Metadata());
             return new ServerCall.Listener<>() {
@@ -33,11 +38,13 @@ public final class IdentityAuthorizationInterceptor implements ServerInterceptor
     }
 
     private boolean authorized(SSLSession session) {
+
         if (session == null) {
             return false;
         }
+
         try {
-            java.security.cert.Certificate[] chain = session.getPeerCertificates();
+            Certificate[] chain = session.getPeerCertificates();
             if (chain.length == 0 || !(chain[0] instanceof X509Certificate certificate)) {
                 return false;
             }
@@ -45,9 +52,9 @@ public final class IdentityAuthorizationInterceptor implements ServerInterceptor
             return names != null
                     && names.stream()
                             .anyMatch(name -> name.size() >= 2
-                                    && Integer.valueOf(6).equals(name.get(0))
+                                    && Integer.valueOf(6).equals(name.getFirst())
                                     && IDENTITY.equals(name.get(1)));
-        } catch (SSLPeerUnverifiedException | java.security.cert.CertificateParsingException exception) {
+        } catch (SSLPeerUnverifiedException | CertificateParsingException exception) {
             return false;
         }
     }

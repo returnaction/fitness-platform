@@ -5,7 +5,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import io.github.returnaction.fitness.accounts.AccountsServiceApplication;
-import io.github.returnaction.fitness.accounts.profile.service.ProfileProvisioningService;
+import io.github.returnaction.fitness.accounts.profile.grpc.SecureGrpcServer;
+import io.github.returnaction.fitness.accounts.profile.service.ProfileCreationService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -26,7 +27,10 @@ class RequestIdFilterSecurityTest {
     private MockMvc mockMvc;
 
     @MockitoBean
-    private ProfileProvisioningService profileProvisioningService;
+    private ProfileCreationService profileCreationService;
+
+    @MockitoBean
+    private SecureGrpcServer secureGrpcServer;
 
     @Test
     void addsRequestIdToRequestRejectedBySecurity() throws Exception {

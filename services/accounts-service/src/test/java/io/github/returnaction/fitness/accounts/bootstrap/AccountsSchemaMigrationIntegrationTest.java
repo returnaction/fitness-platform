@@ -1,12 +1,14 @@
 package io.github.returnaction.fitness.accounts.bootstrap;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.UUID;
 import liquibase.Contexts;
 import liquibase.LabelExpression;
 import liquibase.Liquibase;
@@ -33,6 +35,17 @@ class AccountsSchemaMigrationIntegrationTest {
                 POSTGRES.getPassword())) {
             assertThat(changeSetCount(connection)).isEqualTo(1);
             assertThat(applicationTableCount(connection)).isEqualTo(1);
+        }
+    }
+
+    @Test
+    void rejectsInvalidProfileVisibility() throws Exception {
+        applyMigrations();
+
+        try (Connection connection = DriverManager.getConnection(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(),
+                POSTGRES.getPassword())) {
+            assertThatThrownBy(() -> insertProfile(connection, "AnotherNick", "INVALID"))
+                    .isInstanceOf(SQLException.class);
         }
     }
 
@@ -64,4 +77,18 @@ class AccountsSchemaMigrationIntegrationTest {
             return result.getInt(1);
         }
     }
+
+    private void insertProfile(Connection connection, String nickname, String visibility) throws SQLException {
+        try (PreparedStatement statement = connection.prepareStatement("""
+                INSERT INTO user_profiles (user_id, public_profile_id, nickname, visibility)
+                VALUES (?, ?, ?, ?)
+                """)) {
+            statement.setObject(1, UUID.randomUUID());
+            statement.setObject(2, UUID.randomUUID());
+            statement.setString(3, nickname);
+            statement.setString(4, visibility);
+            statement.executeUpdate();
+        }
+    }
+
 }

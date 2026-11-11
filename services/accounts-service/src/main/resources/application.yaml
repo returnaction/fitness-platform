@@ -41,7 +41,6 @@ server:
 
 accounts:
   grpc:
-    enabled: ${ACCOUNTS_GRPC_ENABLED}
     address: ${ACCOUNTS_GRPC_ADDRESS}
     port: ${ACCOUNTS_GRPC_PORT}
     certificate: ${ACCOUNTS_GRPC_CERTIFICATE}

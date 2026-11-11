@@ -1,5 +1,6 @@
 package io.github.returnaction.fitness.accounts.profile.grpc;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -12,6 +13,7 @@ import io.grpc.Metadata;
 import io.grpc.ServerCall;
 import io.grpc.ServerCallHandler;
 import io.grpc.Status;
+import java.security.cert.Certificate;
 import java.security.cert.X509Certificate;
 import java.util.List;
 import javax.net.ssl.SSLSession;
@@ -29,7 +31,7 @@ class IdentityAuthorizationInterceptorTest {
         interceptor.interceptCall(call, new Metadata(), handler);
         ArgumentCaptor<Status> status = ArgumentCaptor.forClass(Status.class);
         verify(call).close(status.capture(), any());
-        org.assertj.core.api.Assertions.assertThat(status.getValue().getCode())
+        assertThat(status.getValue().getCode())
                 .isEqualTo(Status.Code.PERMISSION_DENIED);
         verify(handler, never()).startCall(any(), any());
     }
@@ -40,7 +42,7 @@ class IdentityAuthorizationInterceptorTest {
         ServerCallHandler<String, String> handler = handler();
         SSLSession session = mock(SSLSession.class);
         X509Certificate certificate = mock(X509Certificate.class);
-        when(session.getPeerCertificates()).thenReturn(new java.security.cert.Certificate[]{certificate});
+        when(session.getPeerCertificates()).thenReturn(new Certificate[]{certificate});
         when(certificate.getSubjectAlternativeNames())
                 .thenReturn(List.of(List.of(6, "spiffe://fitness.local/identity-service")));
         when(call.getAttributes())
@@ -57,7 +59,7 @@ class IdentityAuthorizationInterceptorTest {
         ServerCallHandler<String, String> handler = handler();
         SSLSession session = mock(SSLSession.class);
         X509Certificate certificate = mock(X509Certificate.class);
-        when(session.getPeerCertificates()).thenReturn(new java.security.cert.Certificate[]{certificate});
+        when(session.getPeerCertificates()).thenReturn(new Certificate[]{certificate});
         when(certificate.getSubjectAlternativeNames())
                 .thenReturn(List.of(List.of(6, "spiffe://fitness.local/coins-service")));
         when(call.getAttributes())

@@ -2,11 +2,14 @@ package io.github.returnaction.fitness.accounts.profile;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.doReturn;
 
+import io.github.returnaction.fitness.accounts.profile.entity.UserProfileEntity;
 import io.github.returnaction.fitness.accounts.profile.grpc.AccountsProvisioningGrpcService;
 import io.github.returnaction.fitness.accounts.profile.grpc.SecureGrpcServer;
-import io.github.returnaction.fitness.accounts.profile.service.NicknameGenerator;
-import io.github.returnaction.fitness.accounts.profile.service.ProfileProvisioningService;
+import io.github.returnaction.fitness.accounts.profile.helpers.NicknameGenerator;
+import io.github.returnaction.fitness.accounts.profile.repository.ProfileRepository;
+import io.github.returnaction.fitness.accounts.profile.service.ProfileCreationService;
 import io.github.returnaction.fitness.contracts.accounts.provisioning.v1.AccountsProvisioningServiceGrpc;
 import io.github.returnaction.fitness.contracts.accounts.provisioning.v1.EnsureProfileRequest;
 import io.github.returnaction.fitness.contracts.accounts.provisioning.v1.EnsureProfileResponse;
@@ -18,6 +21,7 @@ import io.grpc.netty.shaded.io.grpc.netty.GrpcSslContexts;
 import io.grpc.netty.shaded.io.grpc.netty.NettyChannelBuilder;
 import io.grpc.netty.shaded.io.grpc.netty.NettyServerBuilder;
 import io.grpc.stub.StreamObserver;
+import jakarta.persistence.EntityManager;
 import java.io.File;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
@@ -30,10 +34,10 @@ import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
@@ -55,16 +59,22 @@ class ProfileProvisioningIntegrationTest {
     }
 
     @Autowired
-    ProfileProvisioningService service;
+    ProfileCreationService service;
 
     @Autowired
-    JdbcClient jdbc;
+    ProfileRepository profileRepository;
+
+    @Autowired
+    EntityManager entityManager;
 
     @MockitoSpyBean
     NicknameGenerator nicknameGenerator;
 
     @Autowired
     AccountsProvisioningGrpcService grpcService;
+
+    @MockitoBean
+    SecureGrpcServer secureGrpcServer;
 
     @Test
     void retriesGrpcRequestAfterCommittedProfileResponseIsLost() throws Exception {
@@ -114,20 +124,13 @@ class ProfileProvisioningIntegrationTest {
                     .isInstanceOfSatisfying(
                             StatusRuntimeException.class,
                             error -> assertThat(error.getStatus().getCode()).isEqualTo(Status.Code.UNAVAILABLE));
-            String nickname = jdbc.sql("SELECT nickname FROM user_profiles WHERE user_id=:id")
-                    .param("id", userId)
-                    .query(String.class)
-                    .single();
+            String nickname = profile(userId).getNickname();
             assertThat(stub.withDeadlineAfter(5, TimeUnit.SECONDS)
                     .ensureProfile(request)
                     .getStatus())
                     .isEqualTo(ProvisioningStatus.PROVISIONING_STATUS_READY);
-            assertThat(jdbc.sql("SELECT count(*) FROM user_profiles WHERE user_id=:id AND nickname=:nickname")
-                    .param("id", userId)
-                    .param("nickname", nickname)
-                    .query(Long.class)
-                    .single())
-                    .isEqualTo(1);
+            assertThat(profile(userId).getNickname()).isEqualTo(nickname);
+            assertThat(profileCount(userId)).isOne();
         } finally {
             channel.shutdownNow().awaitTermination(5, TimeUnit.SECONDS);
             server.shutdownNow().awaitTermination(5, TimeUnit.SECONDS);
@@ -173,11 +176,7 @@ class ProfileProvisioningIntegrationTest {
                         .isEqualTo(ProvisioningStatus.PROVISIONING_STATUS_READY);
                 assertThat(stub.ensureProfile(request).getStatus())
                         .isEqualTo(ProvisioningStatus.PROVISIONING_STATUS_READY);
-                assertThat(jdbc.sql("SELECT count(*) FROM user_profiles WHERE user_id = :id")
-                        .param("id", userId)
-                        .query(Long.class)
-                        .single())
-                        .isEqualTo(1);
+                assertThat(profile(userId).getUserId()).isEqualTo(userId);
             } finally {
                 channel.shutdownNow();
             }
@@ -189,71 +188,51 @@ class ProfileProvisioningIntegrationTest {
     @Test
     void retriesWhenGeneratedNicknameIsAlreadyTaken() {
         UUID existing = UUID.randomUUID();
-        jdbc.sql("INSERT INTO user_profiles (user_id, public_profile_id, nickname) VALUES (:id, :publicId, :nickname)")
-                .param("id", existing)
-                .param("publicId", UUID.randomUUID())
-                .param("nickname", "Player_000000000001")
-                .update();
-        org.mockito.Mockito.doReturn("Player_000000000001", "Player_000000000002")
+        profileRepository.saveAndFlush(
+                new UserProfileEntity(existing, UUID.randomUUID(), "Player_000000000001"));
+        doReturn("Player_000000000001", "Player_000000000002")
                 .when(nicknameGenerator)
                 .generate();
         UUID userId = UUID.randomUUID();
-        service.ensureProfile(userId);
-        assertThat(jdbc.sql("SELECT nickname FROM user_profiles WHERE user_id = :id")
-                .param("id", userId)
-                .query(String.class)
-                .single())
-                .isEqualTo("Player_000000000002");
+        service.createIfAbsent(userId);
+        assertThat(profile(userId).getNickname()).isEqualTo("Player_000000000002");
     }
 
     @Test
-    void databaseRejectsCaseInsensitiveDuplicateAndInvalidVisibility() {
-        jdbc.sql("INSERT INTO user_profiles (user_id, public_profile_id, nickname) VALUES (:id, :publicId, :nickname)")
-                .param("id", UUID.randomUUID())
-                .param("publicId", UUID.randomUUID())
-                .param("nickname", "UniqueNick")
-                .update();
-        assertThatThrownBy(() -> jdbc.sql(
-                "INSERT INTO user_profiles (user_id, public_profile_id, nickname) VALUES (:id, :publicId, :nickname)")
-                .param("id", UUID.randomUUID())
-                .param("publicId", UUID.randomUUID())
-                .param("nickname", "uniquenick")
-                .update())
+    void databaseRejectsCaseInsensitiveDuplicateNickname() {
+        profileRepository.saveAndFlush(
+                new UserProfileEntity(UUID.randomUUID(), UUID.randomUUID(), "UniqueNick"));
+
+        assertThatThrownBy(() -> profileRepository.saveAndFlush(
+                new UserProfileEntity(UUID.randomUUID(), UUID.randomUUID(), "uniquenick")))
                 .isInstanceOf(DataIntegrityViolationException.class)
                 .satisfies(error -> assertThat(error.getCause().getMessage()).doesNotContain("uniquenick"));
-        assertThatThrownBy(() -> jdbc.sql(
-                "INSERT INTO user_profiles (user_id, public_profile_id, nickname, visibility) VALUES (:id, :publicId, :nickname, 'INVALID')")
-                .param("id", UUID.randomUUID())
-                .param("publicId", UUID.randomUUID())
-                .param("nickname", "AnotherNick")
-                .update())
-                .isInstanceOf(DataIntegrityViolationException.class);
     }
 
     @Test
     void concurrentRepeatsCreateOneProfileWithoutOverwriting() throws Exception {
         UUID userId = UUID.randomUUID();
         try (var executor = Executors.newFixedThreadPool(2)) {
-            var first = executor.submit(() -> service.ensureProfile(userId));
-            var second = executor.submit(() -> service.ensureProfile(userId));
+            var first = executor.submit(() -> service.createIfAbsent(userId));
+            var second = executor.submit(() -> service.createIfAbsent(userId));
             first.get();
             second.get();
         }
-        String nickname = jdbc.sql("SELECT nickname FROM user_profiles WHERE user_id = :id")
-                .param("id", userId)
-                .query(String.class)
-                .single();
+        String nickname = profile(userId).getNickname();
         assertThat(nickname).matches("Player_[0-9]{12}");
-        service.ensureProfile(userId);
-        assertThat(jdbc.sql("SELECT count(*) FROM user_profiles WHERE user_id = :id")
-                .param("id", userId)
-                .query(Long.class)
-                .single())
-                .isEqualTo(1);
-        assertThat(jdbc.sql("SELECT nickname FROM user_profiles WHERE user_id = :id")
-                .param("id", userId)
-                .query(String.class)
-                .single())
-                .isEqualTo(nickname);
+        service.createIfAbsent(userId);
+        assertThat(profile(userId).getNickname()).isEqualTo(nickname);
+        assertThat(profileCount(userId)).isOne();
+    }
+
+    private UserProfileEntity profile(UUID userId) {
+        return profileRepository.findById(userId).orElseThrow();
+    }
+
+    private long profileCount(UUID userId) {
+        return entityManager
+                .createQuery("SELECT COUNT(profile) FROM UserProfileEntity profile WHERE profile.userId = :userId", Long.class)
+                .setParameter("userId", userId)
+                .getSingleResult();
     }
 }
