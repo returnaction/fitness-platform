@@ -1,7 +1,7 @@
 # План реализации: ясные имена создания профиля и кошелька
 
 > **Спецификация:** [spec.md](spec.md)  
-> **Статус:** draft  
+> **Статус:** complete
 > **Связанные документы system-design:** [регистрация Identity](../../system-design/services/identity/30-identity-registration.md), [профиль Accounts](../../system-design/services/accounts/32-accounts-profile.md)
 
 ## Краткое решение
