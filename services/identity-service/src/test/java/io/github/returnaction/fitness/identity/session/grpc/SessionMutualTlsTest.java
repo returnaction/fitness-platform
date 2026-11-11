@@ -41,6 +41,7 @@ import org.junit.jupiter.api.io.TempDir;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 
 class SessionMutualTlsTest {
+
     @Test
     void missingCertificateFailsStartupEvenWithOldDisabledFlag(@TempDir Path dir) {
         new ApplicationContextRunner()

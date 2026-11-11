@@ -22,6 +22,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
  */
 @RequiredArgsConstructor
 public final class RecoveryAuthenticationFilter extends OncePerRequestFilter {
+
     private static final String PREFIX = "/api/v1/admin/identity/registration-operations/";
     private final RecoveryAccessVerifier verifier;
 

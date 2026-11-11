@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface WalletRepository extends JpaRepository<WalletEntity, UUID> {
+
     @Modifying
     @Query(value = """
             INSERT INTO coin_wallets (user_id) VALUES (:userId)

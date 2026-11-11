@@ -15,11 +15,11 @@ import org.springframework.stereotype.Component;
 
 @Component
 public final class SecureSessionGrpcServer implements SmartLifecycle {
+
     private final Server server;
     private volatile boolean running;
 
-    public SecureSessionGrpcServer(
-                                   SessionVerificationGrpcService service,
+    public SecureSessionGrpcServer(SessionVerificationGrpcService service,
                                    @Value("${identity.session-grpc.address}") String address,
                                    @Value("${identity.session-grpc.port}") int port,
                                    @Value("${identity.session-grpc.certificate}") String certificate,

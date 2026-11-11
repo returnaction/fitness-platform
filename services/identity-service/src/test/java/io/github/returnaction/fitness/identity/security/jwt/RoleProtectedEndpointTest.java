@@ -37,6 +37,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 /** Изолированный потребитель: тестовые endpoint не входят в приложение. */
 class RoleProtectedEndpointTest {
+
     private static final String ISSUER = "https://identity.test";
     private static final String AUDIENCE = "gateway";
     private ECPrivateKey privateKey;
@@ -142,6 +143,7 @@ class RoleProtectedEndpointTest {
 
 @RestController
 class TestEndpoint {
+
     @GetMapping("/test/{role}")
     String secured(@PathVariable String role) {
         return "ok";
@@ -150,6 +152,7 @@ class TestEndpoint {
 
 /** Только тестовый пример потребителя, не production-фильтр другого сервиса. */
 class TestConsumerFilter extends OncePerRequestFilter {
+
     private final AccessTokenVerifier verifier;
     private final RoleHierarchyImpl hierarchy = RoleHierarchyImpl.fromHierarchy(
             "ROLE_SUPER_ADMIN > ROLE_ADMIN\nROLE_ADMIN > ROLE_MODERATOR\nROLE_MODERATOR > ROLE_USER");

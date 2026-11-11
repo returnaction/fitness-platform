@@ -18,11 +18,11 @@ import org.springframework.stereotype.Component;
  */
 @Component
 public final class SecureGrpcServer implements SmartLifecycle {
+
     private final Server server;
     private volatile boolean running;
 
-    public SecureGrpcServer(
-                            WalletCreationGrpcService service,
+    public SecureGrpcServer(WalletCreationGrpcService service,
                             @Value("${coins.grpc.address}") String address,
                             @Value("${coins.grpc.port}") int port,
                             @Value("${coins.grpc.certificate}") String certificate,

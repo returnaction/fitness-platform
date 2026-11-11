@@ -18,6 +18,7 @@ import org.springframework.stereotype.Component;
 @Component
 @RequiredArgsConstructor
 public class WalletCreationGrpcService extends WalletCreationServiceGrpc.WalletCreationServiceImplBase {
+
     private final WalletCreationService walletCreationService;
 
     @Override

@@ -12,6 +12,7 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class AccessTokenVerifier {
+
     private final PublicJwtKeys keys;
     private final String issuer;
     private final String audience;

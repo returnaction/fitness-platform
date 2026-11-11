@@ -18,6 +18,7 @@ import org.springframework.transaction.TransactionException;
 @Component
 @RequiredArgsConstructor
 public class SessionVerificationGrpcService extends IdentitySessionServiceGrpc.IdentitySessionServiceImplBase {
+
     private final SessionVerificationRepository repository;
 
     @Override

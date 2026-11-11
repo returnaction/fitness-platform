@@ -11,6 +11,7 @@ import javax.net.ssl.SSLPeerUnverifiedException;
 
 /** Проверяет URI SAN уже аутентифицированного mTLS-клиента. */
 public final class SessionCallerAuthorization implements ServerInterceptor {
+
     private final String allowedCaller;
 
     public SessionCallerAuthorization(String allowedCaller) {

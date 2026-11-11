@@ -25,6 +25,7 @@ import org.springframework.context.annotation.Configuration;
 /** Загружает и проверяет локальные или серверные JWT-ключи. */
 @Configuration
 public class AccessTokenConfiguration {
+
     @Bean
     JwtKeyMaterial jwtKeyMaterial(@Value("${identity.jwt.private-key}") String privateKey,
                                   @Value("${identity.jwt.public-key}") String publicKey) throws IOException, GeneralSecurityException {

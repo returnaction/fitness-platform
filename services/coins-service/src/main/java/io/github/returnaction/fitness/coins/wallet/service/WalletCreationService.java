@@ -13,10 +13,12 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 @SuppressFBWarnings(value = "EI_EXPOSE_REP2", justification = "Spring-managed repository is shared and not exposed")
 public class WalletCreationService {
+
     private final WalletRepository walletRepository;
 
     @Transactional
     public void createWalletIfAbsent(UUID userId) {
+
         Objects.requireNonNull(userId, "userId");
         walletRepository.insertIfAbsent(userId);
     }
