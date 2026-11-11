@@ -1,6 +1,6 @@
 package io.github.returnaction.fitness.coins.wallet.grpc;
 
-import io.github.returnaction.fitness.coins.wallet.WalletCreationService;
+import io.github.returnaction.fitness.coins.wallet.service.WalletCreationService;
 import io.github.returnaction.fitness.contracts.coins.wallet.creation.v1.WalletCreationServiceGrpc;
 import io.github.returnaction.fitness.contracts.coins.wallet.creation.v1.CreateWalletIfAbsentRequest;
 import io.github.returnaction.fitness.contracts.coins.wallet.creation.v1.CreateWalletIfAbsentResponse;

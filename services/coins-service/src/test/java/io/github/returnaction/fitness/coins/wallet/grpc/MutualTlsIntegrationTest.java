@@ -6,7 +6,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
-import io.github.returnaction.fitness.coins.wallet.WalletCreationService;
+import io.github.returnaction.fitness.coins.wallet.service.WalletCreationService;
 import io.github.returnaction.fitness.contracts.coins.wallet.creation.v1.WalletCreationServiceGrpc;
 import io.github.returnaction.fitness.contracts.coins.wallet.creation.v1.CreateWalletIfAbsentRequest;
 import io.github.returnaction.fitness.contracts.coins.wallet.creation.v1.CreationStatus;

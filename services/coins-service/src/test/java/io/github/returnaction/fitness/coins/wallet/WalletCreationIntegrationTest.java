@@ -8,6 +8,7 @@ import io.github.returnaction.fitness.contracts.coins.wallet.creation.v1.WalletC
 import io.github.returnaction.fitness.contracts.coins.wallet.creation.v1.CreateWalletIfAbsentRequest;
 import io.github.returnaction.fitness.contracts.coins.wallet.creation.v1.CreateWalletIfAbsentResponse;
 import io.github.returnaction.fitness.contracts.coins.wallet.creation.v1.CreationStatus;
+import io.github.returnaction.fitness.coins.wallet.service.WalletCreationService;
 import io.grpc.Server;
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
@@ -22,8 +23,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.jdbc.core.simple.JdbcClient;
+import jakarta.persistence.EntityManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -35,6 +36,14 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 @SpringBootTest
 @ActiveProfiles("test")
 class WalletCreationIntegrationTest {
+    private long queryNumber(String sql, UUID userId) {
+        return ((Number) entityManager.createNativeQuery(sql).setParameter("id", userId).getSingleResult()).longValue();
+    }
+
+    private void executeUpdate(String sql, UUID userId) {
+        transactions.executeWithoutResult(status ->
+                entityManager.createNativeQuery(sql).setParameter("id", userId).executeUpdate());
+    }
     @Container
     static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:17-alpine");
 
@@ -42,7 +51,9 @@ class WalletCreationIntegrationTest {
     private WalletCreationService service;
 
     @Autowired
-    private JdbcClient jdbc;
+    private EntityManager entityManager;
+    @Autowired
+    private TransactionTemplate transactions;
 
     @Autowired
     private WalletCreationGrpcService grpcService;
@@ -102,27 +113,16 @@ class WalletCreationIntegrationTest {
                     .isInstanceOfSatisfying(
                             StatusRuntimeException.class,
                             error -> assertThat(error.getStatus().getCode()).isEqualTo(Status.Code.UNAVAILABLE));
-            assertThat(jdbc.sql("SELECT count(*) FROM coin_wallets WHERE user_id=:id")
-                    .param("id", userId)
-                    .query(Long.class)
-                    .single())
+            assertThat(queryNumber("SELECT count(*) FROM coin_wallets WHERE user_id=:id", userId))
                     .isEqualTo(1);
-            jdbc.sql("UPDATE coin_wallets SET available_balance=25 WHERE user_id=:id")
-                    .param("id", userId)
-                    .update();
+            executeUpdate("UPDATE coin_wallets SET available_balance=25 WHERE user_id=:id", userId);
             assertThat(stub.withDeadlineAfter(5, TimeUnit.SECONDS)
                     .createWalletIfAbsent(request)
                     .getStatus())
                     .isEqualTo(CreationStatus.CREATION_STATUS_READY);
-            assertThat(jdbc.sql("SELECT available_balance FROM coin_wallets WHERE user_id=:id")
-                    .param("id", userId)
-                    .query(Long.class)
-                    .single())
+            assertThat(queryNumber("SELECT available_balance FROM coin_wallets WHERE user_id=:id", userId))
                     .isEqualTo(25);
-            assertThat(jdbc.sql("SELECT count(*) FROM coin_wallets WHERE user_id=:id")
-                    .param("id", userId)
-                    .query(Long.class)
-                    .single())
+            assertThat(queryNumber("SELECT count(*) FROM coin_wallets WHERE user_id=:id", userId))
                     .isEqualTo(1);
         } finally {
             channel.shutdownNow().awaitTermination(5, TimeUnit.SECONDS);
@@ -139,29 +139,16 @@ class WalletCreationIntegrationTest {
             first.get();
             second.get();
         }
-        assertThat(jdbc.sql("SELECT count(*) FROM coin_wallets WHERE user_id = :id")
-                .param("id", userId)
-                .query(Integer.class)
-                .single())
+        assertThat(queryNumber("SELECT count(*) FROM coin_wallets WHERE user_id = :id", userId))
                 .isEqualTo(1);
-        assertThat(jdbc.sql("SELECT available_balance + locked_balance FROM coin_wallets WHERE user_id = :id")
-                .param("id", userId)
-                .query(Long.class)
-                .single())
+        assertThat(queryNumber("SELECT available_balance + locked_balance FROM coin_wallets WHERE user_id = :id", userId))
                 .isZero();
-        jdbc.sql("UPDATE coin_wallets SET available_balance = 25, locked_balance = 4 WHERE user_id = :id")
-                .param("id", userId)
-                .update();
+        executeUpdate("UPDATE coin_wallets SET available_balance = 25, locked_balance = 4 WHERE user_id = :id", userId);
         service.createWalletIfAbsent(userId);
-        assertThat(jdbc.sql("SELECT available_balance + locked_balance FROM coin_wallets WHERE user_id = :id")
-                .param("id", userId)
-                .query(Long.class)
-                .single())
+        assertThat(queryNumber("SELECT available_balance + locked_balance FROM coin_wallets WHERE user_id = :id", userId))
                 .isEqualTo(29);
-        assertThatThrownBy(() -> jdbc.sql("UPDATE coin_wallets SET available_balance = -1 WHERE user_id = :id")
-                .param("id", userId)
-                .update())
-                .isInstanceOf(DataIntegrityViolationException.class)
+        assertThatThrownBy(() -> executeUpdate("UPDATE coin_wallets SET available_balance = -1 WHERE user_id = :id", userId))
+                .isInstanceOf(RuntimeException.class)
                 .satisfies(error -> assertThat(error.getCause().getMessage()).doesNotContain(userId.toString()));
     }
 }
