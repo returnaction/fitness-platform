@@ -4,6 +4,16 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import io.github.returnaction.fitness.coins.wallet.grpc.WalletCreationGrpcService;
+import io.github.returnaction.fitness.coins.wallet.grpc.SecureGrpcServer;
+import io.github.returnaction.fitness.coins.wallet.grpc.TestMtlsCertificates;
+import io.github.returnaction.fitness.coins.wallet.entity.WalletEntity;
+import io.github.returnaction.fitness.coins.wallet.repository.WalletRepository;
+import io.grpc.netty.shaded.io.grpc.netty.GrpcSslContexts;
+import java.net.ServerSocket;
+import java.nio.file.Path;
+import org.junit.jupiter.api.io.TempDir;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import jakarta.persistence.PersistenceException;
 import io.github.returnaction.fitness.contracts.coins.wallet.creation.v1.WalletCreationServiceGrpc;
 import io.github.returnaction.fitness.contracts.coins.wallet.creation.v1.CreateWalletIfAbsentRequest;
 import io.github.returnaction.fitness.contracts.coins.wallet.creation.v1.CreateWalletIfAbsentResponse;
@@ -36,13 +46,22 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 @SpringBootTest
 @ActiveProfiles("test")
 class WalletCreationIntegrationTest {
+    @MockitoBean
+    private SecureGrpcServer managedGrpcServer;
+
+    @Autowired
+    private WalletRepository wallets;
+
+    private WalletEntity wallet(UUID userId) {
+        return wallets.findById(userId).orElseThrow();
+    }
     private long queryNumber(String sql, UUID userId) {
         return ((Number) entityManager.createNativeQuery(sql).setParameter("id", userId).getSingleResult()).longValue();
     }
 
     private void executeUpdate(String sql, UUID userId) {
-        transactions.executeWithoutResult(status ->
-                entityManager.createNativeQuery(sql).setParameter("id", userId).executeUpdate());
+        transactions.executeWithoutResult(
+                status -> entityManager.createNativeQuery(sql).setParameter("id", userId).executeUpdate());
     }
     @Container
     static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:17-alpine");
@@ -70,7 +89,8 @@ class WalletCreationIntegrationTest {
         var loseFirstResponse = new AtomicBoolean(true);
         var faultInjectedService = new WalletCreationServiceGrpc.WalletCreationServiceImplBase() {
             @Override
-            public void createWalletIfAbsent(CreateWalletIfAbsentRequest request, StreamObserver<CreateWalletIfAbsentResponse> observer) {
+            public void createWalletIfAbsent(CreateWalletIfAbsentRequest request,
+                                             StreamObserver<CreateWalletIfAbsentResponse> observer) {
                 boolean drop = loseFirstResponse.getAndSet(false);
                 grpcService.createWalletIfAbsent(request, new StreamObserver<>() {
                     @Override
@@ -141,14 +161,81 @@ class WalletCreationIntegrationTest {
         }
         assertThat(queryNumber("SELECT count(*) FROM coin_wallets WHERE user_id = :id", userId))
                 .isEqualTo(1);
-        assertThat(queryNumber("SELECT available_balance + locked_balance FROM coin_wallets WHERE user_id = :id", userId))
-                .isZero();
+        WalletEntity initial = wallet(userId);
+        assertThat(initial.getAvailableBalance()).isZero();
+        assertThat(initial.getLockedBalance()).isZero();
+        assertThat(initial.getCreatedAt()).isNotNull();
+        assertThat(initial.getUpdatedAt()).isEqualTo(initial.getCreatedAt());
         executeUpdate("UPDATE coin_wallets SET available_balance = 25, locked_balance = 4 WHERE user_id = :id", userId);
         service.createWalletIfAbsent(userId);
-        assertThat(queryNumber("SELECT available_balance + locked_balance FROM coin_wallets WHERE user_id = :id", userId))
-                .isEqualTo(29);
-        assertThatThrownBy(() -> executeUpdate("UPDATE coin_wallets SET available_balance = -1 WHERE user_id = :id", userId))
-                .isInstanceOf(RuntimeException.class)
+        WalletEntity repeated = wallet(userId);
+        assertThat(repeated.getAvailableBalance()).isEqualTo(25);
+        assertThat(repeated.getLockedBalance()).isEqualTo(4);
+        assertThat(repeated.getCreatedAt()).isEqualTo(initial.getCreatedAt());
+        assertThat(repeated.getUpdatedAt()).isEqualTo(initial.getUpdatedAt());
+        assertThatThrownBy(
+                () -> executeUpdate("UPDATE coin_wallets SET available_balance = -1 WHERE user_id = :id", userId))
+                .isInstanceOf(PersistenceException.class)
                 .satisfies(error -> assertThat(error.getCause().getMessage()).doesNotContain(userId.toString()));
+        assertThatThrownBy(
+                () -> executeUpdate("UPDATE coin_wallets SET locked_balance = -1 WHERE user_id = :id", userId))
+                .isInstanceOf(PersistenceException.class);
+        assertThat(wallet(userId).getAvailableBalance()).isEqualTo(25);
+        assertThat(wallet(userId).getLockedBalance()).isEqualTo(4);
+    }
+
+    @Test
+    void secureServerCommitsWalletForIdentityAndRejectsOtherClient(@TempDir Path directory) throws Exception {
+        var certificates = TestMtlsCertificates.create(directory);
+        int port;
+        try (var socket = new ServerSocket(0)) {
+            port = socket.getLocalPort();
+        }
+        var server = new SecureGrpcServer(grpcService, "127.0.0.1", port,
+                certificates.serverCertificate().toString(), certificates.serverPrivateKey().toString(),
+                certificates.caCertificate().toString());
+        var identity = NettyChannelBuilder.forAddress("localhost", port)
+                .sslContext(GrpcSslContexts.forClient()
+                        .trustManager(certificates.caCertificate().toFile())
+                        .keyManager(certificates.identityCertificate().toFile(),
+                                certificates.identityPrivateKey().toFile())
+                        .build())
+                .build();
+        // Доверенный сертификат сервера не содержит URI SAN Identity и не даёт права на
+        // команду.
+        var other = NettyChannelBuilder.forAddress("localhost", port)
+                .sslContext(GrpcSslContexts.forClient()
+                        .trustManager(certificates.caCertificate().toFile())
+                        .keyManager(certificates.serverCertificate().toFile(), certificates.serverPrivateKey().toFile())
+                        .build())
+                .build();
+        try {
+            server.start();
+            UUID userId = UUID.randomUUID();
+            var request = CreateWalletIfAbsentRequest.newBuilder()
+                    .setUserId(userId.toString())
+                    .setRequestId(UUID.randomUUID().toString())
+                    .setRegistrationOperationId(UUID.randomUUID().toString())
+                    .build();
+            var stub = WalletCreationServiceGrpc.newBlockingStub(identity);
+            assertThat(stub.withDeadlineAfter(5, TimeUnit.SECONDS).createWalletIfAbsent(request).getStatus())
+                    .isEqualTo(CreationStatus.CREATION_STATUS_READY);
+            assertThat(wallet(userId).getAvailableBalance()).isZero();
+            assertThat(wallet(userId).getLockedBalance()).isZero();
+            assertThat(stub.withDeadlineAfter(5, TimeUnit.SECONDS).createWalletIfAbsent(request).getUserId())
+                    .isEqualTo(userId.toString());
+            UUID rejectedUser = UUID.randomUUID();
+            var rejectedRequest = request.toBuilder().setUserId(rejectedUser.toString()).build();
+            assertThatThrownBy(() -> WalletCreationServiceGrpc.newBlockingStub(other)
+                    .withDeadlineAfter(5, TimeUnit.SECONDS)
+                    .createWalletIfAbsent(rejectedRequest))
+                    .satisfies(error -> assertThat(Status.fromThrowable(error).getCode())
+                            .isEqualTo(Status.Code.PERMISSION_DENIED));
+            assertThat(wallets.existsById(rejectedUser)).isFalse();
+        } finally {
+            identity.shutdownNow().awaitTermination(5, TimeUnit.SECONDS);
+            other.shutdownNow().awaitTermination(5, TimeUnit.SECONDS);
+            server.stop();
+        }
     }
 }
