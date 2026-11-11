@@ -17,6 +17,8 @@ import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.ArgumentCaptor;
 
 class WalletCreationGrpcServiceTest {
@@ -31,17 +33,27 @@ class WalletCreationGrpcServiceTest {
         service.createWalletIfAbsent(request, observer);
         var order = inOrder(creation, observer);
         order.verify(creation).createWalletIfAbsent(user);
-        ArgumentCaptor<CreateWalletIfAbsentResponse> response = ArgumentCaptor.forClass(CreateWalletIfAbsentResponse.class);
+        ArgumentCaptor<CreateWalletIfAbsentResponse> response = ArgumentCaptor
+                .forClass(CreateWalletIfAbsentResponse.class);
         order.verify(observer).onNext(response.capture());
         order.verify(observer).onCompleted();
         assertThat(response.getValue().getStatus()).isEqualTo(CreationStatus.CREATION_STATUS_READY);
         assertThat(response.getValue().getUserId()).isEqualTo(user.toString());
     }
 
-    @Test
-    void rejectsInvalidUuidWithoutCreatingWallet() {
+    @ParameterizedTest
+    @CsvSource({"user,invalid", "user,1-1-1-1-1", "request,invalid", "operation,invalid",
+            "user,AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA", "request,''", "operation,''"})
+    void rejectsInvalidUuidWithoutCreatingWallet(String field, String value) {
         StreamObserver<CreateWalletIfAbsentResponse> observer = mockObserver();
-        service.createWalletIfAbsent(request("invalid"), observer);
+        var invalidRequest = request(UUID.randomUUID().toString()).toBuilder();
+        switch (field) {
+            case "user" -> invalidRequest.setUserId(value);
+            case "request" -> invalidRequest.setRequestId(value);
+            case "operation" -> invalidRequest.setRegistrationOperationId(value);
+            default -> throw new IllegalArgumentException("Unknown test field");
+        }
+        service.createWalletIfAbsent(invalidRequest.build(), observer);
         ArgumentCaptor<Throwable> error = ArgumentCaptor.forClass(Throwable.class);
         verify(observer).onError(error.capture());
         assertThat(Status.fromThrowable(error.getValue()).getCode()).isEqualTo(Status.Code.INVALID_ARGUMENT);

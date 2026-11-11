@@ -10,7 +10,9 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-/** Кошелёк создаётся атомарным INSERT; значения по умолчанию задаёт PostgreSQL. */
+/**
+ * Кошелёк создаётся атомарным INSERT; значения по умолчанию задаёт PostgreSQL.
+ */
 @Entity
 @Table(name = "coin_wallets")
 @Getter

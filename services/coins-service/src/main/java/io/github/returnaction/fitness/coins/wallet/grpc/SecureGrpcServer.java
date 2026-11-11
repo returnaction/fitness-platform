@@ -10,15 +10,13 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.util.concurrent.TimeUnit;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.SmartLifecycle;
 import org.springframework.stereotype.Component;
 
 /**
- * Запускает gRPC только при явно включённой конфигурации и обязательном mTLS.
+ * Запускает обязательный gRPC-сервер с взаимной проверкой TLS-сертификатов.
  */
 @Component
-@ConditionalOnProperty(name = "coins.grpc.enabled", havingValue = "true")
 public final class SecureGrpcServer implements SmartLifecycle {
     private final Server server;
     private volatile boolean running;
@@ -29,8 +27,7 @@ public final class SecureGrpcServer implements SmartLifecycle {
                             @Value("${coins.grpc.port}") int port,
                             @Value("${coins.grpc.certificate}") String certificate,
                             @Value("${coins.grpc.private-key}") String privateKey,
-                            @Value("${coins.grpc.trust-certificate}") String trustCertificate)
-            throws IOException {
+                            @Value("${coins.grpc.trust-certificate}") String trustCertificate) throws IOException {
         if (port < 1 || port > 65535 || address.isBlank()) {
             throw new IllegalArgumentException("Invalid gRPC address or port");
         }

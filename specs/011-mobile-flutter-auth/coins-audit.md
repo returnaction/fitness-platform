@@ -2,6 +2,9 @@
 
 ## Подтверждённые изменения
 
+Ниже перечислены исходные несоответствия, обнаруженные перед рефакторингом.
+Результаты реализации и проверок фиксируются в [отчёте](verification.md).
+
 - `wallet/WalletCreationService` использует `JdbcClient` и SQL внутри сервиса.
   Перевести на `wallet/service`, `wallet/repository` и `wallet/entity`.
 - Отобразить все пять полей `coin_wallets`. Создание выполнить native INSERT

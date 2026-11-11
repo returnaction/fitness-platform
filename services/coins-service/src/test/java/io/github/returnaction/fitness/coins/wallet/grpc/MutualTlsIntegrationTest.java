@@ -45,13 +45,17 @@ import org.bouncycastle.cert.jcajce.JcaX509v3CertificateBuilder;
 import org.bouncycastle.openssl.jcajce.JcaPEMWriter;
 import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.junit.jupiter.api.io.TempDir;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.core.env.MapPropertySource;
 
 class MutualTlsIntegrationTest {
-    @Test
-    void springStartsActualServerAndRejectsMissingCertificates(@TempDir Path directory) throws Exception {
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void springStartsActualServerAndRejectsInvalidCertificates(boolean malformed,
+                                                               @TempDir Path directory) throws Exception {
         KeyPair caKey = keyPair();
         X500Name caName = new X500Name("CN=Test CA");
         X509Certificate ca = certificate(caName, caName, caKey, caKey, null, true);
@@ -71,14 +75,16 @@ class MutualTlsIntegrationTest {
             port = socket.getLocalPort();
         }
         WalletCreationService creation = mock(WalletCreationService.class);
+        Path invalidCertificate = directory.resolve("invalid.pem");
+        if (malformed) {
+            Files.writeString(invalidCertificate, "not a PEM certificate");
+        }
         try (var context = new AnnotationConfigApplicationContext()) {
             context.getEnvironment()
                     .getPropertySources()
                     .addFirst(new MapPropertySource(
                             "test",
                             Map.of(
-                                    "coins.grpc.enabled",
-                                    "true",
                                     "coins.grpc.address",
                                     "127.0.0.1",
                                     "coins.grpc.port",
@@ -113,14 +119,12 @@ class MutualTlsIntegrationTest {
                     .addFirst(new MapPropertySource(
                             "test",
                             Map.of(
-                                    "coins.grpc.enabled",
-                                    "true",
                                     "coins.grpc.address",
                                     "127.0.0.1",
                                     "coins.grpc.port",
                                     port,
                                     "coins.grpc.certificate",
-                                    directory.resolve("missing.pem").toString(),
+                                    invalidCertificate.toString(),
                                     "coins.grpc.private-key",
                                     keyFile.toString(),
                                     "coins.grpc.trust-certificate",
@@ -140,7 +144,7 @@ class MutualTlsIntegrationTest {
     }
 
     @Test
-    void onlyIdentityWithTrustedClientCertificateCanProvision() throws Exception {
+    void onlyIdentityWithTrustedClientCertificateCanCreateWallet() throws Exception {
         KeyPair caKey = keyPair();
         X500Name caName = new X500Name("CN=Test CA");
         X509Certificate ca = certificate(caName, caName, caKey, caKey, null, true);
@@ -222,7 +226,9 @@ class MutualTlsIntegrationTest {
                     .satisfies(error -> assertThat(Status.fromThrowable(error).getCode())
                             .isEqualTo(Status.Code.PERMISSION_DENIED));
             UUID anonymousUser = UUID.randomUUID();
-            CreateWalletIfAbsentRequest anonymousRequest = request.toBuilder().setUserId(anonymousUser.toString()).build();
+            CreateWalletIfAbsentRequest anonymousRequest = request.toBuilder()
+                    .setUserId(anonymousUser.toString())
+                    .build();
             assertThatThrownBy(() -> WalletCreationServiceGrpc.newBlockingStub(anonymous)
                     .withDeadlineAfter(5, TimeUnit.SECONDS)
                     .createWalletIfAbsent(anonymousRequest))
@@ -248,8 +254,10 @@ class MutualTlsIntegrationTest {
         }
     }
 
-    private static ManagedChannel channel(int port, X509Certificate ca, KeyPair key, X509Certificate certificate)
-            throws Exception {
+    private static ManagedChannel channel(int port,
+                                          X509Certificate ca,
+                                          KeyPair key,
+                                          X509Certificate certificate) throws Exception {
         var ssl = GrpcSslContexts.forClient().trustManager(ca);
         if (key != null) {
             ssl.keyManager(key.getPrivate(), certificate);
@@ -266,9 +274,12 @@ class MutualTlsIntegrationTest {
     }
 
     private static X509Certificate certificate(
-                                               X500Name issuer, X500Name subject, KeyPair subjectKey, KeyPair issuerKey,
-                                               GeneralName san, boolean ca)
-            throws Exception {
+                                               X500Name issuer,
+                                               X500Name subject,
+                                               KeyPair subjectKey,
+                                               KeyPair issuerKey,
+                                               GeneralName san,
+                                               boolean ca) throws Exception {
         Instant now = Instant.now();
         return certificate(
                 issuer, subject, subjectKey, issuerKey, san, ca, now.minusSeconds(60), now.plusSeconds(3600));
@@ -282,8 +293,7 @@ class MutualTlsIntegrationTest {
                                                GeneralName san,
                                                boolean ca,
                                                Instant validFrom,
-                                               Instant validUntil)
-            throws Exception {
+                                               Instant validUntil) throws Exception {
         var builder = new JcaX509v3CertificateBuilder(
                 issuer,
                 new BigInteger(128, new SecureRandom()).abs(),

@@ -8,6 +8,7 @@ import io.github.returnaction.fitness.contracts.coins.wallet.creation.v1.Creatio
 import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
 import java.util.UUID;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 /**
@@ -15,15 +16,13 @@ import org.springframework.stereotype.Component;
  * авторизации.
  */
 @Component
+@RequiredArgsConstructor
 public class WalletCreationGrpcService extends WalletCreationServiceGrpc.WalletCreationServiceImplBase {
-    private final WalletCreationService creation;
-
-    public WalletCreationGrpcService(WalletCreationService creation) {
-        this.creation = creation;
-    }
+    private final WalletCreationService walletCreationService;
 
     @Override
-    public void createWalletIfAbsent(CreateWalletIfAbsentRequest request, StreamObserver<CreateWalletIfAbsentResponse> observer) {
+    public void createWalletIfAbsent(CreateWalletIfAbsentRequest request,
+                                     StreamObserver<CreateWalletIfAbsentResponse> observer) {
         UUID userId;
         try {
             canonicalUuid(request.getRequestId());
@@ -35,17 +34,18 @@ public class WalletCreationGrpcService extends WalletCreationServiceGrpc.WalletC
             return;
         }
         try {
-            creation.createWalletIfAbsent(userId);
-            observer.onNext(CreateWalletIfAbsentResponse.newBuilder()
-                    .setUserId(userId.toString())
-                    .setStatus(CreationStatus.CREATION_STATUS_READY)
-                    .build());
-            observer.onCompleted();
+            walletCreationService.createWalletIfAbsent(userId);
         } catch (RuntimeException exception) {
             observer.onError(Status.INTERNAL
                     .withDescription("Wallet creation failed")
                     .asRuntimeException());
+            return;
         }
+        observer.onNext(CreateWalletIfAbsentResponse.newBuilder()
+                .setUserId(userId.toString())
+                .setStatus(CreationStatus.CREATION_STATUS_READY)
+                .build());
+        observer.onCompleted();
     }
 
     private UUID canonicalUuid(String value) {
