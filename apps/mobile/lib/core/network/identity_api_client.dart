@@ -93,7 +93,9 @@ class IdentityApiClient implements AuthApiClient {
       statusCode: response.statusCode,
       code: code is String ? code : null,
       message: message is String ? message : 'Request could not be completed.',
-      retryAfterSeconds: _retryAfterSeconds(response.headers.value('Retry-After')),
+      retryAfterSeconds: _retryAfterSeconds(
+        response.headers.value('Retry-After'),
+      ),
     );
   }
 

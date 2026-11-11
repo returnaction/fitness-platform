@@ -16,19 +16,22 @@ void main() {
     expect(await storage.read(), isA<SessionTokens>());
   });
 
-  test('removes a partial value after a secure-storage write failure', () async {
-    final store = _FakeSecureValueStore()..failWrites = true;
-    final storage = TokenStorage(store);
+  test(
+    'removes a partial value after a secure-storage write failure',
+    () async {
+      final store = _FakeSecureValueStore()..failWrites = true;
+      final storage = TokenStorage(store);
 
-    await expectLater(
-      storage.write(
-        const SessionTokens(accessToken: 'access', refreshToken: 'refresh'),
-      ),
-      throwsA(isA<TokenStorageException>()),
-    );
+      await expectLater(
+        storage.write(
+          const SessionTokens(accessToken: 'access', refreshToken: 'refresh'),
+        ),
+        throwsA(isA<TokenStorageException>()),
+      );
 
-    expect(store.deletedKeys, ['auth_session_v1']);
-  });
+      expect(store.deletedKeys, ['auth_session_v1']);
+    },
+  );
 }
 
 class _FakeSecureValueStore implements SecureValueStore {

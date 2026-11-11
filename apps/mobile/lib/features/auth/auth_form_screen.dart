@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/fitness_app.dart';
 import '../../core/network/identity_api_error.dart';
+import '../../core/security/token_storage.dart';
 import 'auth_controller.dart';
 
 class AuthFormScreen extends ConsumerStatefulWidget {
@@ -75,6 +76,7 @@ class _AuthFormScreenState extends ConsumerState<AuthFormScreen> {
               ),
               const SizedBox(height: 24),
               TextFormField(
+                enabled: !loading,
                 controller: _email,
                 keyboardType: TextInputType.emailAddress,
                 autocorrect: false,
@@ -85,6 +87,7 @@ class _AuthFormScreenState extends ConsumerState<AuthFormScreen> {
               ),
               const SizedBox(height: 16),
               TextFormField(
+                enabled: !loading,
                 controller: _password,
                 obscureText: !_showPassword,
                 autocorrect: false,
@@ -156,6 +159,9 @@ class _AuthFormScreenState extends ConsumerState<AuthFormScreen> {
   String? _lastErrorCode;
 
   Future<void> _submit() async {
+    if (ref.read(authControllerProvider).isLoading) {
+      return;
+    }
     if (!_formKey.currentState!.validate()) {
       return;
     }
@@ -189,6 +195,13 @@ class _AuthFormScreenState extends ConsumerState<AuthFormScreen> {
       if (mounted) {
         setState(() => _message = 'Cannot connect. Please try again.');
       }
+    } on TokenStorageException {
+      if (mounted) {
+        setState(
+          () => _message =
+              'Could not save your session securely. Please try again.',
+        );
+      }
     } on FormatException {
       if (mounted) {
         setState(() => _message = 'The server returned an invalid response.');
@@ -203,9 +216,10 @@ class _AuthFormScreenState extends ConsumerState<AuthFormScreen> {
         'An account with this email already exists.',
       'registration_pending' || 'registration_unavailable' =>
         'Your account is still being prepared. Please try again shortly.',
-      'rate_limited' => error.retryAfterSeconds == null
-          ? 'Too many attempts. Please try again later.'
-          : 'Too many attempts. Try again in ${error.retryAfterSeconds} seconds.',
+      'rate_limited' =>
+        error.retryAfterSeconds == null
+            ? 'Too many attempts. Please try again later.'
+            : 'Too many attempts. Try again in ${error.retryAfterSeconds} seconds.',
       'payload_too_large' => 'The request is too large. Please try again.',
       _ => 'Request could not be completed. Please try again.',
     };

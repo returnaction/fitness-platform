@@ -3,10 +3,7 @@ class SessionOperationCoordinator {
 
   Future<T> run<T>(Future<T> Function() operation) {
     final scheduled = _lastOperation.then((_) => operation());
-    _lastOperation = scheduled.then<void>(
-      (_) {},
-      onError: (_, _) {},
-    );
+    _lastOperation = scheduled.then<void>((_) {}, onError: (_, _) {});
     return scheduled;
   }
 }

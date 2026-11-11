@@ -91,12 +91,14 @@ Future<void> _showSignOutOptions(BuildContext context, WidgetRef ref) async {
     }
   }
   final controller = ref.read(authControllerProvider.notifier);
+  final messenger = ScaffoldMessenger.of(context);
   final result = choice == _SignOutChoice.allDevices
       ? await controller.logoutAll()
       : await controller.logout();
-  if (!context.mounted || result.localTokensCleared) {
-    if (!result.remoteSucceeded && context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
+  if (!messenger.mounted) return;
+  if (result.localTokensCleared) {
+    if (!result.remoteSucceeded) {
+      messenger.showSnackBar(
         SnackBar(
           content: Text(
             choice == _SignOutChoice.allDevices
@@ -108,10 +110,8 @@ Future<void> _showSignOutOptions(BuildContext context, WidgetRef ref) async {
     }
     return;
   }
-  ScaffoldMessenger.of(context).showSnackBar(
-    const SnackBar(
-      content: Text('Local sign out could not be confirmed.'),
-    ),
+  messenger.showSnackBar(
+    const SnackBar(content: Text('Local sign out could not be confirmed.')),
   );
 }
 

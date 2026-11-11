@@ -7,17 +7,10 @@ import '../../core/security/token_storage.dart';
 import 'auth_repository.dart';
 import 'session_operation_coordinator.dart';
 
-enum AuthStatus {
-  guest,
-  authenticated,
-  temporarilyUnavailable,
-  storageFailure,
-}
+enum AuthStatus { guest, authenticated, temporarilyUnavailable, storageFailure }
 
 final tokenStorageProvider = Provider<TokenStorage>(
-  (ref) => TokenStorage(
-    FlutterSecureValueStore(const FlutterSecureStorage()),
-  ),
+  (ref) => TokenStorage(FlutterSecureValueStore(const FlutterSecureStorage())),
 );
 
 final identityApiClientProvider = Provider<IdentityApiClient>(
@@ -33,7 +26,9 @@ final authRepositoryProvider = Provider<AuthRepository>(
 );
 
 final sessionOperationCoordinatorProvider =
-    Provider<SessionOperationCoordinator>((ref) => SessionOperationCoordinator());
+    Provider<SessionOperationCoordinator>(
+      (ref) => SessionOperationCoordinator(),
+    );
 
 final uuidProvider = Provider<Uuid>((ref) => const Uuid());
 
@@ -83,8 +78,9 @@ class AuthController extends AsyncNotifier<AuthStatus> {
 
   Future<void> discardLocalSession() async {
     state = const AsyncLoading();
-    final tokensCleared =
-        await ref.read(authRepositoryProvider).discardLocalSession();
+    final tokensCleared = await ref
+        .read(authRepositoryProvider)
+        .discardLocalSession();
     state = AsyncData(
       tokensCleared ? AuthStatus.guest : AuthStatus.storageFailure,
     );
@@ -96,7 +92,7 @@ class AuthController extends AsyncNotifier<AuthStatus> {
       await action();
       state = const AsyncData(AuthStatus.authenticated);
     } catch (error, stackTrace) {
-      state = AsyncError(error, stackTrace);
+      state = const AsyncData(AuthStatus.guest);
       Error.throwWithStackTrace(error, stackTrace);
     }
   }

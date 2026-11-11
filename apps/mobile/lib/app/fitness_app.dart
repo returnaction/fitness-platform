@@ -45,12 +45,12 @@ class AuthGate extends ConsumerWidget {
       AsyncData(value: AuthStatus.temporarilyUnavailable) =>
         _TemporaryUnavailableScreen(
           onRetry: () => ref.read(authControllerProvider.notifier).restore(),
-          onLocalLogout: () => ref
-              .read(authControllerProvider.notifier)
-              .discardLocalSession(),
+          onLocalLogout: () =>
+              ref.read(authControllerProvider.notifier).discardLocalSession(),
         ),
       AsyncData(value: AuthStatus.storageFailure) => _StorageFailure(
-        onRetry: () => ref.read(authControllerProvider.notifier).restore(),
+        onRetry: () =>
+            ref.read(authControllerProvider.notifier).discardLocalSession(),
       ),
       AsyncData() => const WelcomeScreen(),
     };
@@ -137,11 +137,14 @@ class _StorageFailure extends StatelessWidget {
               const Text('Secure storage is unavailable.'),
               const SizedBox(height: 8),
               const Text(
-                'Your session could not be read safely.',
+                'Your local session could not be handled safely. Clear it before signing in again.',
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 16),
-              FilledButton(onPressed: onRetry, child: const Text('Try again')),
+              FilledButton(
+                onPressed: onRetry,
+                child: const Text('Clear local session'),
+              ),
             ],
           ),
         ),

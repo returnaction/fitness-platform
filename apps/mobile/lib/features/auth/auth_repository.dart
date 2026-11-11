@@ -68,6 +68,13 @@ class AuthRepository {
     if (tokens == null) {
       return SessionRestoreResult.guest;
     }
+    // Remove the single-use token before sending it. A process death or a
+    // failed write of the rotated pair must never make it reusable on restart.
+    try {
+      await _tokenStorage.clear();
+    } on TokenStorageException {
+      return SessionRestoreResult.storageFailure;
+    }
     try {
       final response = await _api.post(
         '/api/v1/auth/refresh',
@@ -77,7 +84,12 @@ class AuthRepository {
       return SessionRestoreResult.authenticated;
     } on IdentityApiException catch (error) {
       if (error.isIdentityUnavailable) {
-        return SessionRestoreResult.temporarilyUnavailable;
+        try {
+          await _tokenStorage.write(tokens);
+          return SessionRestoreResult.temporarilyUnavailable;
+        } on TokenStorageException {
+          return SessionRestoreResult.storageFailure;
+        }
       }
       return _clearAfterUncertainRefresh();
     } on IdentityNetworkException {
@@ -125,13 +137,7 @@ class AuthRepository {
     );
   }
 
-  Future<SessionTokens?> _readTokens() async {
-    try {
-      return await _tokenStorage.read();
-    } on TokenStorageException {
-      throw const TokenStorageException();
-    }
-  }
+  Future<SessionTokens?> _readTokens() => _tokenStorage.read();
 
   Future<SessionRestoreResult> _clearAfterUncertainRefresh() async {
     try {
