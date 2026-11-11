@@ -1,7 +1,7 @@
 # План реализации: мобильный Flutter-клиент и аутентификация
 
 > **Спецификация:** [spec.md](spec.md)  
-> **Статус:** draft  
+> **Статус:** implemented
 > **Связанные документы system-design:** [Identity: регистрация](../../system-design/services/identity/30-identity-registration.md), [Identity: вход и сессии](../../system-design/services/identity/31-identity-login-sessions.md)
 
 ## Краткое решение
