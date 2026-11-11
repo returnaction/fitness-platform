@@ -53,9 +53,11 @@
   lease, retry и транзакционные границы.
 - [ ] T005 (после T004): Обновить тесты, актуальные документы и примеры;
   удалить старые продуктовые имена.
-- [ ] T005a: Переименовать `docs/database-provisioning.md` в
+- [x] T005a: Переименовать `docs/database-provisioning.md` в
   `docs/database-setup.md`, заменить термин в описаниях подготовки PostgreSQL,
   обновить ссылки по проекту и проверить их, сохранив исторический смысл.
+  Проверено: ссылки на `database-setup.md` существуют, старых ссылок вне
+  описания переименования Spec 011 нет; `git diff --check` прошёл.
 - [ ] T005b: Переименовать методы `claim`, `claimWallet` и `markWalletReady`,
   `RegistrationReadinessWaiter`, `RegistrationWriter`, `ProvisioningBatchRunner`,
   а также Gateway `SessionAccess` и `AccessTokens` по таблице плана; обновить

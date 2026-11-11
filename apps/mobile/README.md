@@ -6,7 +6,7 @@ Android Flutter client for the Java/Spring auth API through Gateway Service.
 
 Run commands below from the repository root unless stated otherwise.
 Prepare PostgreSQL outside Docker using
-[database provisioning](../../docs/database-provisioning.md),
+[database setup](../../docs/database-setup.md),
 [JWT keys](../../docs/local-jwt-keys.md), and the
 [Gateway setup](../../services/gateway-service/README.md). Registration needs
 Accounts and Coins as well as Identity. Gateway needs the configured Identity
