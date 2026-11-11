@@ -24,7 +24,7 @@ class LogoutResult {
 class AuthRepository {
   AuthRepository(this._api, this._tokenStorage, this._coordinator);
 
-  final IdentityApiClient _api;
+  final AuthApiClient _api;
   final TokenStorage _tokenStorage;
   final SessionOperationCoordinator _coordinator;
 

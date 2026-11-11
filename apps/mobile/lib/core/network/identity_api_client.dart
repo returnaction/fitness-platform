@@ -3,7 +3,21 @@ import 'package:dio/dio.dart';
 import '../../config/app_config.dart';
 import 'identity_api_error.dart';
 
-class IdentityApiClient {
+abstract interface class AuthApiClient {
+  Future<Map<String, dynamic>> post(
+    String path, {
+    Object? data,
+    Map<String, String>? headers,
+  });
+
+  Future<void> postWithoutResponse(
+    String path, {
+    Object? data,
+    Map<String, String>? headers,
+  });
+}
+
+class IdentityApiClient implements AuthApiClient {
   IdentityApiClient(Dio dio) : _dio = dio;
 
   factory IdentityApiClient.create() {
@@ -21,6 +35,7 @@ class IdentityApiClient {
 
   final Dio _dio;
 
+  @override
   Future<Map<String, dynamic>> post(
     String path, {
     Object? data,
@@ -38,6 +53,7 @@ class IdentityApiClient {
     }
   }
 
+  @override
   Future<void> postWithoutResponse(
     String path, {
     Object? data,
