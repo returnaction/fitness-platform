@@ -13,14 +13,14 @@
 | `registration/entity/role` | `RoleCode`, `RoleEntity`, `UserRoleEntity`, `UserRoleId` |
 | `registration/entity/user` | `UserCredentialEntity`, `UserEntity`, `UserStatus` |
 | `registration/exception` | `InvalidIdempotencyKeyException`, `RecoveryAccessException`, `RecoveryConflictException`, `RegistrationConflictException`, `RegistrationNotReadyException`, `RegistrationRateLimitException`, `RegistrationUnavailableException`, `RegistrationValidationException` |
-| `registration/grpc` | `AccountsProvisioningClient`, `CoinsProvisioningClient` |
+| `registration/grpc` | `ProfileCreationClient`, `WalletCreationClient` |
 | `registration/model` | `RegistrationStartResult`, `ValidatedRegistration` |
 | `registration/repository` | `RecoveryAccessRepository`, `RegistrationLeaseRepository`, `RegistrationOperationRepository`, `RegistrationReadinessRepository`, `RegistrationRecoveryRepository`, `RegistrationSessionRepository`, `RoleRepository`, `UserCredentialRepository`, `UserRepository`, `UserRoleRepository` |
 | `registration/security` | `RecoveryAccessVerifier`, `RecoveryAuthenticationFilter` |
 | `registration/service` | `RegistrationFacade`, `RegistrationInputValidator`, `RegistrationReadinessWaiter`, `RegistrationRecoveryService`, `RegistrationService`, `RegistrationSessionService`, `RegistrationTokenService`, `RegistrationWriter` |
 | `registration/validation` | `IdempotencyKeyValidator` |
 | `registration/web` | `RegistrationClientAddress`, `RegistrationRateLimitConfiguration`, `RegistrationRateLimiter` |
-| `registration/worker` | `AccountsProvisioningProcessor`, `AccountsProvisioningScheduler`, `CoinsProvisioningProcessor`, `CoinsProvisioningScheduler`, `ProvisioningBatchRunner` |
+| `registration/worker` | `ProfileCreationProcessor`, `ProfileCreationScheduler`, `WalletCreationProcessor`, `WalletCreationScheduler`, `RegistrationTaskRunner` |
 | `security/config` | `AccessTokenConfiguration`, `Argon2PasswordProperties`, `PasswordHashingConfiguration`, `SecurityConfiguration` |
 | `security/controller` | `JwksController` |
 | `security/jwt` | `AccessTokenSigner`, `PublicJwtKeys` |

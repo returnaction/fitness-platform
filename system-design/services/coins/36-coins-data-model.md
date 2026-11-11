@@ -6,7 +6,7 @@
 
 ### `coin_wallets`
 
-Внутренний вызов Identity `EnsureWallet` описан в [контракте регистрации](../identity/30-identity-registration.md#внутренний-контракт-создания-профиля-и-кошелька).
+Внутренний вызов Identity `CreateWalletIfAbsent` описан в [контракте регистрации](../identity/30-identity-registration.md#внутренний-контракт-создания-профиля-и-кошелька).
 
 | Поле | Тип и правило |
 | --- | --- |

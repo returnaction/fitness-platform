@@ -1,18 +1,18 @@
 # План: переписывание Accounts Service по инженерному стандарту
 
-> **Спецификация:** [spec.md](spec.md)  
-> **Статус:** draft  
-> **Связанные документы:** [инженерные стандарты](../../docs/engineering-standards.md), [модель профиля](../../system-design/services/accounts/32-accounts-profile.md), [контракт v1](../../contracts/proto/accounts-provisioning-v1.proto)
+> **Спецификация:** [spec.md](spec.md)
+> **Статус:** draft
+> **Связанные документы:** [инженерные стандарты](../../docs/engineering-standards.md), [модель профиля](../../system-design/services/accounts/32-accounts-profile.md), [контракт v1](../../contracts/proto/accounts-profile-creation-v1.proto)
 
 ## Краткое решение
 
-Заменить SQL, исполняемый через `JdbcClient`, на JPA-сущность профиля и Spring Data repository в функциональном пакете `profile`. Сервис сохранит транзакционную границу `ensureProfile`: сначала проверяет наличие профиля, затем пытается сохранить новый; уникальные ограничения PostgreSQL остаются последней защитой от гонок. Обработать конфликт уникальности так, чтобы повторный вызов не менял уже созданный профиль и коллизия генерации повторяла попытку. Конкретная реализация выбирается после аудита исключений Hibernate и существующих тестов, без неоправданных дополнительных уровней.
+Заменить SQL, исполняемый через `JdbcClient`, на JPA-сущность профиля и Spring Data repository в функциональном пакете `profile`. Сервис сохранит транзакционную границу `createIfAbsent`: сначала проверяет наличие профиля, затем пытается сохранить новый; уникальные ограничения PostgreSQL остаются последней защитой от гонок. Обработать конфликт уникальности так, чтобы повторный вызов не менял уже созданный профиль и коллизия генерации повторяла попытку. Конкретная реализация выбирается после аудита исключений Hibernate и существующих тестов, без неоправданных дополнительных уровней.
 
 ## Затрагиваемые границы
 
 | Область | Изменение | Владелец |
 | --- | --- | --- |
-| Accounts: profile | Entity, repository и provisioning service вместо `JdbcClient` | Accounts |
+| Accounts: profile | Entity, repository и сервис создания профиля вместо `JdbcClient` | Accounts |
 | Accounts: gRPC | Только адаптация к сохранённому service API при необходимости | Accounts / protobuf v1 |
 | Accounts: тесты | JPA-ориентированные PostgreSQL-проверки без `JdbcClient` | Accounts |
 
@@ -22,7 +22,7 @@
 
 ## Контракты и взаимодействия
 
-Identity продолжает вызывать `AccountsProvisioningService.EnsureProfile` по protobuf v1 с mTLS и существующим permission. Сохраняются канонические UUID, `READY`, `INVALID_ARGUMENT`, `ABORTED` для исчерпанных попыток уникальной генерации и принцип: ошибочный повтор не перезаписывает профиль. REST-контрактов эта работа не создаёт и не меняет.
+Identity продолжает вызывать `ProfileCreationService.CreateProfileIfAbsent` по protobuf v1 с mTLS и существующим permission. Сохраняются канонические UUID, `READY`, `INVALID_ARGUMENT`, `ABORTED` для исчерпанных попыток уникальной генерации и принцип: ошибочный повтор не перезаписывает профиль. REST-контрактов эта работа не создаёт и не меняет.
 
 ## Надёжность и безопасность
 

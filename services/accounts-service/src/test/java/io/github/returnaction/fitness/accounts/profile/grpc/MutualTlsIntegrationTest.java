@@ -137,7 +137,7 @@ class MutualTlsIntegrationTest {
     }
 
     @Test
-    void onlyIdentityWithTrustedClientCertificateCanProvision() throws Exception {
+    void onlyIdentityWithTrustedClientCertificateCanCreateProfile() throws Exception {
         KeyPair caKey = keyPair();
         X500Name caName = new X500Name("CN=Test CA");
         X509Certificate ca = certificate(caName, caName, caKey, caKey, null, true);
@@ -219,7 +219,9 @@ class MutualTlsIntegrationTest {
                     .satisfies(error -> assertThat(Status.fromThrowable(error).getCode())
                             .isEqualTo(Status.Code.PERMISSION_DENIED));
             UUID anonymousUser = UUID.randomUUID();
-            CreateProfileIfAbsentRequest anonymousRequest = request.toBuilder().setUserId(anonymousUser.toString()).build();
+            CreateProfileIfAbsentRequest anonymousRequest = request.toBuilder()
+                    .setUserId(anonymousUser.toString())
+                    .build();
             assertThatThrownBy(() -> ProfileCreationServiceGrpc.newBlockingStub(anonymous)
                     .withDeadlineAfter(5, TimeUnit.SECONDS)
                     .createProfileIfAbsent(anonymousRequest))
@@ -245,8 +247,10 @@ class MutualTlsIntegrationTest {
         }
     }
 
-    private static ManagedChannel channel(int port, X509Certificate ca, KeyPair key, X509Certificate certificate)
-            throws Exception {
+    private static ManagedChannel channel(int port,
+                                          X509Certificate ca,
+                                          KeyPair key,
+                                          X509Certificate certificate) throws Exception {
         var ssl = GrpcSslContexts.forClient().trustManager(ca);
         if (key != null) {
             ssl.keyManager(key.getPrivate(), certificate);
@@ -263,9 +267,12 @@ class MutualTlsIntegrationTest {
     }
 
     private static X509Certificate certificate(
-                                               X500Name issuer, X500Name subject, KeyPair subjectKey, KeyPair issuerKey,
-                                               GeneralName san, boolean ca)
-            throws Exception {
+                                               X500Name issuer,
+                                               X500Name subject,
+                                               KeyPair subjectKey,
+                                               KeyPair issuerKey,
+                                               GeneralName san,
+                                               boolean ca) throws Exception {
         Instant now = Instant.now();
         return certificate(
                 issuer, subject, subjectKey, issuerKey, san, ca, now.minusSeconds(60), now.plusSeconds(3600));
@@ -279,8 +286,7 @@ class MutualTlsIntegrationTest {
                                                GeneralName san,
                                                boolean ca,
                                                Instant validFrom,
-                                               Instant validUntil)
-            throws Exception {
+                                               Instant validUntil) throws Exception {
         var builder = new JcaX509v3CertificateBuilder(
                 issuer,
                 new BigInteger(128, new SecureRandom()).abs(),

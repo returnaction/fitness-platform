@@ -261,7 +261,7 @@ def concurrent_register(port, keys, email):
         return list(executor.map(send, keys))
 
 
-def assert_single_provisioned_user(container, email):
+def assert_single_registered_user(container, email):
     user = sql(container, "test_identity", f"SELECT id FROM users WHERE email_canonical='{email}'")
     user = str(uuid.UUID(user))
     assert sql(container, "test_identity", f"SELECT count(*) FROM users WHERE email_canonical='{email}'") == "1"
@@ -311,7 +311,7 @@ def lost_response_scenario(container, port, proxy, service):
             assert status == 503, "Unexpected HTTP status " + str(status)
             status, body = register(port, key, email)
         assert status == 201 and body["user"]["id"] == user
-        assert assert_single_provisioned_user(container, email) == user
+        assert assert_single_registered_user(container, email) == user
         if service == "accounts":
             assert sql(container, "test_accounts", f"SELECT nickname FROM user_profiles WHERE user_id='{user}'") == saved
         else:
@@ -450,7 +450,7 @@ def main():
             for service in ("accounts", "coins"):
                 env = environment(service + "-service", "test_" + service, ports[service])
                 prefix = service.upper() + "_GRPC"
-                env.update({prefix + "_ENABLED": "true", prefix + "_PORT": str(ports[service + "_grpc_real"]),
+                env.update({prefix + "_PORT": str(ports[service + "_grpc_real"]),
                             prefix + "_CERTIFICATE": str(cert_directory / (service + "-server.crt" if options.local_step_ca else "server.crt")),
                             prefix + "_PRIVATE_KEY": str(cert_directory / (service + "-server-pkcs8.key" if options.local_step_ca else "server.key")),
                             prefix + "_TRUST_CERTIFICATE": str(cert_directory / "ca.crt")})
@@ -525,7 +525,7 @@ def main():
             assert all(status in (201, 503) for status, _ in results), [status for status, _ in results]
             status, same_response = register(ports["identity"], same_key, same_email)
             assert status == 201
-            assert assert_single_provisioned_user(container, same_email) == same_response["user"]["id"]
+            assert assert_single_registered_user(container, same_email) == same_response["user"]["id"]
 
             race_email = "e2e-race-" + uuid.uuid4().hex + "@example.com"
             keys = [uuid.uuid4(), uuid.uuid4()]
@@ -535,7 +535,7 @@ def main():
             winner = keys[next(index for index, status in enumerate(statuses) if status in (201, 503))]
             status, winner_response = register(ports["identity"], winner, race_email)
             assert status == 201
-            assert assert_single_provisioned_user(container, race_email) == winner_response["user"]["id"]
+            assert assert_single_registered_user(container, race_email) == winner_response["user"]["id"]
             print("OK: crash with active lease, mTLS, retries and concurrent requests", flush=True)
             lost_response_scenario(container, ports["identity"], accounts_proxy, "accounts")
             lost_response_scenario(container, ports["identity"], coins_proxy, "coins")

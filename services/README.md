@@ -1,14 +1,22 @@
 # Services
 
-This directory will contain independent Spring Boot services. Each service will
-have its own build file, tests, and owned data.
 Each directory in this folder is an independent Spring Boot service and a Maven
 module. Services do not share business entities, repositories, or database
 tables. Their source-of-truth interaction schemas are in `../contracts/`.
 
 Current modules:
 
-- `identity-service/` — initial PENDING-registration API; full provisioning,
-  activation and sessions are still in progress.
-- `accounts-service/` — service bootstrap; profile tables and `EnsureProfile`
-  will be added in the next increment.
+- `identity-service/` — registration, activation, login and session management;
+  requests profile and wallet creation through internal gRPC clients.
+- `accounts-service/` — owns profiles and implements `CreateProfileIfAbsent`.
+- `coins-service/` — owns wallets and implements `CreateWalletIfAbsent`.
+
+Accounts and Coins always start their internal gRPC servers with mandatory mTLS.
+Prepare the certificates using [local step-ca](../platform/step-ca/README.md)
+and configure the paths in each service's `.env`. Missing or invalid TLS
+materials prevent startup. The removed `COINS_GRPC_ENABLED` setting no longer
+disables the server.
+
+Spec 011 renames the internal profile/wallet contracts within v1. Rebuild and
+restart Identity, Accounts and Coins together: old binaries use different gRPC
+method paths and cannot communicate with the renamed APIs.

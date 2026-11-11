@@ -23,8 +23,8 @@
   хеша пароля и защита уникальности нормализованного email.
 - Обязательный `Idempotency-Key`, безопасный повтор запроса и восстановление
   после потерянного ответа.
-- Идемпотентные gRPC-команды Identity → Accounts `EnsureProfile` и Identity →
-  Coins `EnsureWallet`.
+- Идемпотентные gRPC-команды Identity → Accounts `CreateProfileIfAbsent` и Identity →
+  Coins `CreateWalletIfAbsent`.
 - Создание профиля с уникальным ником `Player_<случайные цифры>` и кошелька с
   нулевым балансом.
 - Фоновое восстановление `PENDING`-регистрации после временного сбоя.
@@ -52,7 +52,7 @@
 | Роль | Что может делать |
 | --- | --- |
 | Неаутентифицированный пользователь | Отправить регистрацию и безопасно повторить её с тем же ключом. |
-| Identity service identity | Вызвать `EnsureProfile` и `EnsureWallet` с правом `identity.registration.provision`. |
+| Identity service identity | Вызвать `CreateProfileIfAbsent` и `CreateWalletIfAbsent` с правом `identity.registration.provision`. |
 | Accounts / Coins | Создать или подтвердить только собственный объект указанного `user_id`; не менять данные другого сервиса. |
 | Оператор с правом `identity.registration.recover` | Возобновить технически заблокированную операцию с аудитом причины; не активировать пользователя вручную. |
 
