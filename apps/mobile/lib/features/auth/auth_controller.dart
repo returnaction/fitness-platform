@@ -36,14 +36,17 @@ final authControllerProvider =
     AsyncNotifierProvider<AuthController, AuthStatus>(AuthController.new);
 
 class AuthController extends AsyncNotifier<AuthStatus> {
+  int _operationId = 0;
+
   @override
   Future<AuthStatus> build() async {
     return _restore();
   }
 
   Future<void> restore() async {
-    state = const AsyncLoading();
-    state = await AsyncValue.guard(_restore);
+    final operation = _beginOperation();
+    final result = await AsyncValue.guard(_restore);
+    _publish(operation, result);
   }
 
   Future<void> login({required String email, required String password}) {
@@ -77,33 +80,51 @@ class AuthController extends AsyncNotifier<AuthStatus> {
       _logout(ref.read(authRepositoryProvider).logoutAll);
 
   Future<void> discardLocalSession() async {
-    state = const AsyncLoading();
+    final operation = _beginOperation();
     final tokensCleared = await ref
         .read(authRepositoryProvider)
         .discardLocalSession();
-    state = AsyncData(
-      tokensCleared ? AuthStatus.guest : AuthStatus.storageFailure,
+    _publish(
+      operation,
+      AsyncData(tokensCleared ? AuthStatus.guest : AuthStatus.storageFailure),
     );
   }
 
   Future<void> _authenticate(Future<void> Function() action) async {
-    state = const AsyncLoading();
+    final operation = _beginOperation();
     try {
       await action();
-      state = const AsyncData(AuthStatus.authenticated);
+      _publish(operation, const AsyncData(AuthStatus.authenticated));
     } catch (error, stackTrace) {
-      state = const AsyncData(AuthStatus.guest);
+      _publish(operation, const AsyncData(AuthStatus.guest));
       Error.throwWithStackTrace(error, stackTrace);
     }
   }
 
   Future<LogoutResult> _logout(Future<LogoutResult> Function() action) async {
-    state = const AsyncLoading();
+    final operation = _beginOperation();
     final result = await action();
-    state = AsyncData(
-      result.localTokensCleared ? AuthStatus.guest : AuthStatus.storageFailure,
+    _publish(
+      operation,
+      AsyncData(
+        result.localTokensCleared
+            ? AuthStatus.guest
+            : AuthStatus.storageFailure,
+      ),
     );
     return result;
+  }
+
+  int _beginOperation() {
+    final operation = ++_operationId;
+    state = const AsyncLoading();
+    return operation;
+  }
+
+  void _publish(int operation, AsyncValue<AuthStatus> result) {
+    if (ref.mounted && operation == _operationId) {
+      state = result;
+    }
   }
 
   Future<AuthStatus> _restore() async {

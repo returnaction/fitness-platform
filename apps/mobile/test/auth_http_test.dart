@@ -11,6 +11,48 @@ import 'package:fitness_app/features/auth/session_operation_coordinator.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  for (final status in [200, 502, 503]) {
+    test('HTML response $status is safe and is not retried', () async {
+      final adapter = _Adapter()
+        ..status = status
+        ..rawBody = '<html>unavailable</html>'
+        ..contentType = 'text/html';
+      final dio = Dio(BaseOptions(baseUrl: 'http://127.0.0.1:8088'))
+        ..httpClientAdapter = adapter;
+      addTearDown(dio.close);
+      await expectLater(
+        IdentityApiClient(dio).post('/api/v1/auth/refresh'),
+        status == 200
+            ? throwsFormatException
+            : throwsA(
+                isA<IdentityApiException>()
+                    .having((error) => error.statusCode, 'status', status)
+                    .having((error) => error.code, 'code', isNull),
+              ),
+      );
+      expect(adapter.requests, hasLength(1));
+    });
+  }
+  test('malformed JSON refresh cannot reuse stored tokens', () async {
+    final adapter = _Adapter()..rawBody = '{broken';
+    final dio = Dio(BaseOptions(baseUrl: 'http://127.0.0.1:8088'))
+      ..httpClientAdapter = adapter;
+    addTearDown(dio.close);
+    final storage = TokenStorage(_Store());
+    await storage.write(
+      const SessionTokens(accessToken: 'a', refreshToken: 'r'),
+    );
+    final repository = AuthRepository(
+      IdentityApiClient(dio),
+      storage,
+      SessionOperationCoordinator(),
+    );
+    expect(await repository.restore(), SessionRestoreResult.guest);
+    expect(await storage.read(), isNull);
+    expect(await repository.restore(), SessionRestoreResult.guest);
+    expect(adapter.requests, hasLength(1));
+  });
+
   const pair = SessionTokens(accessToken: 'access', refreshToken: 'refresh');
   for (final operation in [
     'register',
@@ -146,6 +188,8 @@ void main() {
 
 class _Adapter implements HttpClientAdapter {
   int status = 200;
+  String? rawBody;
+  String contentType = 'application/json';
   Object body = {};
   final requests = <RequestOptions>[];
   @override
@@ -156,10 +200,10 @@ class _Adapter implements HttpClientAdapter {
   ) async {
     requests.add(options);
     return ResponseBody.fromString(
-      status == 204 ? '' : jsonEncode(body),
+      rawBody ?? (status == 204 ? '' : jsonEncode(body)),
       status,
       headers: {
-        'content-type': ['application/json'],
+        'content-type': [contentType],
         'retry-after': ['60'],
         'cache-control': ['no-store'],
       },
