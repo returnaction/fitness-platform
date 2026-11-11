@@ -122,7 +122,8 @@ The 48 automated tests cover HTTP contracts with a substituted transport,
 repository races, session failure policy, storage failures and UI transitions.
 They do not prove real-device failure injection. See
 [Spec 008 verification](../../specs/008-mobile-flutter-auth/verification.md) for
-actual phone results and outstanding emulator checks. The observed Pixel_7
-attempt remained RUNNING_LOCKED with a black screen; its successful APK install
-is not an application smoke-test pass. Build and emulator startup should run
-sequentially on a memory-constrained host.
+actual phone results and outstanding emulator checks. Pixel_7 now passed the
+five basic auth operations after the owner opened the correct project and
+unlocked Android. Emulator-specific failure checks remain open. A successful
+APK install alone is not an application smoke-test pass. Build and emulator
+startup should run sequentially on a memory-constrained host.
