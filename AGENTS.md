@@ -4,10 +4,10 @@ This root file applies to the entire repository, including the
 [System Design documentation](system-design/README.md). More specific
 instructions in nested directories supplement the root instructions.
 
-## Active SDD Scope: 009-gateway-access
+## Active SDD Scope: 008-mobile-flutter-auth
 
 Until the user explicitly changes the scope, a request to continue development
-means continuing [009-gateway-access](specs/009-gateway-access/spec.md).
+means continuing [008-mobile-flutter-auth](specs/008-mobile-flutter-auth/spec.md).
 Do not start implementing another feature or a system-design roadmap item just
 because it exists in the documentation. When the specification is complete or
 all remaining tasks are blocked, report the status and ask the user what to do
@@ -15,9 +15,9 @@ next rather than choosing a different feature.
 
 Before each development step:
 
-1. Read the current [task list](specs/009-gateway-access/tasks.md),
-   [specification](specs/009-gateway-access/spec.md), and
-   [plan](specs/009-gateway-access/plan.md). Identify an open task, its
+1. Read the current [task list](specs/008-mobile-flutter-auth/tasks.md),
+   [specification](specs/008-mobile-flutter-auth/spec.md), and
+   [plan](specs/008-mobile-flutter-auth/plan.md). Identify an open task, its
    acceptance criteria, and any dependencies. Respect an explicit user request
    and the current branch; do not assume the first unchecked item is always
    actionable.
