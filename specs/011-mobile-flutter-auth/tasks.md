@@ -36,9 +36,12 @@
   сервисы Accounts/Coins/Identity, тесты и документацию.
 - [x] T001 (после T000): Зафиксировать решение владельца: проект работает
   локально, контракты переименовываются в рамках v1, сервисы обновляются вместе.
-- [ ] T002 (после T001): Переименовать v1 контракты в `CreateProfileIfAbsent` и
+- [x] T002 (после T001): Переименовать v1 контракты в `CreateProfileIfAbsent` и
   `CreateWalletIfAbsent`; описать владельцев, mTLS, permission, поля, ошибки,
   идемпотентность и совместимость.
+  Проверено: Maven Wrapper `-pl contracts/grpc-contracts -am test`, 3 теста
+  генерации и полных имён gRPC, без ошибок и пропусков. Windows Wrapper требует
+  обхода через Git Bash и `JAVA_TOOL_OPTIONS=-Duser.home=C:\Users\Oberg`.
 
 ## Реализация
 

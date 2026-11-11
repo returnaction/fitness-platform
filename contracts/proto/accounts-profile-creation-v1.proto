@@ -1,24 +1,24 @@
 syntax = "proto3";
 
-package fitness.accounts.provisioning.v1;
+package fitness.accounts.profile.creation.v1;
 
 option java_multiple_files = true;
-option java_package = "io.github.returnaction.fitness.contracts.accounts.provisioning.v1";
-option java_outer_classname = "AccountsProvisioningV1Proto";
+option java_package = "io.github.returnaction.fitness.contracts.accounts.profile.creation.v1";
+option java_outer_classname = "ProfileCreationV1Proto";
 
 // Владелец этого контракта — сервис Accounts. Сервис Identity вызывает его
-// только во время процесса регистрации (provisioning).
+// только во время процесса регистрации (creation).
 // Оба сервиса проверяют, что UUID-строки переданы в нижнем регистре (lowercase).
-service AccountsProvisioningService {
+service ProfileCreationService {
   // Требует mTLS-аутентификацию сервиса Identity и наличие разрешения (permission)
   // identity.registration.provision. Повторные вызовы безопасны (идемпотентны)
   // и никогда не перезаписывают существующий профиль для того же user_id.
-  rpc EnsureProfile(EnsureProfileRequest) returns (EnsureProfileResponse);
+  rpc CreateProfileIfAbsent(CreateProfileIfAbsentRequest) returns (CreateProfileIfAbsentResponse);
 }
 
 // Запрос на создание (или проверку существования) профиля пользователя.
 // Используется сервисом Identity при регистрации нового пользователя.
-message EnsureProfileRequest {
+message CreateProfileIfAbsentRequest {
   // Диагностический UUID. Не дает прав доступа. Не должен попадать в публичные логи.
   string request_id = 1;
 
@@ -30,12 +30,12 @@ message EnsureProfileRequest {
 }
 
 // Ответ на запрос создания профиля.
-message EnsureProfileResponse {
+message CreateProfileIfAbsentResponse {
   // UUID пользователя, для которого был создан (или найден) профиль.
   string user_id = 1;
 
   // READY означает, что профиль уже сохранён. Ошибки передаются статусом gRPC.
-  ProvisioningStatus status = 2;
+  CreationStatus status = 2;
 }
 
 // INVALID_ARGUMENT: некорректный UUID; UNAUTHENTICATED / PERMISSION_DENIED:
@@ -44,12 +44,12 @@ message EnsureProfileResponse {
 // неожиданный INTERNAL также повторяется с ограниченным backoff в Identity.
 
 // Перечисление (Enum) статусов готовности профиля.
-enum ProvisioningStatus {
+enum CreationStatus {
   // Статус не определен (значение по умолчанию, которого не должно быть в реальности).
-  PROVISIONING_STATUS_UNSPECIFIED = 0;
+  CREATION_STATUS_UNSPECIFIED = 0;
 
   // Профиль успешно сохранен в локальной базе данных сервиса Accounts.
-  PROVISIONING_STATUS_READY = 1;
+  CREATION_STATUS_READY = 1;
 }
 
 // ==============================================================================
@@ -80,16 +80,16 @@ enum ProvisioningStatus {
 //    этот файл и сгенерирует Java-классы. Эта опция говорит:
 //    "Положи сгенерированные Java-файлы в пакет io.github.returnaction.fitness.contracts..."
 //
-// 3. `service AccountsProvisioningService`
+// 3. `service ProfileCreationService`
 //    Мы описываем интерфейс (сервис). Из него сгенерируется Java-интерфейс.
 //    Сервис Accounts будет реализовывать этот интерфейс (напишет логику),
 //    а сервис Identity будет вызывать его методы (как клиент).
 //
-// 4. `rpc EnsureProfile(...)`
+// 4. `rpc CreateProfileIfAbsent(...)`
 //    Это метод (удаленный вызов процедуры).
 //    Из этой строчки сгенерируются:
-//    - Класс `EnsureProfileRequest` (Java-объект с полями request_id, user_id...)
-//    - Класс `EnsureProfileResponse` (Java-объект для ответа)
+//    - Класс `CreateProfileIfAbsentRequest` (Java-объект с полями request_id, user_id...)
+//    - Класс `CreateProfileIfAbsentResponse` (Java-объект для ответа)
 //    - Метод для отправки запроса по сети.
 //
 // ------------------------------------------------------------------------------
