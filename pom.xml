@@ -51,6 +51,7 @@
   <!-- Сначала собираются контракты, так как они нужны всем сервисам.         -->
   <!-- ====================================================================== -->
     <modules>
+        <module>services/gateway-service</module>
         <module>contracts/grpc-contracts</module>
         <module>services/identity-service</module>
         <module>services/accounts-service</module>
@@ -66,6 +67,7 @@
   <!-- Меняем версию здесь — она меняется ВО ВСЕХ сервисах сразу.             -->
   <!-- ====================================================================== -->
     <properties>
+        <spring-cloud.version>2025.1.4</spring-cloud.version>
         <!-- Версия Java. Spring Boot Parent использует её для настройки компилятора. -->
         <java.version>25</java.version>
         <mapstruct.version>1.6.3</mapstruct.version>

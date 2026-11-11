@@ -8,6 +8,7 @@ import os
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 import socket
+import shutil
 import subprocess
 import tempfile
 import threading
@@ -110,6 +111,20 @@ def free_port():
         return sock.getsockname()[1]
 
 
+def assert_loopback_only(port):
+    addresses = {item[4][0] for item in socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET)}
+    addresses = {address for address in addresses if not address.startswith("127.")}
+    if not addresses:
+        raise RuntimeError("No non-loopback interface available to verify local isolation")
+    for address in addresses:
+        try:
+            connection = socket.create_connection((address, port), timeout=1)
+        except OSError:
+            continue
+        connection.close()
+        raise AssertionError("Internal service reachable through a non-loopback interface")
+
+
 def test_environment(service):
     result = {}
     for line in (ROOT / "services" / service / "src" / "test" / "resources" / "test-environment.properties").read_text(encoding="utf-8").splitlines():
@@ -138,6 +153,7 @@ def certificates(directory):
     for name, extensions in (
         ("server", "subjectAltName=DNS:localhost\nextendedKeyUsage=serverAuth\n"),
         ("client", "subjectAltName=URI:spiffe://fitness.local/identity-service\nextendedKeyUsage=clientAuth\n"),
+        ("gateway", "subjectAltName=URI:spiffe://fitness.local/gateway-service\nextendedKeyUsage=clientAuth\n"),
     ):
         key, csr, cert, ext = (directory / (name + suffix) for suffix in (".key", ".csr", ".crt", ".ext"))
         ext.write_text(extensions, encoding="ascii")
@@ -154,8 +170,11 @@ def start(service, environment, directory):
     jar = ROOT / "services" / service / "target" / (service + "-0.1.0-SNAPSHOT.jar")
     if not jar.is_file():
         raise RuntimeError("Сначала собери сервисы командой mvnw package: " + service)
+    staged_jar = directory / jar.name
+    if not staged_jar.exists():
+        shutil.copy2(jar, staged_jar)
     log = (directory / (service + ".log")).open("a", encoding="utf-8")
-    process = subprocess.Popen([JAVA, "-jar", str(jar)], cwd=ROOT, env=environment, stdout=log,
+    process = subprocess.Popen([JAVA, "-jar", str(staged_jar)], cwd=ROOT, env=environment, stdout=log,
                                stderr=subprocess.STDOUT)
     PROCESSES.append((process, log))
     return process
@@ -307,7 +326,11 @@ def main():
         raise RuntimeError("Run this test without Python optimization (-O or PYTHONOPTIMIZE)")
     parser = argparse.ArgumentParser(description="Isolated registration end-to-end test")
     parser.add_argument("--local-step-ca", action="store_true", help="Use existing local step-ca certificates read-only")
+    parser.add_argument("--gateway", action="store_true", help="Run all auth scenarios through Gateway with real mTLS")
+    parser.add_argument("--postman", action="store_true", help="Run the existing collection with pinned Newman 6.2.3 (requires --gateway)")
     options = parser.parse_args()
+    if options.postman and not options.gateway:
+        parser.error("--postman requires --gateway")
     container = None
     lock_process = None
     proxies = []
@@ -339,7 +362,7 @@ def main():
                 run("docker", "exec", container, "createdb", "-U", "postgres", database)
             ports = {}
             for name in ("identity", "accounts", "coins", "accounts_grpc", "coins_grpc",
-                         "accounts_grpc_real", "coins_grpc_real", "identity_session_grpc"):
+                         "accounts_grpc_real", "coins_grpc_real", "identity_session_grpc", "gateway", "gateway_management"):
                 port = free_port()
                 while port in ports.values():
                     port = free_port()
@@ -365,7 +388,9 @@ def main():
                              "IDENTITY_SESSION_GRPC_CERTIFICATE": str(directory / "server.crt"),
                              "IDENTITY_SESSION_GRPC_PRIVATE_KEY": str(directory / "server.key"),
                              "IDENTITY_SESSION_GRPC_TRUST_CERTIFICATE": str(directory / "ca.crt"),
-                             "IDENTITY_SESSION_GRPC_ALLOWED_CALLER": "spiffe://fitness.local/test-client",
+                             "IDENTITY_SESSION_GRPC_ALLOWED_CALLER": "spiffe://fitness.local/gateway-service",
+                             "IDENTITY_REGISTRATION_TRUSTED_PROXY_IP": "127.0.0.1",
+                             "SERVER_ADDRESS": "127.0.0.1",
                              "IDENTITY_ACCOUNTS_GRPC_PORT": str(ports["accounts_grpc"]),
                              "IDENTITY_COINS_GRPC_PORT": str(ports["coins_grpc"]),
                              "IDENTITY_REGISTRATION_WORKER_POLL_MS": "1000",
@@ -377,6 +402,31 @@ def main():
                 identity[prefix + "_TRUST_CERTIFICATE"] = str(cert_directory / "ca.crt")
             process = start("identity-service", identity, directory)
             await_health(ports["identity"], process)
+            identity_http_port = ports["identity"]
+            if options.gateway:
+                gateway_env = os.environ.copy()
+                gateway_env.update(test_environment("gateway-service"))
+                gateway_env.update({
+                    "SPRING_PROFILES_ACTIVE": "e2e", "SERVER_PORT": str(ports["gateway"]),
+                    "MANAGEMENT_PORT": str(ports["gateway_management"]),
+                    "GATEWAY_IDENTITY_URL": f"http://127.0.0.1:{identity_http_port}",
+                    "GATEWAY_JWKS_URL": f"http://127.0.0.1:{identity_http_port}/.well-known/jwks.json",
+                    "GATEWAY_JWT_ISSUER": identity["IDENTITY_JWT_ISSUER"],
+                    "GATEWAY_JWT_AUDIENCE": identity["IDENTITY_JWT_AUDIENCE"],
+                    "GATEWAY_SESSION_PORT": str(ports["identity_session_grpc"]),
+                    "GATEWAY_CERTIFICATE": str(directory / "gateway.crt"),
+                    "GATEWAY_PRIVATE_KEY": str(directory / "gateway.key"),
+                    "GATEWAY_TRUST_CERTIFICATE": str(directory / "ca.crt"),
+                    "GATEWAY_HTTP_TIMEOUT_MILLIS": "15000",
+                })
+                gateway_process = start("gateway-service", gateway_env, directory)
+                await_health(ports["gateway_management"], gateway_process)
+                ports["identity"] = ports["gateway"]
+                assert_loopback_only(identity_http_port)
+                assert_loopback_only(ports["identity_session_grpc"])
+                assert_loopback_only(ports["gateway_management"])
+                print("OK: internal HTTP, gRPC and management unavailable via non-loopback interfaces", flush=True)
+                print("OK: Gateway started; auth traffic uses Gateway", flush=True)
             key, email = uuid.uuid4(), "e2e-" + uuid.uuid4().hex + "@example.com"
             status, body = register(ports["identity"], key, email)
             if status != 503 or body["error"]["code"] != "registration_unavailable":
@@ -417,7 +467,7 @@ def main():
                     raise AssertionError("Could not acquire the temporary test lock")
                 time.sleep(0.1)
             process = start("identity-service", identity, directory)
-            await_health(ports["identity"], process)
+            await_health(identity_http_port, process)
             lease_deadline = time.monotonic() + 15
             while True:
                 active = sql(container, "test_identity", "SELECT EXISTS (SELECT 1 FROM registration_operations o "
@@ -443,7 +493,7 @@ def main():
                 "WHERE application_name='fitness-e2e-lock'")
             lock_process.wait(timeout=10)
             process = start("identity-service", identity, directory)
-            await_health(ports["identity"], process)
+            await_health(identity_http_port, process)
             deadline = time.monotonic() + 45
             while True:
                 status, body = register(ports["identity"], key, email)
@@ -509,10 +559,21 @@ def main():
             refresh_status, rotated = refresh_session(ports["identity"], fresh["refresh_token"])
             assert refresh_status == 200 and token_roles(rotated["access_token"]) == ["USER"]
             fresh = rotated
+            # A received-but-discarded refresh response models a lost response at the client.
+            _, lost_session = login(ports["identity"], direct_email, TEST_PASSWORD)
+            _, lost_rotation = refresh_session(ports["identity"], lost_session["refresh_token"])
+            assert post_auth(ports["identity"], "refresh", {"refresh_token": lost_session["refresh_token"]}) == 401
+            assert post_auth(ports["identity"], "logout-all", bearer=lost_rotation["access_token"]) == 401
+            print("OK: replay after a discarded refresh response revokes the session", flush=True)
             direct_refresh = direct["session"]["refresh_token"]
             assert post_auth(ports["identity"], "logout", {"refresh_token": direct_refresh}) == 204
             assert post_auth(ports["identity"], "refresh", {"refresh_token": direct_refresh}) == 401
-            assert post_auth(ports["identity"], "logout-all", bearer=fresh["access_token"]) == 204
+            logout_all_status = post_auth(ports["identity"], "logout-all", bearer=fresh["access_token"])
+            if options.gateway and logout_all_status != 204:
+                for line in (directory / "gateway-service.log").read_text(encoding="utf-8", errors="replace").splitlines():
+                    if "Session verification unavailable:" in line:
+                        print(line.split("Session verification unavailable:", 1)[1].strip(), flush=True)
+            assert logout_all_status == 204, "logout-all expected 204, got " + str(logout_all_status)
             assert post_auth(ports["identity"], "logout-all", bearer=fresh["access_token"]) == 401
             assert post_auth(ports["identity"], "refresh", {"refresh_token": fresh["refresh_token"]}) == 401
             print("OK: logout and logout-all revoke sessions and refresh tokens", flush=True)
@@ -528,7 +589,44 @@ def main():
                 "logout-all access token": fresh["access_token"],
                 "logout-all refresh token": fresh["refresh_token"],
             }
-            for service in ("identity-service", "accounts-service", "coins-service"):
+            if options.gateway:
+                if options.postman:
+                    npx = shutil.which("npx.cmd" if os.name == "nt" else "npx")
+                    if not npx:
+                        raise RuntimeError("Node.js/npx is required for Postman verification")
+                    completed = subprocess.run([npx, "--yes", "newman@6.2.3", "run",
+                        str(ROOT / "postman" / "fitness-local.postman_collection.json"),
+                        "--env-var", f"base_url=http://127.0.0.1:{ports['identity']}",
+                        "--timeout-request", "20000", "--color", "off"],
+                        text=True, encoding="utf-8", errors="replace", stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+                    if completed.returncode:
+                        # CLI diagnostics contain test names/statuses, never dump request/response bodies.
+                        raise RuntimeError("Postman collection assertions failed; exit " + str(completed.returncode))
+                    print("OK: Postman collection passed using Newman 6.2.3", flush=True)
+                _, active = login(ports["identity"], direct_email, TEST_PASSWORD)
+                process.terminate()
+                process.wait(timeout=15)
+                assert post_auth(ports["identity"], "logout-all", bearer=active["access_token"]) == 503
+                if options.postman:
+                    postman_env = directory / "postman-outage.json"
+                    postman_env.write_text(json.dumps({"values": [
+                        {"key": "run_outage", "value": "true", "enabled": True},
+                        {"key": "outage_access_token", "value": active["access_token"], "enabled": True},
+                        {"key": "base_url", "value": f"http://127.0.0.1:{ports['identity']}", "enabled": True},
+                    ]}), encoding="utf-8")
+                    result = subprocess.run([npx, "--yes", "newman@6.2.3", "run",
+                        str(ROOT / "postman" / "fitness-local.postman_collection.json"),
+                        "--environment", str(postman_env), "--folder", "12. Недоступность Identity (отдельно)",
+                        "--timeout-request", "20000", "--color", "off"],
+                        stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+                    if result.returncode:
+                        raise RuntimeError("Postman outage assertions failed")
+                    print("OK: Postman outage scenario passed", flush=True)
+                print("OK: unavailable Identity fails closed with 503 through Gateway", flush=True)
+            services = ["identity-service", "accounts-service", "coins-service"]
+            if options.gateway:
+                services.append("gateway-service")
+            for service in services:
                 log_contents = (directory / (service + ".log")).read_text(encoding="utf-8", errors="replace")
                 for label, value in sensitive_values.items():
                     assert value not in log_contents, label + " leaked into " + service + " log"

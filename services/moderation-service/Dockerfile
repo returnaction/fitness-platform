@@ -6,6 +6,7 @@ COPY mvnw pom.xml ./
 COPY contracts/grpc-contracts/pom.xml contracts/grpc-contracts/pom.xml
 # Maven читает POM каждого модуля, перечисленного в корневом pom.xml.
 COPY services/identity-service/pom.xml services/identity-service/pom.xml
+COPY services/gateway-service/pom.xml services/gateway-service/pom.xml
 COPY services/accounts-service/pom.xml services/accounts-service/pom.xml
 COPY services/coins-service/pom.xml services/coins-service/pom.xml
 COPY services/challenge-service/pom.xml services/challenge-service/pom.xml
