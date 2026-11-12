@@ -23,7 +23,8 @@ Query string не поддерживается (400). Неизвестный п�
 не маршрутизируются. Management Gateway доступен отдельно на loopback.
 
 Gateway передаёт только Content-Type, Accept, Authorization, Idempotency-Key,
-канонический X-Request-Id и X-Forwarded-For из TCP peer. Клиентские user/role,
+сгенерированный Gateway X-Request-Id и X-Forwarded-For из TCP peer.
+Gateway всегда создаёт новый UUID; клиентский X-Request-Id игнорируется, даже корректный. Клиентские user/role,
 Cookie, Forwarded и X-Forwarded-* не являются доверенным контекстом.
 Identity доверяет X-Forwarded-For только от настроенного IP Gateway.
 

@@ -52,6 +52,8 @@ gateway:
     services:
       IDENTITY:
         base-url: ${IDENTITY_HTTP_BASE_URL}
+      ACCOUNT:
+        base-url: ${ACCOUNT_HTTP_BASE_URL}
   security:
     jwks-startup:
       attempt-timeout: 3s

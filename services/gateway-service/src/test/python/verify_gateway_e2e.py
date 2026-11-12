@@ -127,7 +127,7 @@ def main():
             else:
                 raise AssertionError("Disposable PostgreSQL did not start")
             database_port = support.run("docker", "port", container, "5432/tcp").splitlines()[0].rsplit(":", 1)[1]
-            names = ("identity", "accounts", "coins", "identity_grpc", "accounts_grpc", "coins_grpc", "gateway", "management")
+            names = ("identity", "accounts", "coins", "identity_grpc", "accounts_grpc", "coins_grpc", "gateway", "management", "identity_management")
             ports = {}
             for name in names:
                 port = support.free_port()
@@ -159,7 +159,8 @@ def main():
                 support.await_health(ports[service], support.start(service + "-service", env, directory))
 
             identity = environment("identity")
-            identity.update(IDENTITY_JWT_PRIVATE_KEY=str(directory / "jwt.key"), IDENTITY_JWT_PUBLIC_KEY=str(directory / "jwt.pub"),
+            identity.update(IDENTITY_MANAGEMENT_PORT=str(ports["identity_management"]),
+                            IDENTITY_JWT_PRIVATE_KEY=str(directory / "jwt.key"), IDENTITY_JWT_PUBLIC_KEY=str(directory / "jwt.pub"),
                             IDENTITY_JWT_KEY_ID="spec012-first", IDENTITY_SESSION_GRPC_PORT=str(ports["identity_grpc"]),
                             IDENTITY_SESSION_GRPC_CERTIFICATE=str(directory / "server.crt"),
                             IDENTITY_SESSION_GRPC_PRIVATE_KEY=str(directory / "server.key"),
@@ -171,10 +172,11 @@ def main():
                 identity.update({prefix + "_PORT": str(ports[service + "_grpc"]), prefix + "_CERTIFICATE": str(directory / "client.crt"),
                                  prefix + "_PRIVATE_KEY": str(directory / "client.key"), prefix + "_TRUST_CERTIFICATE": str(directory / "ca.crt")})
             identity_process = support.start("identity-service", identity, directory)
-            support.await_health(ports["identity"], identity_process)
+            support.await_health(ports["identity_management"], identity_process)
 
             gateway = environment("gateway")
             gateway.update(MANAGEMENT_PORT=str(ports["management"]), IDENTITY_HTTP_BASE_URL=f"http://127.0.0.1:{ports['identity']}",
+                           ACCOUNT_HTTP_BASE_URL=f"http://127.0.0.1:{ports['accounts']}",
                            GATEWAY_JWKS_URL=f"http://127.0.0.1:{ports['identity']}/.well-known/jwks.json",
                            GATEWAY_JWT_ISSUER=identity["IDENTITY_JWT_ISSUER"], GATEWAY_JWT_AUDIENCE=identity["IDENTITY_JWT_AUDIENCE"],
                            IDENTITY_SESSION_PORT=str(ports["identity_grpc"]), GATEWAY_CERTIFICATE=str(directory / "gateway.crt"),
@@ -235,7 +237,7 @@ def main():
             support.openssl("pkey", "-in", directory / "jwt.key", "-pubout", "-out", directory / "jwt.pub")
             identity["IDENTITY_JWT_KEY_ID"] = "spec012-second"
             identity_process = support.start("identity-service", identity, directory)
-            support.await_health(ports["identity"], identity_process)
+            support.await_health(ports["identity_management"], identity_process)
             new = login()
             require(request(port, "/api/v1/auth/logout-all", bearer=new["access_token"])[0] == 401, "Gateway unexpectedly refreshed JWKS")
             stop(gateway_process)
