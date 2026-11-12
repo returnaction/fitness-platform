@@ -1,7 +1,5 @@
 package io.github.returnaction.fitness.gateway.routing;
 
-import io.github.returnaction.fitness.gateway.configuration.properties.UpstreamProperties;
-
 import static org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher.withDefaults;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -16,8 +14,7 @@ public final class RouteAccessPolicy {
     private final RequestMatcher publicRequests;
     private final RequestMatcher protectedRequests;
 
-    public RouteAccessPolicy(UpstreamProperties upstreams) {
-        GatewayRouteValidator.validate(GatewayRouteCatalog.routes(), upstreams);
+    public RouteAccessPolicy() {
         publicRequests = matcherFor(RouteAccess.PUBLIC);
         protectedRequests = matcherFor(RouteAccess.AUTHENTICATED);
     }

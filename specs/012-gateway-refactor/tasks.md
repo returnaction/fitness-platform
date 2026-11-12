@@ -289,6 +289,18 @@ Spotless и SpotBugs без замечаний. Сквозной сценари�
   400 invalid_request с общим DTO/request ID, без downstream. Проверить приоритет
   404/405, запросы без query и запрет извлечения токенов из query.
 
+## Уточнения после ревью
+
+- [x] T013: По запросу пользователя подготовить matcher'ы RouteValidationFilter
+  один раз при создании фильтра, оставить проверку каталога только при создании
+  маршрутов и убрать зависимость RouteAccessPolicy от UpstreamProperties.
+  Заменить wildcard imports в двух классах properties, сохранив остальные
+  пользовательские правки. Проверить прежние 404/405/Allow/query/access сценарии,
+  запуск контекста и полный verify, включая Spotless/SpotBugs.
+  Проверено 2026-11-12: Maven Wrapper `-pl services/gateway-service -am spotless:apply verify`
+  с локальным Maven cache прошёл: 45 тестов Gateway + 3 теста контрактов,
+  Spotless и SpotBugs без ошибок. Проверены Markdown-ссылки и `git diff --check`.
+
 ## Последующая работа вне Spec 012
 
 - [ ] После завершения Spec 012 отдельной задачей реализовать в принимающих

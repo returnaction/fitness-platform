@@ -15,6 +15,7 @@ import java.io.IOException;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
+import org.springframework.security.web.util.matcher.RequestMatcher;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
@@ -24,6 +25,15 @@ public final class RouteValidationFilter extends OncePerRequestFilter {
 
     private final GatewayErrorWriter errorWriter;
     private final ManagementPort management;
+    private final List<RouteMatcher> routes = createRouteMatchers();
+
+    private static List<RouteMatcher> createRouteMatchers() {
+        var paths = withDefaults();
+        return GatewayRouteCatalog.routes()
+                .stream()
+                .map(definition -> new RouteMatcher(paths.matcher(definition.path()), definition.method().name()))
+                .toList();
+    }
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
@@ -54,14 +64,16 @@ public final class RouteValidationFilter extends OncePerRequestFilter {
         chain.doFilter(request, response);
     }
 
-    private static List<String> allowedMethods(HttpServletRequest request) {
-        var paths = withDefaults();
-        return GatewayRouteCatalog.routes()
+    private List<String> allowedMethods(HttpServletRequest request) {
+        return routes
                 .stream()
-                .filter(definition -> paths.matcher(definition.path()).matches(request))
-                .map(definition -> definition.method().name())
+                .filter(route -> route.matcher().matches(request))
+                .map(RouteMatcher::method)
                 .distinct()
                 .sorted()
                 .toList();
+    }
+
+    private record RouteMatcher(RequestMatcher matcher, String method) {
     }
 }
