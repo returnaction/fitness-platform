@@ -20,6 +20,7 @@ public final class GatewayErrorWriter {
                       int status,
                       GatewayErrorCode error,
                       String requestId) throws IOException {
+
         if (response.isCommitted()) {
             throw new IllegalStateException(
                     "Cannot write an API error after response is committed");
