@@ -102,3 +102,44 @@ Readiness отражает готовность ключей и локально
 T001 закрывается этой матрицей. T002a–d целиком не закрываются: исполняемая сборка,
 поведение отмены/медленного тела, гонки, фактические ответы и прямой доступ до готовности
 не проверены запуском. Эти доказательства получают с кодом на соответствующих этапах.
+
+## Исполняемая проверка T002a2 (2026-11-12)
+
+Этот результат заменяет прежние ограничения T002a выше: Wrapper исправлен в T002a1,
+а verification теперь содержит исполняемые тесты. T002b–d остаются открытыми.
+
+TargetStackTest запускает Boot на случайном loopback-порту с virtual threads,
+реальной цепочкой Resource Server и функциональным маршрутом Gateway MVC.
+Валидный ES256 JWT проходит в локальный HTTP upstream; JSON создаётся и
+читается Spring ObjectMapper из Jackson 3. Отсутствующий/повреждённый токен,
+неверная подпись, неизвестный kid, неправильные issuer/audience и истёкший exp
+дают 401; счётчик upstream не растёт.
+
+Проверен API NimbusJwtDecoder(JWTProcessor): ImmutableJWKSet содержит только
+открытый EC-ключ, JWSVerificationKeySelector допускает ES256. У этого источника
+нет сетевого клиента и refresh. Проверки времени переданы Spring с фиксированным
+Clock и нулевым skew. Полный AccessTokenClaimsValidator здесь не реализуется.
+
+GrpcRuntimeTest выполняет реальный unary-вызов через grpc-netty-shaded
+между loopback-сервером и каналом, с deadline и проверкой завершения ресурсов.
+Это тест совместимости runtime, не реализация CheckSession и не проверка TLS.
+
+Итог: 3 теста, 0 failures/errors/skips; verify и Spotless успешны.
+Фактическое дерево: [dependencies.txt](verification/dependencies.txt).
+Стек: Boot 4.1.2, Cloud BOM 2025.1.4, Gateway MVC 5.0.4, Framework 7.0.10,
+Security OAuth2 Resource Server/Jose 7.1.2, Jackson 3.1.7, gRPC 1.85.0.
+Nimbus закреплён на 10.5, как в основном проекте; BOM по умолчанию выбирал 10.9.1,
+поэтому итоговый прогон повторён с 10.5.
+Инструменты: Temurin 25.0.5, Maven 3.9.11, Surefire 3.5.4,
+Spotless 3.10.4 / Eclipse formatter 4.37; compiler 3.15.0 из Boot parent.
+
+Команда из корня (параметр cache нужен для окружения агента):
+```powershell
+.\mvnw.cmd "-Dmaven.repo.local=C:\Users\Oberg\.m2\repository" -B -ntp -f specs/012-gateway-refactor/verification/pom.xml verify org.apache.maven.plugins:maven-dependency-plugin:3.8.1:tree "-DoutputFile=dependencies.txt"
+```
+
+API сверены с [Spring Security](https://docs.spring.io/spring-security/reference/servlet/oauth2/resource-server/jwt.html)
+и [Gateway MVC](https://docs.spring.io/spring-cloud-gateway/reference/spring-cloud-gateway-server-webmvc/java-routes-api.html).
+Исполняемые результаты относятся к закреплённым выше версиям.
+Стенд не доказывает общий deadline, readiness, все claims, TLS, Token Relay
+или полную реализацию пяти операций. Эти проверки остаются в своих задачах.
