@@ -16,8 +16,14 @@ import io.github.returnaction.fitness.gateway.request.RequestIdResolver;
 public class SecurityConfiguration {
 
     @Bean
-    SecurityFilterChain securityFilterChain(HttpSecurity http, GatewayErrorWriter writer) throws Exception {
-        return http.authorizeHttpRequests(authorize -> authorize.anyRequest().denyAll())
+    SecurityFilterChain securityFilterChain(HttpSecurity http,
+                                            GatewayErrorWriter writer,
+                                            io.github.returnaction.fitness.gateway.readiness.ManagementPort management) throws Exception {
+        return http.authorizeHttpRequests(authorize -> authorize
+                .requestMatchers(management::matches)
+                .permitAll()
+                .anyRequest()
+                .denyAll())
                 .exceptionHandling(errors -> errors
                         .authenticationEntryPoint((request, response, exception) -> writer.write(response, 401,
                                 GatewayErrorCode.INVALID_ACCESS_TOKEN, RequestIdResolver.getOrCreate(request)))

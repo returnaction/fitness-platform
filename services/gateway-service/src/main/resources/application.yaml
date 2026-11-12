@@ -28,6 +28,9 @@ management:
       probes:
         enabled: true
       show-details: never
+      group:
+        readiness:
+          include: readinessState,jwks
 
 gateway:
   request:
@@ -37,6 +40,9 @@ gateway:
       IDENTITY:
         base-url: ${IDENTITY_HTTP_BASE_URL}
   security:
+    jwks-startup:
+      attempt-timeout: 3s
+      retry-delay: 5s
     access-token:
       jwks-uri: ${GATEWAY_JWKS_URL}
       issuer: ${GATEWAY_JWT_ISSUER}

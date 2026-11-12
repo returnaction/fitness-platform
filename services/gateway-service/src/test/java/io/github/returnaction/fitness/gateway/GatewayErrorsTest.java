@@ -22,6 +22,14 @@ import tools.jackson.databind.ObjectMapper;
 @ActiveProfiles("test")
 class GatewayErrorsTest {
 
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    private io.github.returnaction.fitness.gateway.security.jwks.JwksInitializer jwks;
+
+    @org.junit.jupiter.api.BeforeEach
+    void loadedKeys() {
+        org.mockito.Mockito.when(jwks.ready()).thenReturn(true);
+    }
+
     @LocalServerPort
     private int port;
     @Autowired

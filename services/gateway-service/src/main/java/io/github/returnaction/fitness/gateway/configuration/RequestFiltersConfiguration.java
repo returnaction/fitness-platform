@@ -12,6 +12,14 @@ import org.springframework.core.Ordered;
 public class RequestFiltersConfiguration {
 
     @Bean
+    FilterRegistrationBean<io.github.returnaction.fitness.gateway.readiness.ReadinessGateFilter> readinessRegistration(
+                                                                                                                       io.github.returnaction.fitness.gateway.readiness.ReadinessGateFilter filter) {
+        var registration = new FilterRegistrationBean<>(filter);
+        registration.setOrder(Ordered.HIGHEST_PRECEDENCE + 2);
+        return registration;
+    }
+
+    @Bean
     FilterRegistrationBean<RequestDeadlineFilter> deadlineRegistration(RequestDeadlineFilter filter) {
         var registration = new FilterRegistrationBean<>(filter);
         registration.setOrder(Ordered.HIGHEST_PRECEDENCE);

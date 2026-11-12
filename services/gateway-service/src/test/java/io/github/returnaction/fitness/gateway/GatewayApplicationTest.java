@@ -15,6 +15,9 @@ import org.springframework.test.context.ActiveProfiles;
 @ActiveProfiles("test")
 class GatewayApplicationTest {
 
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    private io.github.returnaction.fitness.gateway.security.jwks.JwksInitializer jwks;
+
     @Autowired
     private AccessTokenProperties tokenProperties;
     @Autowired
