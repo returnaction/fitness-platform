@@ -1,59 +1,58 @@
-# Фактическая схема: сверка 2026-11-12
+# Фактическая схема после T002b — 2026-11-12
 
-Это описание исходного кода до реализации Spec 013. Целевое поведение logout-all
-изменено по итогам grilling в [spec.md](spec.md): прежние отказы после допуска
-Gateway по exp, исходной сессии и статусу ACTIVE не сохраняются.
-
-Ветка 39-gateway-refactor. До исследования изменены только AGENTS.md и заготовка
-013-pending, созданные в этом чате. Код сервисов не менялся в рамках этой работы.
-Пользователь подтвердил: локально Java-процессы без контейнеров; серверный запуск
-позже в контейнерах. Количество серверов и система запуска контейнеров пока неизвестны.
+Ветка 39-gateway-refactor. Локально отдельные Java-процессы. Этот документ
+описывает состояние после возврата HTTP, а не первоначальный проект HTTP mTLS.
+Серверный запуск в Docker сейчас не подготавливается.
 
 ## Текущий путь
 
-Клиент → Gateway HTTP → Identity HTTP. Пять POST-операций каталога: register,
-login, refresh, logout, logout-all. Первые четыре без JWT/CheckSession в Gateway;
-Authorization удаляется, тело сохраняется. Logout-all: JWT + gRPC CheckSession
-с mTLS, затем исходный Bearer Identity и повторная проверка JWT там.
-Identity вызывает Accounts/Coins по mTLS gRPC для создания профиля/кошелька.
-Пользовательских маршрутов Gateway → Accounts/Coins нет.
+Клиент → Gateway HTTP → Identity HTTP. Каталог содержит пять POST: register,
+login, refresh, logout, logout-all. Для первых четырёх Gateway удаляет Authorization,
+не проверяет JWT/сессию и сохраняет тело. Для logout-all проверяет JWT и вызывает
+CheckSession по существующему gRPC mTLS, затем передаёт исходный Bearer в Identity.
+Identity повторно проверяет JWT; LogoutService сохраняет проверки срока токена,
+пользователя и сессии в транзакции. Новые правила grilling ещё не реализованы.
 
-Шаблоны окружения: Gateway 127.0.0.1:8088, management 127.0.0.1:9088;
-Identity HTTP 8080, Accounts HTTP 8081, Coins HTTP 8082. При исходной сверке общий application.yaml не задавал HTTP bind; уточнение T002:
-Identity уже имел 127.0.0.1 в application-local.yaml, Accounts/Coins получили
-эту настройку в T002. Наличие localhost в URL клиента не ограничивает сервер.
-gRPC в шаблонах привязан к 127.0.0.1: Identity 9093, Accounts 9091, Coins 9092.
-Это значения шаблонов, не доказательство активных listeners или firewall.
-PostgreSQL локально вне Docker, отдельные БД сервисов. E2E-скрипт имеет отдельный
-одноразовый тестовый PostgreSQL; он не определяет схему обычного запуска.
+Identity вызывает Accounts/Coins по существующему mTLS gRPC для создания
+профиля/кошелька. Пользовательских маршрутов Gateway → Accounts/Coins нет.
+HTTP caller Identity не аутентифицируется как сервис: другой локальный процесс
+может вызвать разрешённый HTTP API. Allowlist операций не является проверкой caller.
+Rate limiter Identity удалён; recovery закрыт, его бизнес-код сохранён.
 
-## Подтверждённые точки изменения
+Шаблоны локального окружения: Gateway 127.0.0.1:8088, management 9088;
+Identity HTTP 8080 и отдельный management 9080; Accounts HTTP 8081, Coins HTTP 8082.
+Внутренний HTTP в local привязан к loopback. gRPC в шаблонах: Identity 9093,
+Accounts 9091, Coins 9092, на 127.0.0.1. Значения конфигурации не доказывают
+активные listeners или firewall сервера. PostgreSQL локально вне Docker.
 
-Пути ниже относительно корня репозитория; имена Java-классов однозначны в модулях.
+## Точки кода
 
-| Модуль / место | Что требуется |
+Пути и классы ниже указаны относительно соответствующего модуля services.
+Это описание состояния, не список новых поручений.
+
+| Модуль / место | Текущее назначение |
 | --- | --- |
-| gateway-service: forwarding/HttpTransportConfiguration.java | Настроить mTLS Apache HTTP client, сохранить deadline и отсутствие повторов |
-| gateway-service: security/jwks/JwksInitializer.java | Отдельный java.net.http.HttpClient: mTLS, проверка имени; сохранить retry/readiness |
-| gateway-service: configuration/properties/UpstreamProperties.java, AccessTokenProperties.java | Требовать защищённые адреса в рабочей конфигурации, валидировать TLS material |
-| identity-service: security/config/SecurityConfiguration.java | Проверка TLS caller до пользовательского контекста, явная матрица методов/путей; отделить management/recovery |
-| identity-service: security/jwt/LogoutAllAuthenticationFilter.java | После security gate разбор доверенного контекста, Authentication с ролями |
-| identity-service: session/controller/LogoutController.java, session/service/LogoutService.java | Убрать зависимость principal от AccessTokenVerifier.Identity; изменить повторные отказы по spec.md, сохранить транзакцию и блокировки |
-| identity-service: security/jwt/AccessTokenVerifier.java, registration/security/RecoveryAccessVerifier.java | Сохранить полную JWT-проверку recovery и проверки SUPER_ADMIN/сессии |
-| identity-service: session/repository/RefreshTokenRepository.java, SessionVerificationRepository.java | Проверить гонки, сохранить необходимые блокировки; повторные отказы logout-all изменить по spec.md |
-| application*.yaml и .env.example Gateway/Identity | TLS, bind, отдельный management, явные имена и сертификаты |
-| application*.yaml и .env.example Accounts/Coins | Только необходимое ограничение HTTP/management bind; не переводить пользовательскую security |
-| gateway-service/src/test/python/verify_gateway_e2e.py | Источник существующих сценариев; при необходимости переиспользовать для проверки локального приложения, без обязательного отдельного стенда |
-| существующие HTTP/security/gRPC тесты Gateway и Identity | TLS transport, роли, отрицательные права, SecurityContext и гонки |
+| identity-service: security/HttpOperationFilter.java | Allowlist методов/путей, разделение API/management, закрытый recovery; без HTTP-сертификатов |
+| identity-service: security/config/SecurityConfiguration.java | Подключение security-фильтров |
+| identity-service: security/jwt/LogoutAllAuthenticationFilter.java, AccessTokenVerifier.java | Полная JWT-аутентификация logout-all сохраняется |
+| identity-service: session/service/LogoutService.java | Текущие бизнес-проверки, транзакция и отзыв сессий |
+| identity-service: registration/security/RecoveryAccessVerifier.java | Проверки JWT, сессии и SUPER_ADMIN сохранены для закрытого recovery |
+| identity-service: application.yaml, application-local.yaml, .env.example | Обычный HTTP, локальные адреса и отдельный management |
+| gateway-service: forwarding/HttpTransportConfiguration.java, security/jwks/JwksInitializer.java | HTTP forwarding и загрузка JWKS; отменённый T003 не реализован |
+| Accounts/Coins: application-local.yaml | Локальный HTTP bind; пользовательская security массово не менялась |
 
 Существующие SessionCallerAuthorization и IdentityAuthorizationInterceptor
-проверяют URI SAN. Нужно сохранить ограничения зарегистрированных gRPC методов;
-не переносить доверие к caller на любые будущие RPC автоматически.
+сохраняют проверку caller для gRPC. Разрешение одного метода не означает
+автоматического разрешения будущих RPC.
 
-Исправления Spec 012 подтверждены: RouteValidationFilter создаёт matcher'ы
-в конструкторе; GatewayRouteValidator вызывается при создании маршрутов;
-RouteAccessPolicy не зависит от UpstreamProperties; wildcard imports в
-configuration/properties не найдены. Повторять эти изменения не требуется.
+## Свидетельства
+
+Результаты T002a и T002b находятся в [tasks.md](tasks.md). После T002b проверены
+шесть адресных тестов, Spotless/SpotBugs и семь HTTP-проверок реальных
+Identity/Gateway. Полный набор бизнес-тестов после возврата HTTP не перезапускался.
+[Отчёт T002](verification-t002.md) исторический: его HTTP mTLS впоследствии удалён.
+Защита развёрнутой среды не проверена. В обновлении документов новые тесты
+приложения не запускались.
 
 ## Источники и ограничения
 
@@ -64,10 +63,3 @@ configuration/properties не найдены. Повторять эти изме
 - [Внутренние API](../../system-design/interactions/59-identity-accounts-internal-api.md).
 - [Доступ](../../system-design/architecture/access/15-auth-gateway-draft.md).
 - [Развёртывание](../../system-design/architecture/deployment/README.md).
-
-Документ доступа местами ещё ссылается на Spec 009 и описывает service JWT как
-кандидата для будущих вызовов. Для текущих регистрационных gRPC уже выбран mTLS;
-для HTTP Gateway → Identity Spec 013 фиксирует отдельный mTLS-путь без service JWT.
-Обновление нормативных контрактов выполнить после согласования спецификации.
-На этом этапе тесты не запускались, серверная среда не обследована, секреты
-.env не выводились. Исторические результаты Spec 012 не выданы за новые проверки.
