@@ -12,7 +12,7 @@ public final class ProductionConfiguration {
 
     public ProductionConfiguration(AccessTokenProperties accessToken, UpstreamProperties upstreams) {
         if (!"https".equalsIgnoreCase(accessToken.jwksUri().getScheme())
-            || !"https".equalsIgnoreCase(upstreams.baseUrl(UpstreamId.IDENTITY).getScheme())) {
+                || !"https".equalsIgnoreCase(upstreams.baseUrl(UpstreamId.IDENTITY).getScheme())) {
             throw new IllegalStateException("Production Identity and JWKS endpoints must use HTTPS");
         }
     }
