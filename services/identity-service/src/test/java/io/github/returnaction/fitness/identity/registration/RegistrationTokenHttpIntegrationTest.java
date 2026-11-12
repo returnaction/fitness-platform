@@ -98,6 +98,9 @@ class RegistrationTokenHttpIntegrationTest {
     @Autowired
     private io.github.returnaction.fitness.identity.session.grpc.SessionVerificationGrpcService sessionGrpc;
 
+    @org.springframework.test.context.bean.override.mockito.MockitoSpyBean
+    private io.github.returnaction.fitness.identity.session.repository.RefreshTokenRepository refreshTokens;
+
     @Autowired
     private RegistrationService registration;
 
@@ -150,7 +153,7 @@ class RegistrationTokenHttpIntegrationTest {
     }
 
     @Test
-    void logoutAllRejectsAccessTokenThatExpiresWhileWaitingForLock() throws Exception {
+    void logoutAllCompletesWhenAccessTokenExpiresWhileWaitingForLock() throws Exception {
         UUID user = UUID.randomUUID();
         UUID session = UUID.randomUUID();
         createActor(user, session, "USER");
@@ -170,9 +173,53 @@ class RegistrationTokenHttpIntegrationTest {
             if (waitMillis > 0)
                 Thread.sleep(waitMillis + 100);
             connection.commit();
-            assertThat(result.get(15, TimeUnit.SECONDS)).isEqualTo(401);
-            assertThat(sessions.check(user, session).active()).isTrue();
+            assertThat(result.get(15, TimeUnit.SECONDS)).isEqualTo(204);
+            assertThat(sessions.check(user, session).active()).isFalse();
         }
+    }
+
+    @Test
+    void logoutAllCompletesAfterSessionRevocationAndUserSuspension() throws Exception {
+        UUID user = UUID.randomUUID();
+        UUID original = UUID.randomUUID();
+        createActor(user, original, "USER");
+        String token = signer.sign(user, original, Instant.now().plusSeconds(900), java.util.List.of(RoleCode.USER));
+        UUID remaining = UUID.randomUUID();
+        jdbc.sql(
+                "INSERT INTO auth_sessions (id, user_id, expires_at) VALUES (:id, :user, clock_timestamp()+interval '1 day')")
+                .param("id", remaining)
+                .param("user", user)
+                .update();
+        jdbc.sql("UPDATE auth_sessions SET revoked_at=clock_timestamp() WHERE id=:id").param("id", original).update();
+        jdbc.sql("UPDATE users SET status='SUSPENDED' WHERE id=:id").param("id", user).update();
+        mvc.perform(post("/api/v1/auth/logout-all").header("Authorization", "Bearer " + token))
+                .andExpect(status().isNoContent());
+        assertThat(jdbc.sql("SELECT count(*) FROM auth_sessions WHERE user_id=:id AND revoked_at IS NULL")
+                .param("id", user)
+                .query(Integer.class)
+                .single()).isZero();
+    }
+
+    @Test
+    void logoutAllRollsBackRevocationWhenDatabaseOperationFails() throws Exception {
+        UUID user = UUID.randomUUID();
+        UUID session = UUID.randomUUID();
+        createActor(user, session, "USER");
+        String token = signer.sign(user, session, Instant.now().plusSeconds(900), java.util.List.of(RoleCode.USER));
+        org.mockito.Mockito.doAnswer(invocation -> {
+            invocation.callRealMethod();
+            throw new org.springframework.dao.DataAccessResourceFailureException("simulated revoke failure");
+        }).when(refreshTokens).revokeAllSessions(user);
+        try {
+            mvc.perform(post("/api/v1/auth/logout-all").header("Authorization", "Bearer " + token))
+                    .andExpect(status().isServiceUnavailable());
+            assertThat(sessions.check(user, session).active()).isTrue();
+        } finally {
+            org.mockito.Mockito.reset(refreshTokens);
+        }
+        mvc.perform(post("/api/v1/auth/logout-all").header("Authorization", "Bearer " + token))
+                .andExpect(status().isNoContent());
+        assertThat(sessions.check(user, session).active()).isFalse();
     }
 
     @Test
@@ -211,12 +258,11 @@ class RegistrationTokenHttpIntegrationTest {
     }
 
     @Test
-    void logoutAllRejectsInvalidAndExpiredTokens() throws Exception {
+    void logoutAllRejectsMalformedTokenButAcceptsTokenExpiredAfterGateway() throws Exception {
         UUID user = UUID.randomUUID();
         UUID session = UUID.randomUUID();
         createActor(user, session, "USER");
-        String valid = signer.sign(user, session, Instant.now().plusSeconds(3600), java.util.List.of(RoleCode.USER));
-        mvc.perform(post("/api/v1/auth/logout-all").header("Authorization", "Bearer " + valid + "x"))
+        mvc.perform(post("/api/v1/auth/logout-all").header("Authorization", "Bearer not-a-jwt"))
                 .andExpect(status().isUnauthorized());
         String encoded = Files.readString(privateKey)
                 .replace("-----BEGIN PRIVATE KEY-----", "")
@@ -229,8 +275,8 @@ class RegistrationTokenHttpIntegrationTest {
                 java.time.Clock.fixed(past, java.time.ZoneOffset.UTC));
         String expired = expiredSigner.sign(user, session, past.plusSeconds(900), java.util.List.of(RoleCode.USER));
         mvc.perform(post("/api/v1/auth/logout-all").header("Authorization", "Bearer " + expired))
-                .andExpect(status().isUnauthorized());
-        assertThat(sessions.check(user, session).active()).isTrue();
+                .andExpect(status().isNoContent());
+        assertThat(sessions.check(user, session).active()).isFalse();
     }
 
     @Test
@@ -412,7 +458,7 @@ class RegistrationTokenHttpIntegrationTest {
     }
 
     @Test
-    void simultaneousLogoutAllAllowsOnlyOneSuccess() throws Exception {
+    void simultaneousAdmittedLogoutAllRequestsBothSucceed() throws Exception {
         UUID user = UUID.randomUUID();
         UUID session = UUID.randomUUID();
         createActor(user, session, "USER");
@@ -430,7 +476,7 @@ class RegistrationTokenHttpIntegrationTest {
             var second = executor.submit(call);
             gate.countDown();
             assertThat(java.util.List.of(first.get(15, TimeUnit.SECONDS), second.get(15, TimeUnit.SECONDS)))
-                    .containsExactlyInAnyOrder(204, 401);
+                    .containsExactlyInAnyOrder(204, 204);
         }
     }
 
@@ -497,7 +543,7 @@ class RegistrationTokenHttpIntegrationTest {
         assertThat(sessions.check(identity.userId(), identity.sessionId()).active()).isFalse();
         assertThat(accessVerifier.verify(access)).isEqualTo(identity);
         mvc.perform(post("/api/v1/auth/logout-all").header("Authorization", "Bearer " + access))
-                .andExpect(status().isUnauthorized());
+                .andExpect(status().isNoContent());
         mvc.perform(post("/api/v1/auth/refresh").contentType(APPLICATION_JSON)
                 .content("{\"refresh_token\":\"" + secondRefresh + "\"}")).andExpect(status().isUnauthorized());
         mvc.perform(post("/api/v1/auth/logout").contentType(APPLICATION_JSON).content("{}"))

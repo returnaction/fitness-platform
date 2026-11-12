@@ -52,8 +52,13 @@ Before each development step:
   the changes and verification, then stop for user review. Do not commit or
   start the next task without the user's next instruction.
 - Latest user decision: HTTP without HTTPS/client certificates for Identity.
-  Preserve existing gRPC mTLS. T003 HTTP mTLS is cancelled; do not implement
-  Identity pre-authentication until the trust design is explicitly revised.
+  Preserve existing gRPC mTLS. T003 HTTP mTLS is cancelled. Identity logout-all
+  work (T004–T007) is active in the plan: local HTTP trusts Gateway by assumption,
+  without authenticating the HTTP caller. Local bypass protection is not required
+  for this stage; do not claim server security. Do not prepare Docker deployment.
+  The user authorized Identity logout-all implementation and tests. Keep
+  SecurityContext with the UUID principal and no roles; retain authenticated()
+  and administrative AccessTokenVerifier. Report results and stop without committing.
 - Previous specifications' commit authorizations do not carry over to Spec 013.
   Commits, push, merge, deployment and user-database migrations require
   explicit authorization.

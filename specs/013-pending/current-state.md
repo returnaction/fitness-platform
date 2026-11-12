@@ -1,7 +1,7 @@
-# Фактическая схема после T002b — 2026-11-12
+# Фактическая схема после T005 — 2026-11-12
 
 Ветка 39-gateway-refactor. Локально отдельные Java-процессы. Этот документ
-описывает состояние после возврата HTTP, а не первоначальный проект HTTP mTLS.
+описывает HTTP и обработку logout-all после T005, а не первоначальный проект HTTP mTLS.
 Серверный запуск в Docker сейчас не подготавливается.
 
 ## Текущий путь
@@ -10,8 +10,11 @@
 login, refresh, logout, logout-all. Для первых четырёх Gateway удаляет Authorization,
 не проверяет JWT/сессию и сохраняет тело. Для logout-all проверяет JWT и вызывает
 CheckSession по существующему gRPC mTLS, затем передаёт исходный Bearer в Identity.
-Identity повторно проверяет JWT; LogoutService сохраняет проверки срока токена,
-пользователя и сессии в транзакции. Новые правила grilling ещё не реализованы.
+Identity разбирает sub без повторной проверки подписи JWT и помещает UUID
+в SecurityContext без ролей. LogoutService принимает UUID, блокирует пользователя
+и отзывает сессии транзакционно. Повторные отказы по exp, активности исходной
+сессии и статусу пользователя удалены; отсутствующий пользователь даёт 401.
+Контекст очищается после запроса, AccessTokenVerifier административного recovery сохранён.
 
 Identity вызывает Accounts/Coins по существующему mTLS gRPC для создания
 профиля/кошелька. Пользовательских маршрутов Gateway → Accounts/Coins нет.
@@ -34,8 +37,8 @@ Accounts 9091, Coins 9092, на 127.0.0.1. Значения конфигурац
 | --- | --- |
 | identity-service: security/HttpOperationFilter.java | Allowlist методов/путей, разделение API/management, закрытый recovery; без HTTP-сертификатов |
 | identity-service: security/config/SecurityConfiguration.java | Подключение security-фильтров |
-| identity-service: security/jwt/LogoutAllAuthenticationFilter.java, AccessTokenVerifier.java | Полная JWT-аутентификация logout-all сохраняется |
-| identity-service: session/service/LogoutService.java | Текущие бизнес-проверки, транзакция и отзыв сессий |
+| identity-service: security/jwt/LogoutAllAuthenticationFilter.java, AccessTokenVerifier.java | Фильтр извлекает UUID в SecurityContext; AccessTokenVerifier остаётся для recovery |
+| identity-service: session/service/LogoutService.java | UUID пользователя, проверка его существования, блокировка, транзакция и отзыв сессий |
 | identity-service: registration/security/RecoveryAccessVerifier.java | Проверки JWT, сессии и SUPER_ADMIN сохранены для закрытого recovery |
 | identity-service: application.yaml, application-local.yaml, .env.example | Обычный HTTP, локальные адреса и отдельный management |
 | gateway-service: forwarding/HttpTransportConfiguration.java, security/jwks/JwksInitializer.java | HTTP forwarding и загрузка JWKS; отменённый T003 не реализован |
@@ -49,10 +52,11 @@ Accounts 9091, Coins 9092, на 127.0.0.1. Значения конфигурац
 
 Результаты T002a и T002b находятся в [tasks.md](tasks.md). После T002b проверены
 шесть адресных тестов, Spotless/SpotBugs и семь HTTP-проверок реальных
-Identity/Gateway. Полный набор бизнес-тестов после возврата HTTP не перезапускался.
+Identity/Gateway. На этапе T002b полный набор бизнес-тестов не перезапускался; в T005 полный
+verify Identity прошёл: 134 теста, 0 ошибок, 2 opt-in пропуска, Spotless/SpotBugs.
 [Отчёт T002](verification-t002.md) исторический: его HTTP mTLS впоследствии удалён.
-Защита развёрнутой среды не проверена. В обновлении документов новые тесты
-приложения не запускались.
+Защита развёрнутой среды не проверена. Результаты автоматических проверок T005 записаны в tasks.md; новое сквозное
+испытание отдельных локальных процессов остаётся частью T006.
 
 ## Источники и ограничения
 

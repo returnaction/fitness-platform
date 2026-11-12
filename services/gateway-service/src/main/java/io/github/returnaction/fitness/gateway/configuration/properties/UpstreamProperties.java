@@ -5,10 +5,11 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
-import java.net.URI;
-import java.util.Map;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.validation.annotation.Validated;
+
+import java.net.URI;
+import java.util.Map;
 
 @Validated
 @ConfigurationProperties(prefix = "gateway.upstreams")
@@ -42,14 +43,14 @@ public record UpstreamProperties(@NotEmpty Map<UpstreamId, @NotNull @Valid Setti
             String scheme = baseUrl.getScheme();
             String path = baseUrl.getPath();
             return ("http".equalsIgnoreCase(scheme)
-                    || "https".equalsIgnoreCase(scheme))
-                    && baseUrl.getHost() != null
-                    && baseUrl.getUserInfo() == null
-                    && baseUrl.getQuery() == null
-                    && baseUrl.getFragment() == null
-                    && (path == null || path.isEmpty() || "/".equals(path))
-                    && (baseUrl.getPort() == -1
-                            || (baseUrl.getPort() >= 1 && baseUrl.getPort() <= 65535));
+                || "https".equalsIgnoreCase(scheme))
+                && baseUrl.getHost() != null
+                && baseUrl.getUserInfo() == null
+                && baseUrl.getQuery() == null
+                && baseUrl.getFragment() == null
+                && (path == null || path.isEmpty() || "/".equals(path))
+                && (baseUrl.getPort() == -1
+                || (baseUrl.getPort() >= 1 && baseUrl.getPort() <= 65535));
         }
     }
 }

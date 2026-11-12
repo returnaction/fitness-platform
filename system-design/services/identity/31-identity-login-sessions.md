@@ -177,10 +177,16 @@ rotation должна сериализоваться для одного ток�
 | `POST /api/v1/auth/login` — email, password | `200` token response | `400 invalid_request`, `422 validation_error`, `401 invalid_credentials`, `403 account_unavailable`, `503 registration_pending`, `503 identity_unavailable`, `500 internal_error` |
 | `POST /api/v1/auth/refresh` — refresh_token | `200` новая token response | `400 invalid_request`, `422 validation_error`, `401 invalid_refresh_token`, `403 account_unavailable`, `503 identity_unavailable`, `500 internal_error` |
 | `POST /api/v1/auth/logout` — refresh_token | `204` без тела; повтор, неизвестный или уже отозванный токен тоже `204` | `400 invalid_request` для некорректного JSON, `503 identity_unavailable`, `500 internal_error` |
-| `POST /api/v1/auth/logout-all` — Bearer access | `204` без тела, включая повтор при ещё действующей авторизации | `401 invalid_access_token` при отсутствии, истечении или отзыве токена, `503 identity_unavailable`, `500 internal_error` |
+| `POST /api/v1/auth/logout-all` — Bearer access | `204` без тела, включая повтор уже допущенной команды | `401 invalid_access_token` в Identity при отсутствии/повреждении токена, некорректном sub или отсутствующем пользователе, `503 identity_unavailable`, `500 internal_error` |
 
-После успешного logout-all текущий access отозван, поэтому повтор с ним
-получит `401`; `204` для повтора не означает обход авторизации. `PENDING`
+По Spec 013 JWT и активность сессии для logout-all проверяет Gateway. Identity
+без повторной проверки подписи извлекает sub, передаёт UUID через SecurityContext
+без ролей и отзывает сессии в транзакции с блокировкой пользователя. Изменение
+срока токена, исходной сессии или статуса пользователя после допуска Gateway
+не отменяет выход. Повтор уже допущенной команды в Identity даёт 204; новый
+внешний запрос с отозванной сессией отклоняется Gateway с 401.
+Локальный HTTP caller считается доверенным без подтверждения личности:
+это не защита от прямого локального обхода и не готовность серверной среды. `PENDING`
 после проверки пароля получает `503 registration_pending`; вход не создаёт
 сессию и побуждает продолжить регистрацию. Публичную политику раскрытия состояний
 аккаунта ещё нужно оценить. Ответ с токенами имеет `Cache-Control: no-store`:
