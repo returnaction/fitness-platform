@@ -43,14 +43,14 @@ public record UpstreamProperties(@NotEmpty Map<UpstreamId, @NotNull @Valid Setti
             String scheme = baseUrl.getScheme();
             String path = baseUrl.getPath();
             return ("http".equalsIgnoreCase(scheme)
-                || "https".equalsIgnoreCase(scheme))
-                && baseUrl.getHost() != null
-                && baseUrl.getUserInfo() == null
-                && baseUrl.getQuery() == null
-                && baseUrl.getFragment() == null
-                && (path == null || path.isEmpty() || "/".equals(path))
-                && (baseUrl.getPort() == -1
-                || (baseUrl.getPort() >= 1 && baseUrl.getPort() <= 65535));
+                    || "https".equalsIgnoreCase(scheme))
+                    && baseUrl.getHost() != null
+                    && baseUrl.getUserInfo() == null
+                    && baseUrl.getQuery() == null
+                    && baseUrl.getFragment() == null
+                    && (path == null || path.isEmpty() || "/".equals(path))
+                    && (baseUrl.getPort() == -1
+                            || (baseUrl.getPort() >= 1 && baseUrl.getPort() <= 65535));
         }
     }
 }

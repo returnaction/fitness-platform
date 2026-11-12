@@ -68,9 +68,10 @@ Spotless/SpotBugs прошли. Включены повреждённые sub/т
 ## Ограничения и оставшаяся работа
 
 T006 завершён совокупностью автоматических и настоящих локальных проверок.
-T007 остаётся открытым: полный Gateway verify пока блокируется ранее выявленными
+На момент T006 задача T007 оставалась открытой: полный Gateway verify блокировался ранее выявленными
 замечаниями Spotless в AccessTokenProperties, SessionVerificationProperties,
-UpstreamProperties и GatewayExceptionHandler. Их исправление в этот прогон не входило.
+UpstreamProperties и GatewayExceptionHandler. Их исправление в этот прогон не входило. Позднее T007 завершён: форматирование
+исправлено, полный Gateway verify, 43 теста, Spotless и SpotBugs прошли.
 
 Прямой локальный HTTP caller Identity не аутентифицируется; это согласованное
 допущение, а не защита от подделанного локального запроса. Серверная изоляция,

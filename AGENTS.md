@@ -40,6 +40,11 @@ Before each development step:
 
 ### Spec 013 execution scope
 
+- The agreed local Spec 013 scope is complete through T007. T003 is cancelled;
+  Docker/server preparation (T008), Content-Encoding and unrelated follow-ups
+  remain outside scope. Do not start them automatically. Verification evidence
+  is in tasks.md and verification-t006.md; commits remain user-controlled.
+
 - Do not begin implementation until the user explicitly gives the start command.
 - The current request authorizes drafting Spec 013 for service access protection
   and Identity pre-authentication on `39-gateway-refactor`, created from main.
