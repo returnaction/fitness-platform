@@ -30,6 +30,9 @@ import tools.jackson.databind.ObjectMapper;
 @ActiveProfiles("test")
 class RouteValidationTest {
 
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    private io.github.returnaction.fitness.gateway.security.session.SessionVerificationClient sessions;
+
     @MockitoBean
     private JwksInitializer jwks;
     @LocalServerPort

@@ -142,6 +142,13 @@ class JwksStartupTest {
         var contextRef = new AtomicReference<ConfigurableApplicationContext>();
         try (var executor = Executors.newSingleThreadExecutor(); var client = HttpClient.newHttpClient()) {
             var application = new SpringApplication(GatewayApplication.class);
+            // This test exercises JWKS startup, independently of the gRPC TLS fixtures.
+            application.addInitializers(context -> context.addBeanFactoryPostProcessor(factory -> {
+                ((org.springframework.beans.factory.support.BeanDefinitionRegistry) factory)
+                        .removeBeanDefinition("grpcSessionVerificationClient");
+                factory.registerSingleton("sessionVerificationClient", org.mockito.Mockito.mock(
+                        io.github.returnaction.fitness.gateway.security.session.SessionVerificationClient.class));
+            }));
             application.addListeners((org.springframework.context.ApplicationListener<ContextRefreshedEvent>) event -> {
                 if (event.getApplicationContext().getParent() == null) {
                     contextRef.set((ConfigurableApplicationContext) event.getApplicationContext());

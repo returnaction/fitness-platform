@@ -43,6 +43,9 @@ import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 @ActiveProfiles("test")
 class JwtValidationTest {
 
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    private io.github.returnaction.fitness.gateway.security.session.SessionVerificationClient sessions;
+
     private static final Instant NOW = Instant.parse("2026-11-12T12:00:00Z");
     private static final ECKey KEY = key();
     @MockitoBean
@@ -64,10 +67,13 @@ class JwtValidationTest {
 
     @BeforeEach
     void configureTrustAndTime() {
+        when(sessions.isActive(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any())).thenReturn(true);
         when(keys.ready()).thenReturn(true);
         when(keys.keys()).thenReturn(List.of(KEY.toPublicJWK()));
         when(clock.instant()).thenReturn(NOW);
         clearInvocations(decoder);
+        clearInvocations(sessions);
     }
 
     private Map<String, Object> claims() {
@@ -178,19 +184,51 @@ class JwtValidationTest {
             assertThat(request(client, "/api/v1/auth/logout-all?x=1", "bad").statusCode()).isEqualTo(400);
         }
         verify(decoder, never()).decode(org.mockito.ArgumentMatchers.anyString());
+        verify(sessions, never()).isActive(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
     }
 
     @Test
-    void protectedRouteUsesDecoderButStaysClosedUntilSessionVerification() throws Exception {
+    void protectedRouteChecksSessionOnlyAfterValidJwtAndStaysClosedUntilForwarding() throws Exception {
         try (var client = HttpClient.newHttpClient()) {
             var invalid = request(client, "/api/v1/auth/logout-all", sign(claims(), KEY, "unknown"));
             assertThat(invalid.statusCode()).isEqualTo(401);
             assertThat(invalid.body()).contains("invalid_access_token", "request_id");
             assertThat(invalid.headers().firstValue("WWW-Authenticate")).contains("Bearer");
+            org.mockito.Mockito.verifyNoInteractions(sessions);
             var valid = request(client, "/api/v1/auth/logout-all", sign(claims()));
             assertThat(valid.statusCode()).isEqualTo(403);
             assertThat(valid.body()).contains("access_denied");
             assertThat(request(client, "/api/v1/auth/logout-all", "").statusCode()).isEqualTo(401);
+        }
+    }
+
+    @Test
+    void sessionInvalidOrUnavailableIsRejectedWithSameRequestId() throws Exception {
+        var claims = claims();
+        var user = UUID.fromString((String) claims.get("sub"));
+        var session = UUID.fromString((String) claims.get("sid"));
+        var requestId = new java.util.concurrent.atomic.AtomicReference<UUID>();
+        when(sessions.isActive(org.mockito.ArgumentMatchers.eq(user), org.mockito.ArgumentMatchers.eq(session),
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any())).thenAnswer(invocation -> {
+                    requestId.set(invocation.getArgument(2));
+                    io.github.returnaction.fitness.gateway.timeout.RequestDeadline deadline = invocation.getArgument(3);
+                    assertThat(deadline.remainingNanos()).isPositive().isLessThanOrEqualTo(3_000_000_000L);
+                    return false;
+                });
+        try (var client = HttpClient.newHttpClient()) {
+            var invalid = request(client, "/api/v1/auth/logout-all", sign(claims));
+            assertThat(invalid.statusCode()).isEqualTo(401);
+            assertThat(invalid.headers().firstValue("X-Request-Id")).contains(requestId.get().toString());
+            assertThat(invalid.body()).contains(requestId.get().toString(), "invalid_access_token");
+            when(sessions.isActive(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+                    org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any()))
+                    .thenThrow(
+                            new io.github.returnaction.fitness.gateway.security.session.SessionVerificationUnavailableException(
+                                    "private transport diagnostics"));
+            var failed = request(client, "/api/v1/auth/logout-all", sign(claims));
+            assertThat(failed.statusCode()).isEqualTo(503);
+            assertThat(failed.body()).contains("identity_unavailable").doesNotContain("private transport diagnostics");
         }
     }
 

@@ -25,7 +25,8 @@ public class SecurityConfiguration {
                                             ManagementPort management,
                                             RouteValidationFilter routeValidation,
                                             RouteAccessPolicy policy,
-                                            JwtDecoder decoder) throws Exception {
+                                            JwtDecoder decoder,
+                                            io.github.returnaction.fitness.gateway.security.session.SessionVerificationFilter sessionFilter) throws Exception {
         var bearer = new DefaultBearerTokenResolver();
         var authentication = new JwtAuthenticationConverter();
         authentication.setJwtGrantedAuthoritiesConverter(jwt -> List.of());
@@ -37,6 +38,7 @@ public class SecurityConfiguration {
                 .requestCache(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .addFilterBefore(routeValidation, BearerTokenAuthenticationFilter.class)
+                .addFilterAfter(sessionFilter, BearerTokenAuthenticationFilter.class)
                 .oauth2ResourceServer(resource -> resource
                         .bearerTokenResolver(
                                 request -> management.matches(request) || policy.publicRequests().matches(request)

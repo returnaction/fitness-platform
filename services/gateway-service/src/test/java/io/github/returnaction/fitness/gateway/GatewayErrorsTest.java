@@ -23,6 +23,9 @@ import tools.jackson.databind.ObjectMapper;
 class GatewayErrorsTest {
 
     @org.springframework.test.context.bean.override.mockito.MockitoBean
+    private io.github.returnaction.fitness.gateway.security.session.SessionVerificationClient sessions;
+
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
     private io.github.returnaction.fitness.gateway.security.jwks.JwksInitializer jwks;
 
     @org.junit.jupiter.api.BeforeEach

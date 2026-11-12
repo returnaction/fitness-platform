@@ -12,6 +12,14 @@ import org.springframework.core.Ordered;
 public class RequestFiltersConfiguration {
 
     @Bean
+    FilterRegistrationBean<io.github.returnaction.fitness.gateway.security.session.SessionVerificationFilter> sessionRegistration(
+                                                                                                                                  io.github.returnaction.fitness.gateway.security.session.SessionVerificationFilter filter) {
+        var registration = new FilterRegistrationBean<>(filter);
+        registration.setEnabled(false);
+        return registration;
+    }
+
+    @Bean
     FilterRegistrationBean<io.github.returnaction.fitness.gateway.routing.RouteValidationFilter> routeValidationRegistration(
                                                                                                                              io.github.returnaction.fitness.gateway.routing.RouteValidationFilter filter) {
         var registration = new FilterRegistrationBean<>(filter);
