@@ -110,3 +110,20 @@ PR агентом не создавался. T002 выполнен в 39-gateway
   завершился NoSuchElementException при получении lease, повторный полный прошёл.
   Причина не установлена; код lease и эти тесты не менялись в T002a. Не запускать
   расследование автоматически вместо следующей согласованной задачи.
+
+
+## Дополнение: удаление обязательного HTTPS из Gateway
+
+По отдельному запросу пользователя удалены ProductionConfiguration и два связанных
+теста GatewayPropertiesTest. Обновлены README Gateway и контракт v1: HTTP для
+Identity/JWKS разрешён также в production. Сам профиль и существующий gRPC mTLS
+не менялись. Ссылок на удалённый класс в исходниках нет; в пересобранном jar
+ProductionConfiguration отсутствует. T006 после остановки не возобновлялся.
+
+Проверки: clean verify выполнил 43 теста Gateway без ошибок и пропусков, затем
+остановился на существующем форматировании AccessTokenProperties,
+SessionVerificationProperties, UpstreamProperties и GatewayExceptionHandler.
+Эти файлы в данном изменении не менялись. Последующий verify с -DskipTests
+и -Dspotless.skip=true завершился успешно; SpotBugs прошёл. Полный verify
+с включённым Spotless остаётся неуспешным до исправления этих нарушений.
+Git diff --check прошёл. Коммит не создавался.
