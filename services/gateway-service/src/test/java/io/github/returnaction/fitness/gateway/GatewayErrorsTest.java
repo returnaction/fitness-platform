@@ -27,10 +27,63 @@ import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.test.context.ActiveProfiles;
 import tools.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
+import org.springframework.core.annotation.Order;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
+import org.springframework.web.servlet.function.RouterFunction;
+import org.springframework.web.servlet.function.RouterFunctions;
+import org.springframework.web.servlet.function.ServerResponse;
+import java.util.List;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("test")
+@Import(GatewayErrorsTest.FailingRoutes.class)
+@ExtendWith(OutputCaptureExtension.class)
 class GatewayErrorsTest {
+
+    @TestConfiguration(proxyBeanMethods = false)
+    static class FailingRoutes {
+
+        @Bean
+        @Order(-1)
+        RouterFunction<ServerResponse> failingRoute() {
+            return RouterFunctions.route().POST("/api/v1/auth/login", request -> {
+                String mode = request.headers().firstHeader("X-Test-Failure");
+                if ("405".equals(mode)) {
+                    throw new HttpRequestMethodNotSupportedException("POST", List.of("GET"));
+                }
+                if ("415".equals(mode)) {
+                    throw new HttpMediaTypeNotSupportedException("private-token");
+                }
+                throw new IllegalStateException("private-token");
+            }).build();
+        }
+    }
+
+    @Test
+    void adviceHandlesFunctionalRoutesWithoutExposingDiagnostics(CapturedOutput output) throws Exception {
+        try (var client = HttpClient.newHttpClient()) {
+            for (int status : List.of(405, 415, 500)) {
+                var request = HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + "/api/v1/auth/login"))
+                        .header("X-Test-Failure", Integer.toString(status))
+                        .POST(HttpRequest.BodyPublishers.noBody())
+                        .build();
+                var response = client.send(request, HttpResponse.BodyHandlers.ofString());
+                assertThat(response.statusCode()).isEqualTo(status);
+                assertThat(response.body()).contains("request_id").doesNotContain("private-token");
+                if (status == 405) {
+                    assertThat(response.headers().firstValue("Allow")).contains("GET");
+                }
+            }
+        }
+        assertThat(output.getAll()).doesNotContain("private-token");
+    }
 
     @MockitoBean
     private SessionVerificationClient sessions;

@@ -3,7 +3,11 @@ package io.github.returnaction.fitness.gateway.security;
 import io.github.returnaction.fitness.gateway.security.session.SessionVerificationFilter;
 
 import java.util.List;
+import jakarta.servlet.DispatcherType;
 import io.github.returnaction.fitness.gateway.error.SecurityErrorHandler;
+import io.github.returnaction.fitness.gateway.error.GatewayErrorWriter;
+import io.github.returnaction.fitness.gateway.error.GatewayErrorCode;
+import io.github.returnaction.fitness.gateway.request.RequestIdResolver;
 import io.github.returnaction.fitness.gateway.readiness.ManagementPort;
 import io.github.returnaction.fitness.gateway.routing.RouteAccessPolicy;
 import io.github.returnaction.fitness.gateway.routing.RouteValidationFilter;
@@ -17,9 +21,16 @@ import org.springframework.security.oauth2.server.resource.authentication.JwtAut
 import org.springframework.security.oauth2.server.resource.web.DefaultBearerTokenResolver;
 import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.config.annotation.web.configuration.WebSecurityCustomizer;
 
 @Configuration(proxyBeanMethods = false)
 public class SecurityConfiguration {
+
+    @Bean
+    WebSecurityCustomizer firewallErrors(GatewayErrorWriter writer) {
+        return web -> web.requestRejectedHandler((request, response, failure) -> writer.write(response, 400,
+                GatewayErrorCode.INVALID_REQUEST, RequestIdResolver.getOrCreate(request)));
+    }
 
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http,
@@ -49,7 +60,9 @@ public class SecurityConfiguration {
                         .jwt(jwt -> jwt.decoder(decoder).jwtAuthenticationConverter(authentication))
                         .authenticationEntryPoint(errors)
                         .accessDeniedHandler(errors))
-                .authorizeHttpRequests(authorize -> authorize.requestMatchers(management::matches)
+                .authorizeHttpRequests(authorize -> authorize.dispatcherTypeMatchers(DispatcherType.ERROR)
+                        .permitAll()
+                        .requestMatchers(management::matches)
                         .permitAll()
                         .requestMatchers(policy.publicRequests())
                         .permitAll()

@@ -343,6 +343,19 @@ class JwtValidationTest {
         }
     }
 
+    @Test
+    void forwardsBodyLargerThanOneMegabyteWithoutApplicationLimit() throws Exception {
+        String body = "x".repeat(2 * 1024 * 1024);
+        try (var client = HttpClient.newHttpClient()) {
+            var outgoing = HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + "/api/v1/auth/login"))
+                    .header("Content-Type", "application/octet-stream")
+                    .POST(HttpRequest.BodyPublishers.ofString(body))
+                    .build();
+            assertThat(client.send(outgoing, HttpResponse.BodyHandlers.ofString()).statusCode()).isEqualTo(200);
+            assertThat(UPSTREAM.received.get().body()).isEqualTo(body);
+        }
+    }
+
     private HttpResponse<String> request(HttpClient client, String path, String token) throws Exception {
         var builder = HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + path))
                 .header("X-User-Id", UUID.randomUUID().toString())
