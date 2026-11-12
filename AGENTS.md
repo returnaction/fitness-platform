@@ -4,10 +4,10 @@ This root file applies to the entire repository, including the
 [System Design documentation](system-design/README.md). More specific
 instructions in nested directories supplement the root instructions.
 
-## Active SDD Scope: 012-gateway-refactor
+## Active SDD Scope: 013-pending
 
 Until the user explicitly changes the scope, a request to continue development
-means continuing [012-gateway-refactor](specs/012-gateway-refactor/spec.md).
+means continuing [013-pending](specs/013-pending/spec.md).
 Do not start implementing another feature or a system-design roadmap item just
 because it exists in the documentation. When the specification is complete or
 all remaining tasks are blocked, report the status and ask the user what to do
@@ -15,9 +15,9 @@ next rather than choosing a different feature.
 
 Before each development step:
 
-1. Read the current [task list](specs/012-gateway-refactor/tasks.md),
-   [specification](specs/012-gateway-refactor/spec.md), and
-   [plan](specs/012-gateway-refactor/plan.md). Identify an open task, its
+1. Read the current [task list](specs/013-pending/tasks.md),
+   [specification](specs/013-pending/spec.md), and
+   [plan](specs/013-pending/plan.md). Identify an open task, its
    acceptance criteria, and any dependencies. Respect an explicit user request
    and the current branch; do not assume the first unchecked item is always
    actionable.
@@ -38,18 +38,21 @@ Before each development step:
    next task tied to the specification. Continue with another in-scope task
    when the user has authorized continued work and no intervention is needed.
 
-### Spec 012 execution scope
+### Spec 013 execution scope
 
 - Do not begin implementation until the user explicitly gives the start command.
-- The current request authorizes drafting Spec 012 on `38-gateway-refactor`,
-  which was created from main for this work. The specification remains a draft
-  while the gateway design is being discussed.
-- The per-task commit authorization and branch exception for Spec 011 do not
-  carry over to Spec 012. Follow the general Git rules for subsequent work;
-  commits, push, merge, deployment and user-database migrations require
+- The current request authorizes drafting Spec 013 for service access protection
+  and Identity pre-authentication on `39-gateway-refactor`, created from main.
+  Its directory remains `specs/013-pending`; read its current requirements.
+- Spec 013 scope and plan were approved after grilling on 2026-11-12; implementation requires
+  the user's explicit start command. Local services run as Java processes;
+  the future server deployment uses containers. Do not claim server protection
+  based only on local tests. Content-Encoding work is deferred by the user.
+- Previous specifications' commit authorizations do not carry over to Spec 013.
+  Commits, push, merge, deployment and user-database migrations require
   explicit authorization.
 - Record questions that genuinely require the user in
-  [questions.md](specs/012-gateway-refactor/questions.md), with affected task,
+  [questions.md](specs/013-pending/questions.md), with affected task,
   evidence, options, recommendation, and blocked scope. Continue independent
   tasks; do not guess product decisions or mark blocked work complete.
 - If every remaining task depends on user input or unavailable external access,
