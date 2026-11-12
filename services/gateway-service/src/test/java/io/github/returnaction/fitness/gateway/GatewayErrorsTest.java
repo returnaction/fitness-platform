@@ -58,9 +58,9 @@ class GatewayErrorsTest {
     @Test
     void securityErrorBeforeMvcUsesGeneratedIdAndCommonJson() throws Exception {
         try (var client = HttpClient.newHttpClient()) {
-            var request = HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + "/probe"))
+            var request = HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + "/api/v1/auth/logout-all"))
                     .header("X-Request-Id", "client-controlled")
-                    .GET()
+                    .POST(HttpRequest.BodyPublishers.noBody())
                     .build();
             var response = client.send(request, HttpResponse.BodyHandlers.ofString());
             assertThat(response.statusCode()).isEqualTo(401);

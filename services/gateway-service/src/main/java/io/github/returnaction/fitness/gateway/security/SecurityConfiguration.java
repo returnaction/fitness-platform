@@ -19,17 +19,24 @@ public class SecurityConfiguration {
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http,
                                             GatewayErrorWriter writer,
-                                            ManagementPort management) throws Exception {
-        return http.authorizeHttpRequests(authorize -> authorize
-                .requestMatchers(management::matches)
-                .permitAll()
-                .anyRequest()
-                .denyAll())
-            .exceptionHandling(errors -> errors
-                .authenticationEntryPoint((request, response, exception) -> writer.write(response, 401,
-                    GatewayErrorCode.INVALID_ACCESS_TOKEN, RequestIdResolver.getOrCreate(request)))
-                .accessDeniedHandler((request, response, exception) -> writer.write(response, 403,
-                    GatewayErrorCode.ACCESS_DENIED, RequestIdResolver.getOrCreate(request))))
-            .build();
+                                            ManagementPort management,
+                                            io.github.returnaction.fitness.gateway.routing.RouteValidationFilter routeValidation) throws Exception {
+        return http.csrf(csrf -> csrf.disable())
+                .cors(cors -> cors.disable())
+                .sessionManagement(session -> session.sessionCreationPolicy(
+                        org.springframework.security.config.http.SessionCreationPolicy.STATELESS))
+                .addFilterBefore(routeValidation,
+                        org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter.class)
+                .authorizeHttpRequests(authorize -> authorize
+                        .requestMatchers(management::matches)
+                        .permitAll()
+                        .anyRequest()
+                        .denyAll())
+                .exceptionHandling(errors -> errors
+                        .authenticationEntryPoint((request, response, exception) -> writer.write(response, 401,
+                                GatewayErrorCode.INVALID_ACCESS_TOKEN, RequestIdResolver.getOrCreate(request)))
+                        .accessDeniedHandler((request, response, exception) -> writer.write(response, 403,
+                                GatewayErrorCode.ACCESS_DENIED, RequestIdResolver.getOrCreate(request))))
+                .build();
     }
 }

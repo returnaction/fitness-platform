@@ -173,7 +173,7 @@ class JwksStartupTest {
                 startup.get(10, TimeUnit.SECONDS);
                 assertThat(context.getBean(JwksInitializer.class).keys()).hasSize(1);
                 assertThat(get(client, management, "/actuator/health/readiness").statusCode()).isEqualTo(200);
-                assertThat(get(client, api, "/api/v1/auth/login").statusCode()).isEqualTo(401);
+                assertThat(get(client, api, "/api/v1/auth/login").statusCode()).isEqualTo(405);
                 int completedCalls = calls.get();
                 payload.set("invalid");
                 Thread.sleep(350);
