@@ -1,6 +1,6 @@
 # План реализации: рефакторинг Gateway
 
-> **Статус:** implemented-and-verified (реализовано и проверено локально)<br>
+> **Статус:** completed (выполнен и проверен локально)<br>
 > **Спецификация:** [spec.md](spec.md)  
 > **Задачи:** [tasks.md](tasks.md)  
 > **Решения grilling:** [questions.md](questions.md)
