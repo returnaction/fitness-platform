@@ -1,11 +1,5 @@
 package io.github.returnaction.fitness.gateway.security.jwks;
 
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
-import java.util.List;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 import com.nimbusds.jose.jwk.ECKey;
 import io.github.returnaction.fitness.gateway.configuration.properties.AccessTokenProperties;
 import io.github.returnaction.fitness.gateway.configuration.properties.JwksStartupProperties;
@@ -14,6 +8,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.stereotype.Component;
+
+import java.net.http.*;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @Component
@@ -31,9 +30,9 @@ public final class JwksInitializer implements ApplicationRunner {
         this.accessToken = accessToken;
         this.settings = settings;
         this.client = HttpClient.newBuilder()
-                .connectTimeout(settings.attemptTimeout())
-                .followRedirects(HttpClient.Redirect.NEVER)
-                .build();
+            .connectTimeout(settings.attemptTimeout())
+            .followRedirects(HttpClient.Redirect.NEVER)
+            .build();
     }
 
     public boolean ready() {
@@ -54,9 +53,9 @@ public final class JwksInitializer implements ApplicationRunner {
                 long started = System.nanoTime();
                 try {
                     var request = HttpRequest.newBuilder(accessToken.jwksUri())
-                            .timeout(settings.attemptTimeout())
-                            .GET()
-                            .build();
+                        .timeout(settings.attemptTimeout())
+                        .GET()
+                        .build();
                     var responseFuture = client.sendAsync(request, HttpResponse.BodyHandlers.ofString());
                     active = responseFuture;
                     var response = responseFuture.get(settings.attemptTimeout().toNanos(), TimeUnit.NANOSECONDS);
@@ -74,15 +73,15 @@ public final class JwksInitializer implements ApplicationRunner {
                     }
                     if (ready()) {
                         log.info("JWKS startup completed: attempt={}, duration_ms={}", attempt,
-                                TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started));
+                            TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started));
                     }
                 } catch (InterruptedException exception) {
                     Thread.currentThread().interrupt();
                     return;
                 } catch (Exception exception) {
                     log.warn("JWKS startup failed: attempt={}, failure_type={}, duration_ms={}", attempt,
-                            exception.getClass().getSimpleName(),
-                            TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started));
+                        exception.getClass().getSimpleName(),
+                        TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started));
                 } finally {
                     var current = active;
                     if (current != null) {

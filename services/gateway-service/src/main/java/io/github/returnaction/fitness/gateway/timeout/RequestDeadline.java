@@ -1,6 +1,7 @@
 package io.github.returnaction.fitness.gateway.timeout;
 
 import io.grpc.Deadline;
+
 import java.time.Duration;
 import java.util.concurrent.TimeUnit;
 
