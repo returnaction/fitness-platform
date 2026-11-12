@@ -51,6 +51,9 @@ Before each development step:
 - The user authorized T002 implementation. After completing each task, report
   the changes and verification, then stop for user review. Do not commit or
   start the next task without the user's next instruction.
+- Latest user decision: HTTP without HTTPS/client certificates for Identity.
+  Preserve existing gRPC mTLS. T003 HTTP mTLS is cancelled; do not implement
+  Identity pre-authentication until the trust design is explicitly revised.
 - Previous specifications' commit authorizations do not carry over to Spec 013.
   Commits, push, merge, deployment and user-database migrations require
   explicit authorization.

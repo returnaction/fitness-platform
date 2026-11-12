@@ -1,9 +1,7 @@
 package io.github.returnaction.fitness.identity.shared.web;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static io.github.returnaction.fitness.identity.TestGatewayCaller.certificate;
-import static io.github.returnaction.fitness.identity.TestGatewayCaller.post;
-import java.security.cert.X509Certificate;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -124,16 +122,8 @@ class RequestIdFilterSecurityTest {
     }
 
     @Test
-    void jwksRequiresGatewayCertificateAndLogoutStillRequiresUserJwt() throws Exception {
+    void jwksWorksOverHttpAndLogoutStillRequiresUserJwt() throws Exception {
         mockMvc.perform(get("/.well-known/jwks.json"))
-                .andExpect(status().isForbidden());
-        mockMvc.perform(get("/.well-known/jwks.json").secure(true)
-                .requestAttr("jakarta.servlet.request.X509Certificate", new X509Certificate[]{
-                        certificate("spiffe://fitness.local/accounts-service")}))
-                .andExpect(status().isForbidden());
-        mockMvc.perform(get("/.well-known/jwks.json").secure(true)
-                .requestAttr("jakarta.servlet.request.X509Certificate", new X509Certificate[]{
-                        certificate("spiffe://fitness.local/gateway-service")}))
                 .andExpect(status().isOk());
         mockMvc.perform(post("/api/v1/auth/logout-all"))
                 .andExpect(status().isUnauthorized());

@@ -12,17 +12,14 @@ import tools.jackson.databind.ObjectWriter;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.io.IOException;
-import java.security.cert.CertificateParsingException;
-import java.security.cert.X509Certificate;
 import java.util.List;
 import java.util.Set;
 
 /**
- * Authorizes the TLS peer without granting user authentication.
+ * Separates API and management operations without granting user authentication.
  */
-public final class GatewayCallerFilter extends OncePerRequestFilter {
+public final class HttpOperationFilter extends OncePerRequestFilter {
 
-    private static final String GATEWAY = "spiffe://fitness.local/gateway-service";
     private static final Set<String> AUTH_PATHS = Set.of(
             "/api/v1/auth/register",
             "/api/v1/auth/login",
@@ -38,7 +35,7 @@ public final class GatewayCallerFilter extends OncePerRequestFilter {
     private final Environment environment;
     private final ObjectWriter errorWriter;
 
-    public GatewayCallerFilter(Environment environment, JsonMapper mapper) {
+    public HttpOperationFilter(Environment environment, JsonMapper mapper) {
         this.environment = environment;
         this.errorWriter = mapper.writerFor(ApiErrorResponse.class);
     }
@@ -54,7 +51,7 @@ public final class GatewayCallerFilter extends OncePerRequestFilter {
         } else {
             boolean operation = ("POST".equals(request.getMethod()) && AUTH_PATHS.contains(path))
                     || ("GET".equals(request.getMethod()) && "/.well-known/jwks.json".equals(path));
-            allowed = operation && isGateway(request);
+            allowed = operation;
         }
         if (!allowed) {
             response.setStatus(HttpServletResponse.SC_FORBIDDEN);
@@ -74,19 +71,4 @@ public final class GatewayCallerFilter extends OncePerRequestFilter {
                 && request.getLocalPort() == management;
     }
 
-    private boolean isGateway(HttpServletRequest request) {
-        if (!request.isSecure()
-                || !(request.getAttribute("jakarta.servlet.request.X509Certificate") instanceof X509Certificate[] chain)
-                || chain.length == 0) {
-            return false;
-        }
-        try {
-            var names = chain[0].getSubjectAlternativeNames();
-            return names != null && names.stream()
-                    .anyMatch(name -> name.size() >= 2
-                            && Integer.valueOf(6).equals(name.get(0)) && GATEWAY.equals(name.get(1)));
-        } catch (CertificateParsingException invalid) {
-            return false;
-        }
-    }
 }

@@ -1,6 +1,6 @@
 package io.github.returnaction.fitness.identity.security.config;
 
-import io.github.returnaction.fitness.identity.security.GatewayCallerFilter;
+import io.github.returnaction.fitness.identity.security.HttpOperationFilter;
 import org.springframework.core.env.Environment;
 import tools.jackson.databind.json.JsonMapper;
 import io.github.returnaction.fitness.identity.security.jwt.AccessTokenVerifier;
@@ -24,14 +24,14 @@ public class SecurityConfiguration {
                                             Environment environment,
                                             JsonMapper mapper,
                                             AccessTokenVerifier accessVerifier,
-
-                                            @Qualifier("handlerExceptionResolver") HandlerExceptionResolver exceptionResolver) throws Exception {
+                                            @Qualifier("handlerExceptionResolver") HandlerExceptionResolver exceptionResolver)
+        throws Exception {
         return http.csrf(AbstractHttpConfigurer::disable)
                 .httpBasic(AbstractHttpConfigurer::disable)
                 .formLogin(AbstractHttpConfigurer::disable)
                 .logout(AbstractHttpConfigurer::disable)
                 .sessionManagement(sessions -> sessions.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .addFilterBefore(new GatewayCallerFilter(environment, mapper),
+                .addFilterBefore(new HttpOperationFilter(environment, mapper),
                         UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(new LogoutAllAuthenticationFilter(accessVerifier, exceptionResolver),
                         UsernamePasswordAuthenticationFilter.class)

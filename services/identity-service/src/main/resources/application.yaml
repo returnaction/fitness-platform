@@ -92,8 +92,4 @@ server:
   port: ${SERVER_PORT}
   forward-headers-strategy: none
   ssl:
-    enabled: true
-    client-auth: need
-    certificate: ${IDENTITY_HTTP_CERTIFICATE}
-    certificate-private-key: ${IDENTITY_HTTP_PRIVATE_KEY}
-    trust-certificate: ${IDENTITY_HTTP_TRUST_CERTIFICATE}
+    enabled: false

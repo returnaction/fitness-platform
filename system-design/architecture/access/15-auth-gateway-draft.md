@@ -8,18 +8,13 @@ Identity. Остальные бизнес-маршруты ниже остают
 
 ## Текущий переход доступа — Spec 013
 
-[Spec 013](../../../specs/013-pending/spec.md) отделяет внутренние вызовы сервисов
-напрямую от внешнего пользовательского входа через Gateway. T002 вводит HTTPS
-с обязательным клиентским сертификатом в Identity: пять auth POST и GET JWKS
-разрешены только URI SAN `spiffe://fitness.local/gateway-service`. Любой другой
-caller, recovery и неизвестные операции запрещены. Management вынесен на
-отдельный loopback-порт; через пользовательский listener он недоступен.
-Настройки — в [Identity README](../../../services/identity-service/README.md).
-
-Это промежуточный этап: HTTP-клиенты Gateway переводятся отдельно в T003,
-сквозная защита проверяется в T004. Identity пока повторно проверяет JWT
-logout-all; новая семантика операции из Spec 013 относится к будущему T005.
-Локальная привязка портов не является проверкой контейнеров или внешнего firewall.
+По последнему решению пользователя HTTP mTLS из T002 отменён: Gateway → Identity
+работает по HTTP без клиентских сертификатов. Локальные listeners — loopback.
+HTTP не подтверждает identity вызывающего; JWT в Identity сохраняется.
+Management отделён, recovery закрыт; gRPC mTLS сохранён.
+Серверная изоляция Docker ещё не реализована. Pre-authentication отложен до
+пересмотра доверенного пути. См. [Spec 013](../../../specs/013-pending/spec.md)
+и [Identity README](../../../services/identity-service/README.md).
 
 ## Основной путь
 

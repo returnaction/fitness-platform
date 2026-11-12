@@ -2,13 +2,13 @@ package io.github.returnaction.fitness.identity.registration;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
-import static io.github.returnaction.fitness.identity.TestGatewayCaller.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import io.github.returnaction.fitness.identity.registration.security.RecoveryAccessVerifier;
 import io.github.returnaction.fitness.identity.registration.service.RegistrationRecoveryService;
 import io.github.returnaction.fitness.identity.registration.exception.RecoveryAccessException;
 import io.github.returnaction.fitness.identity.shared.exception.InvalidAccessTokenException;
-import static io.github.returnaction.fitness.identity.TestGatewayCaller.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
