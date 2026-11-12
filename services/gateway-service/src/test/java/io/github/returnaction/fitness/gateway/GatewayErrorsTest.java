@@ -4,6 +4,12 @@ import io.github.returnaction.fitness.gateway.request.RequestIdFilter;
 import io.github.returnaction.fitness.gateway.security.jwks.JwksInitializer;
 import io.github.returnaction.fitness.gateway.security.session.SessionVerificationClient;
 import io.github.returnaction.fitness.gateway.timeout.RequestDeadlineFilter;
+import io.github.returnaction.fitness.gateway.security.session.SessionVerificationFilter;
+import io.github.returnaction.fitness.gateway.routing.RouteValidationFilter;
+import io.github.returnaction.fitness.gateway.readiness.ReadinessGateFilter;
+import io.github.returnaction.fitness.gateway.timeout.HttpDeadlineFilter;
+import io.github.returnaction.fitness.gateway.forwarding.ProxyRequestBodyFilter;
+import org.springframework.security.web.FilterChainProxy;
 import jakarta.servlet.ServletContext;
 import java.nio.charset.StandardCharsets;
 import org.junit.jupiter.api.BeforeEach;
@@ -105,10 +111,26 @@ class GatewayErrorsTest {
 
     @Autowired
     private ServletContext servletContext;
+    @Autowired
+    private FilterChainProxy securityFilters;
 
     @Test
     void contextFiltersAreRegisteredOnce() {
         var registrations = servletContext.getFilterRegistrations().values();
+        for (var type : List.of(ReadinessGateFilter.class, HttpDeadlineFilter.class, ProxyRequestBodyFilter.class)) {
+            assertThat(registrations.stream().filter(item -> item.getClassName().equals(type.getName())).count())
+                    .as(type.getSimpleName())
+                    .isEqualTo(1);
+        }
+        for (var type : List.of(SessionVerificationFilter.class, RouteValidationFilter.class)) {
+            assertThat(registrations.stream().filter(item -> item.getClassName().equals(type.getName())).count())
+                    .isZero();
+            assertThat(securityFilters.getFilterChains()
+                    .stream()
+                    .flatMap(chain -> chain.getFilters().stream())
+                    .filter(type::isInstance)
+                    .count()).as(type.getSimpleName()).isEqualTo(1);
+        }
         assertThat(registrations.stream()
                 .filter(registration -> registration.getClassName()
                         .equals(

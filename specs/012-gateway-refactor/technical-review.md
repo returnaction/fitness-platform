@@ -184,3 +184,27 @@ Maven Wrapper `-pl services/gateway-service -am spotless:apply verify` прош�
 45 тестов Gateway, 3 теста контрактов, Spotless и SpotBugs без ошибок.
 Использован cache `C:\Users\Oberg\.m2\repository`. Настоящий Identity и его БД
 этим прогоном не запускались; сквозной этап Э10 остаётся открытым.
+
+## Сквозная проверка Э10 (2026-11-12)
+
+В `services/gateway-service/src/test/python/verify_gateway_e2e.py` добавлен сценарий
+с настоящими Gateway, Identity, Accounts и Coins. Он использует существующие функции
+старта/выпуска сертификатов из registration-e2e, но не его старые настройки Gateway.
+Сервисы упакованы Maven Wrapper, PostgreSQL 17-alpine запускается одноразово с тремя
+отдельными тестовыми БД. JWT/mTLS-ключи временные, профиль test, .env не импортируется.
+Системные переменные для JVM передаются по явному списку, конфигурация тестов задаётся
+отдельно. Пользовательские БД не изменяются. Gateway сохраняет deadline 3s.
+
+Сценарий прошёл: пять операций; все публичные операции с четырьмя вариантами bearer;
+действительный refresh, replay с отзывом сессии, logout/logout-all с реальным
+изменением состояния Identity; 401 на отозванный JWT; 503 при остановке Identity;
+readiness после первоначальной загрузки остаётся UP. При смене JWT-ключа Identity
+новый kid отклоняется Gateway до его рестарта. После рестарта новый принимается,
+удалённый старый отклоняется. HTTP/JSON ID совпадают, пароли, email, idempotency key,
+access/refresh-токены отсутствуют в логах всех четырёх сервисов.
+
+Повторный основной `verify`: 45 тестов Gateway + 3 теста контрактов, Spotless и
+SpotBugs без ошибок. Расширена проверка регистрации фильтров: servlet-фильтры
+подключены один раз, SessionVerificationFilter и RouteValidationFilter находятся
+только в security chain и тоже ровно по одному экземпляру.
+Команды сборки jar и сквозного запуска добавлены в README Gateway.

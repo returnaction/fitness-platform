@@ -66,7 +66,14 @@ upstream_timeout, недоступность upstream — 502 upstream_unavailab
 Tomcat получает запрет дочитывать отменённую загрузку. max-swallow-size=0B относится
 к отброшенному телу, а не к лимиту размера принимаемого запроса; проверено тело 2 МиБ.
 При замене контейнера или включении HTTP/2 адаптер требует отдельной реализации
-и проверки. Сквозная проверка с настоящим Identity остаётся Э10.
+и проверки.
+
+Сквозной тест запускает настоящие Gateway, Identity, Accounts и Coins с временными
+сертификатами и одноразовым PostgreSQL-контейнером. Для каждого сервиса создаётся
+отдельная тестовая БД. Локальные .env и пользовательские БД не используются;
+процессы, контейнер и временные файлы очищаются в finally.
+Проверены пять операций, public bearer bypass, refresh/replay, отзыв сессий,
+отказ Identity, request ID, отсутствие секретов в логах и смена JWKS при рестарте.
 
 Для плановой смены ключей сначала опубликуйте в Identity старый и новый открытые
 ключи, перезапустите Gateway и проверьте readiness; затем переключайте выдачу
@@ -82,3 +89,16 @@ Tomcat получает запрет дочитывать отменённую �
 ```powershell
 .\mvnw.cmd -pl services/gateway-service -am verify
 ```
+
+Сквозная проверка требует Docker, Python и OpenSSL в PATH. Подготовка и запуск
+из корня репозитория:
+
+```powershell
+.\mvnw.cmd -pl services/identity-service,services/accounts-service,services/coins-service,services/gateway-service -am -DskipTests package
+python -B services/gateway-service/src/test/python/verify_gateway_e2e.py
+```
+
+Упаковка с `-DskipTests` подготавливает jar для четырёх процессов; она не заменяет
+отдельный `verify` выше. Сквозной сценарий сохраняет общий deadline Gateway 3s.
+Если регистрация не успела завершиться, тест явно повторяет запрос с тем же
+Idempotency-Key; автоматического повтора внутри Gateway нет.
