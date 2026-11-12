@@ -168,14 +168,18 @@ class JwksStartupTest {
                 assertThat(get(client, management, "/actuator/health/liveness").statusCode()).isEqualTo(200);
                 assertThat(get(client, management, "/actuator/health/readiness").statusCode()).isEqualTo(503);
                 assertThat(startup.isDone()).isFalse();
-                payload.set(new JWKSet(new ECKeyGenerator(Curve.P_256).keyID("trusted").generate().toPublicJWK())
-                        .toString());
+                var signingKey = new ECKeyGenerator(Curve.P_256).keyID("trusted").generate();
+                payload.set(new JWKSet(signingKey.toPublicJWK()).toString());
                 startup.get(10, TimeUnit.SECONDS);
                 assertThat(context.getBean(JwksInitializer.class).keys()).hasSize(1);
                 assertThat(get(client, management, "/actuator/health/readiness").statusCode()).isEqualTo(200);
                 assertThat(get(client, api, "/api/v1/auth/login").statusCode()).isEqualTo(405);
                 int completedCalls = calls.get();
                 payload.set("invalid");
+                var decoder = context.getBean(org.springframework.security.oauth2.jwt.JwtDecoder.class);
+                assertThat(decoder.decode(token(signingKey, "trusted"))).isNotNull();
+                assertThatThrownBy(() -> decoder.decode(token(signingKey, "unknown")))
+                        .isInstanceOf(org.springframework.security.oauth2.jwt.JwtException.class);
                 Thread.sleep(350);
                 assertThat(calls.get()).isEqualTo(completedCalls);
                 assertThat(get(client, management, "/actuator/health/readiness").statusCode()).isEqualTo(200);
@@ -196,5 +200,17 @@ class JwksStartupTest {
                 .timeout(Duration.ofSeconds(3))
                 .GET()
                 .build(), HttpResponse.BodyHandlers.ofString());
+    }
+
+    private String token(com.nimbusds.jose.jwk.ECKey key, String kid) throws Exception {
+        long now = java.time.Instant.now().getEpochSecond();
+        String id = java.util.UUID.randomUUID().toString();
+        var claims = java.util.Map.<String, Object>of("sub", id, "sid", id, "jti", id,
+                "iss", "test-identity", "aud", "test-gateway", "iat", now - 1, "exp", now + 60);
+        var token = new com.nimbusds.jose.JWSObject(
+                new com.nimbusds.jose.JWSHeader.Builder(com.nimbusds.jose.JWSAlgorithm.ES256).keyID(kid).build(),
+                new com.nimbusds.jose.Payload(claims));
+        token.sign(new com.nimbusds.jose.crypto.ECDSASigner(key));
+        return token.serialize();
     }
 }

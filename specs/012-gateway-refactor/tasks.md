@@ -2,7 +2,7 @@
 
 > **Спецификация:** [spec.md](spec.md)  
 > **План:** [plan.md](plan.md)  
-> **Статус:** in-progress; выполнены Э02–Э05, включая каталог и предварительную проверку маршрутов.
+> **Статус:** in-progress; выполнены Э02–Э06, включая локальную проверку JWT.
 
 Основание — целевые решения Spec 012. Старый код Gateway не определяет требования.
 Начало изменения приложения и удаления старого кода требует команды на реализацию.
@@ -120,6 +120,17 @@ T003/T005 — сводные задачи: закрываются только �
     Отмена транспорта ещё не реализована: T003f/T002b остаются открытыми.
   - [ ] T003d: JWT/claims с единым Clock, локальная проверка подписи, Token Relay;
     публичные операции пропускают JWT/CheckSession и удаляют Authorization.
+    - [x] Э06 (2026-11-12): Resource Server/Jose, NimbusJwtDecoder с локальным
+      выбором ES256-ключа по kid из опубликованного набора; никакого сетевого source.
+      Один Clock для timestamp/claims, issuer/audience, канонические UUID,
+      обязательные iat/exp (до преобразования claims), срок <=15 минут, roles.
+      Публичные операции обходят bearer resolver/decoder даже с невалидным токеном.
+      SecurityErrorHandler подключён к Resource Server и exceptionHandling.
+      До Э07/Э08 denyAll сохраняется: валидный JWT на logout-all пока даёт 403;
+      неверный/отсутствующий — 401. Полномочия из ролей/клиентских headers не выдаются.
+      Token Relay и удаление Authorization остаются Э08; T003d целиком открыта.
+      Проверка: `.\mvnw.cmd "-Dmaven.repo.local=C:\Users\Oberg\.m2\repository" -B -ntp -pl services/gateway-service -am spotless:apply verify`.
+      26 тестов Gateway + 3 теста контрактов, Spotless и SpotBugs прошли.
   - [ ] T003e: gRPC CheckSession, переиспользуемый защищённый канал, остаток общего
     deadline, отказ без downstream при INVALID/ошибке. Graceful shutdown канала.
   - [ ] T003f: Общий HTTP-транспорт и планировщик отмены; отмена активна до завершения
@@ -141,6 +152,10 @@ T004 — вне Spec 012: pre-authentication принимающих сервис
 ## Проверка
 
 - [ ] T005 (после реализации соответствующих частей T003, T007–T012):
+  Э06: проверены подпись/алгоритм/kid, issuer/audience, обязательность и типы claims,
+  UUID/roles, iat/nbf и границы срока, exp==now и exp<now; public decoder bypass,
+  отсутствие сетевого reload при неизвестном kid после реальной загрузки JWKS.
+  Проверка сессий/отзыва и полного проксирования остаётся для следующих этапов.
   - [ ] T005a: Каталог: дубли/пустота/адреса, изоляция before(uri), соответствие policy;
     404/405/Allow и 400 query с любым Bearer без JWT/CheckSession/downstream.
   - [ ] T005b: Публичные операции с отсутствующим, корректным, просроченным и

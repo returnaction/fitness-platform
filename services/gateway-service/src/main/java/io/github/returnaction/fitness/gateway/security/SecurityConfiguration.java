@@ -1,42 +1,57 @@
 package io.github.returnaction.fitness.gateway.security;
 
-import io.github.returnaction.fitness.gateway.error.GatewayErrorCode;
-import io.github.returnaction.fitness.gateway.error.GatewayErrorWriter;
+import java.util.List;
+import io.github.returnaction.fitness.gateway.error.SecurityErrorHandler;
 import io.github.returnaction.fitness.gateway.readiness.ManagementPort;
-import io.github.returnaction.fitness.gateway.request.RequestIdResolver;
+import io.github.returnaction.fitness.gateway.routing.RouteAccessPolicy;
+import io.github.returnaction.fitness.gateway.routing.RouteValidationFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
+import org.springframework.security.oauth2.server.resource.web.DefaultBearerTokenResolver;
+import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
 import org.springframework.security.web.SecurityFilterChain;
 
-/**
- * Keeps the scaffold closed until the route and authentication chain is
- * implemented.
- */
 @Configuration(proxyBeanMethods = false)
 public class SecurityConfiguration {
 
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http,
-                                            GatewayErrorWriter writer,
+                                            SecurityErrorHandler errors,
                                             ManagementPort management,
-                                            io.github.returnaction.fitness.gateway.routing.RouteValidationFilter routeValidation) throws Exception {
-        return http.csrf(csrf -> csrf.disable())
-                .cors(cors -> cors.disable())
-                .sessionManagement(session -> session.sessionCreationPolicy(
-                        org.springframework.security.config.http.SessionCreationPolicy.STATELESS))
-                .addFilterBefore(routeValidation,
-                        org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter.class)
-                .authorizeHttpRequests(authorize -> authorize
-                        .requestMatchers(management::matches)
+                                            RouteValidationFilter routeValidation,
+                                            RouteAccessPolicy policy,
+                                            JwtDecoder decoder) throws Exception {
+        var bearer = new DefaultBearerTokenResolver();
+        var authentication = new JwtAuthenticationConverter();
+        authentication.setJwtGrantedAuthoritiesConverter(jwt -> List.of());
+        return http.csrf(AbstractHttpConfigurer::disable)
+                .cors(AbstractHttpConfigurer::disable)
+                .formLogin(AbstractHttpConfigurer::disable)
+                .httpBasic(AbstractHttpConfigurer::disable)
+                .logout(AbstractHttpConfigurer::disable)
+                .requestCache(AbstractHttpConfigurer::disable)
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .addFilterBefore(routeValidation, BearerTokenAuthenticationFilter.class)
+                .oauth2ResourceServer(resource -> resource
+                        .bearerTokenResolver(
+                                request -> management.matches(request) || policy.publicRequests().matches(request)
+                                        ? null
+                                        : bearer.resolve(request))
+                        .jwt(jwt -> jwt.decoder(decoder).jwtAuthenticationConverter(authentication))
+                        .authenticationEntryPoint(errors)
+                        .accessDeniedHandler(errors))
+                .authorizeHttpRequests(authorize -> authorize.requestMatchers(management::matches)
                         .permitAll()
+                        // Remains closed until session verification (E07) and forwarding (E08).
                         .anyRequest()
                         .denyAll())
-                .exceptionHandling(errors -> errors
-                        .authenticationEntryPoint((request, response, exception) -> writer.write(response, 401,
-                                GatewayErrorCode.INVALID_ACCESS_TOKEN, RequestIdResolver.getOrCreate(request)))
-                        .accessDeniedHandler((request, response, exception) -> writer.write(response, 403,
-                                GatewayErrorCode.ACCESS_DENIED, RequestIdResolver.getOrCreate(request))))
+                .exceptionHandling(
+                        exceptions -> exceptions.authenticationEntryPoint(errors).accessDeniedHandler(errors))
                 .build();
     }
 }
