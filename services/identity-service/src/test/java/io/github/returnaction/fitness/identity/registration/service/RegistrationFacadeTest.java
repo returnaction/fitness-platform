@@ -19,6 +19,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 class RegistrationFacadeTest {
+
     @Mock
     private RegistrationService registration;
 

@@ -17,6 +17,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
 class ProfileCreationProcessorTest {
+
     private final ProfileCreationClient client = mock(ProfileCreationClient.class);
     private final RegistrationLeaseRepository repository = mock(RegistrationLeaseRepository.class);
     private final ProfileCreationProcessor processor = new ProfileCreationProcessor(client, repository);

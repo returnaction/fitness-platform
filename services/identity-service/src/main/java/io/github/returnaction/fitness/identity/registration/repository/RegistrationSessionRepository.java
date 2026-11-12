@@ -8,6 +8,7 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public class RegistrationSessionRepository {
+
     private final EntityManager entityManager;
 
     @SuppressFBWarnings(value = "EI_EXPOSE_REP2", justification = "Spring injects a transaction-scoped EntityManager proxy")
@@ -103,6 +104,7 @@ public class RegistrationSessionRepository {
     }
 
     public record Credentials(UUID userId, String userStatus, String operationStatus, String passwordHash) {
+
         @Override
         public String toString() {
             return "Credentials[redacted]";

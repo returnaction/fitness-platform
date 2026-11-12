@@ -4,7 +4,6 @@ import io.github.returnaction.fitness.identity.registration.exception.InvalidIde
 import io.github.returnaction.fitness.identity.shared.exception.InvalidAccessTokenException;
 import io.github.returnaction.fitness.identity.registration.exception.RecoveryConflictException;
 import io.github.returnaction.fitness.identity.registration.exception.RegistrationConflictException;
-import io.github.returnaction.fitness.identity.registration.exception.RegistrationRateLimitException;
 import io.github.returnaction.fitness.identity.registration.exception.RegistrationUnavailableException;
 import io.github.returnaction.fitness.identity.shared.exception.CredentialsValidationException;
 import io.github.returnaction.fitness.identity.session.exception.AuthenticationFailureException;
@@ -112,15 +111,6 @@ public class ApiExceptionHandler {
                 "Identity service is unavailable.",
                 List.of(),
                 request);
-    }
-
-    @ExceptionHandler(RegistrationRateLimitException.class)
-    ResponseEntity<ApiErrorResponse> handleRateLimit(RegistrationRateLimitException exception,
-                                                     HttpServletRequest request) {
-        ApiErrorResponse body = errorBody("rate_limited", "Try again later.", List.of(), request);
-        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
-                .header("Retry-After", Long.toString(exception.retryAfterSeconds()))
-                .body(body);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

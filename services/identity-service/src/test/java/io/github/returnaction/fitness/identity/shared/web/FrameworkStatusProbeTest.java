@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 class FrameworkStatusProbeTest {
+
     @Test
     void inspectUnsupportedMethod() throws Exception {
         MockMvcBuilders.standaloneSetup(new ProbeController())
@@ -40,6 +41,7 @@ class FrameworkStatusProbeTest {
 
     @RestController
     static class ProbeController {
+
         @GetMapping("/probe")
         String get() {
             return "ok";
@@ -52,6 +54,7 @@ class FrameworkStatusProbeTest {
     }
 
     static class BrokenResponse {
+
         public String getValue() {
             throw new IllegalStateException("secret-token private@example.com");
         }

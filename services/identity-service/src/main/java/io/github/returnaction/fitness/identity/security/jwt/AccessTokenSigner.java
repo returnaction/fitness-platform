@@ -21,6 +21,7 @@ import java.util.UUID;
  * Подписывает короткоживущие access JWT; ключ и параметры поступают из среды.
  */
 public final class AccessTokenSigner {
+
     private final ECPrivateKey key;
     private final String keyId;
     private final String issuer;

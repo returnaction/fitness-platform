@@ -19,8 +19,9 @@ Identity вызывает Accounts/Coins по mTLS gRPC для создания 
 Пользовательских маршрутов Gateway → Accounts/Coins нет.
 
 Шаблоны окружения: Gateway 127.0.0.1:8088, management 127.0.0.1:9088;
-Identity HTTP 8080, Accounts HTTP 8081, Coins HTTP 8082. Их HTTP bind необходимо
-явно ограничить: наличие localhost в URL клиента не ограничивает сервер.
+Identity HTTP 8080, Accounts HTTP 8081, Coins HTTP 8082. При исходной сверке общий application.yaml не задавал HTTP bind; уточнение T002:
+Identity уже имел 127.0.0.1 в application-local.yaml, Accounts/Coins получили
+эту настройку в T002. Наличие localhost в URL клиента не ограничивает сервер.
 gRPC в шаблонах привязан к 127.0.0.1: Identity 9093, Accounts 9091, Coins 9092.
 Это значения шаблонов, не доказательство активных listeners или firewall.
 PostgreSQL локально вне Docker, отдельные БД сервисов. E2E-скрипт имеет отдельный

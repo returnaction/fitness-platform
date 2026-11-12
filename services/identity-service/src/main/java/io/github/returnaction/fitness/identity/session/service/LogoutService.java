@@ -15,6 +15,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 @Service
 @RequiredArgsConstructor
 public class LogoutService {
+
     private final RefreshTokenRepository repository;
     private final SessionVerificationRepository sessions;
     private final TransactionTemplate transactions;

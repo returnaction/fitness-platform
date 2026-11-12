@@ -11,6 +11,7 @@ import org.springframework.stereotype.Component;
 @Component
 @EnableScheduling
 public final class ProfileCreationScheduler {
+
     private final UUID owner = UUID.randomUUID();
     private final RegistrationLeaseRepository leases;
     private final ProfileCreationProcessor processor;

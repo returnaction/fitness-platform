@@ -11,6 +11,7 @@ import org.springframework.stereotype.Component;
 @Component
 @RequiredArgsConstructor
 public class RecoveryAccessVerifier {
+
     private final AccessTokenVerifier verifier;
     private final SessionVerificationRepository sessions;
     private final RecoveryAccessRepository repository;

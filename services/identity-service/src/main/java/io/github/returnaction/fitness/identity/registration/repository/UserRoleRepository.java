@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 
 public interface UserRoleRepository extends JpaRepository<UserRoleEntity, UserRoleId> {
+
     @Query("""
             select r.code from UserRoleEntity ur, RoleEntity r
             where ur.id.userId = :userId and r.id = ur.id.roleId

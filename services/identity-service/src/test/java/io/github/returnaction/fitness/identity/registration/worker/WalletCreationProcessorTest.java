@@ -17,6 +17,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
 class WalletCreationProcessorTest {
+
     private final WalletCreationClient client = mock(WalletCreationClient.class);
     private final RegistrationLeaseRepository repository = mock(RegistrationLeaseRepository.class);
     private final WalletCreationProcessor processor = new WalletCreationProcessor(client, repository);

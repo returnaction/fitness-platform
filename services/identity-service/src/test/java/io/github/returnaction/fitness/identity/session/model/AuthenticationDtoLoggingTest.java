@@ -10,6 +10,7 @@ import io.github.returnaction.fitness.identity.shared.model.ValidatedCredentials
 import org.junit.jupiter.api.Test;
 
 class AuthenticationDtoLoggingTest {
+
     @Test
     void stringRepresentationsDoNotExposeCredentialsOrTokens() {
         String email = "person@example.test";

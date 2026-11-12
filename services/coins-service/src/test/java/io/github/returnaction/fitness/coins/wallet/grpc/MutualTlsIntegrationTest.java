@@ -52,6 +52,7 @@ import org.springframework.context.annotation.AnnotationConfigApplicationContext
 import org.springframework.core.env.MapPropertySource;
 
 class MutualTlsIntegrationTest {
+
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
     void springStartsActualServerAndRejectsInvalidCertificates(boolean malformed,

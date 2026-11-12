@@ -51,6 +51,7 @@ import org.springframework.context.annotation.AnnotationConfigApplicationContext
 import org.springframework.core.env.MapPropertySource;
 
 class MutualTlsIntegrationTest {
+
     @Test
     void springStartsActualServerAndRejectsMissingCertificates(@TempDir Path directory) throws Exception {
         KeyPair caKey = keyPair();

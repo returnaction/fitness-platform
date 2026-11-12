@@ -15,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
  */
 @Service
 public class RegistrationRecoveryService {
+
     @SuppressFBWarnings(value = "EI_EXPOSE_REP2", justification = "Spring-managed repository is shared and not exposed.")
     private final RegistrationRecoveryRepository repository;
 

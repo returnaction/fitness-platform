@@ -14,6 +14,7 @@ import org.junit.jupiter.api.io.TempDir;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 
 class AccessTokenConfigurationTest {
+
     @TempDir
     Path directory;
 

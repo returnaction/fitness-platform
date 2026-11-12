@@ -25,6 +25,7 @@ import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
  */
 @EnabledIfSystemProperty(named = "fitness.localStepCaSmoke", matches = "true")
 class ProfileCreationClientLocalTest {
+
     @Test
     void identityClientConnectsUsingStepCaCertificates() throws Exception {
         File secrets = new File("../../secrets");
@@ -37,6 +38,7 @@ class ProfileCreationClientLocalTest {
                         .clientAuth(ClientAuth.REQUIRE)
                         .build())
                 .addService(new ProfileCreationServiceGrpc.ProfileCreationServiceImplBase() {
+
                     @Override
                     public void createProfileIfAbsent(
                                                       CreateProfileIfAbsentRequest request,

@@ -20,6 +20,7 @@ import org.mockito.ArgumentCaptor;
 import org.springframework.dao.DataAccessResourceFailureException;
 
 class SessionVerificationGrpcServiceTest {
+
     private final SessionVerificationRepository repository = mock(SessionVerificationRepository.class);
     private final SessionVerificationGrpcService service = new SessionVerificationGrpcService(repository);
 

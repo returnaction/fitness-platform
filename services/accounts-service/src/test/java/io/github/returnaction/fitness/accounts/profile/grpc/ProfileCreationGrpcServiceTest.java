@@ -21,6 +21,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
 class ProfileCreationGrpcServiceTest {
+
     private final ProfileCreationService profileCreationService = mock(ProfileCreationService.class);
     private final ProfileCreationGrpcService service = new ProfileCreationGrpcService(profileCreationService);
 

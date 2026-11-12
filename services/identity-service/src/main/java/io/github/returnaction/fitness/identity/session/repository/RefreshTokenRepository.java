@@ -8,6 +8,7 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public class RefreshTokenRepository {
+
     private final EntityManager entityManager;
 
     @SuppressFBWarnings(value = "EI_EXPOSE_REP2", justification = "Spring injects a transaction-scoped EntityManager proxy")
@@ -108,6 +109,7 @@ public class RefreshTokenRepository {
     }
 
     public record Token(byte[] hash, Instant usedAt, Instant revokedAt, Instant expiresAt) {
+
         public Token {
             hash = hash == null ? null : hash.clone();
         }

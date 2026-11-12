@@ -48,6 +48,9 @@ Before each development step:
   the user's explicit start command. Local services run as Java processes;
   the future server deployment uses containers. Do not claim server protection
   based only on local tests. Content-Encoding work is deferred by the user.
+- The user authorized T002 implementation. After completing each task, report
+  the changes and verification, then stop for user review. Do not commit or
+  start the next task without the user's next instruction.
 - Previous specifications' commit authorizations do not carry over to Spec 013.
   Commits, push, merge, deployment and user-database migrations require
   explicit authorization.

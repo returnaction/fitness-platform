@@ -11,6 +11,7 @@ import org.springframework.stereotype.Component;
 @Component
 @EnableScheduling
 public final class WalletCreationScheduler {
+
     private final UUID owner = UUID.randomUUID();
     private final RegistrationLeaseRepository leases;
     private final WalletCreationProcessor processor;

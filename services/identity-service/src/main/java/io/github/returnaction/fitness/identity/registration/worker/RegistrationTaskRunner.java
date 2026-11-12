@@ -20,6 +20,7 @@ import org.springframework.stereotype.Component;
 /** Общий ограниченный пул: задача арендуется только в свободном потоке. */
 @Component
 public final class RegistrationTaskRunner implements AutoCloseable {
+
     private static final Logger LOGGER = LoggerFactory.getLogger(RegistrationTaskRunner.class);
     private final int batchSize;
     private final int parallelism;

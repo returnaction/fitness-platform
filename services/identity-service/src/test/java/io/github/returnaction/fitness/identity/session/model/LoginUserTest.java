@@ -7,6 +7,7 @@ import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
 class LoginUserTest {
+
     @Test
     void toStringDoesNotExposePasswordHash() {
         var user = new LoginUser(UUID.randomUUID(), UserStatus.ACTIVE, "secret-hash");

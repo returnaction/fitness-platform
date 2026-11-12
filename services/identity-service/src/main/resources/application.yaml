@@ -56,16 +56,6 @@ identity:
   registration:
     response-wait-ms: ${IDENTITY_REGISTRATION_RESPONSE_WAIT_MS}
     response-poll-ms: ${IDENTITY_REGISTRATION_RESPONSE_POLL_MS}
-    rate-limit:
-      capacity: ${IDENTITY_REGISTRATION_RATE_CAPACITY}
-      period-seconds: ${IDENTITY_REGISTRATION_RATE_PERIOD_SECONDS}
-      cache-size: ${IDENTITY_REGISTRATION_RATE_CACHE_SIZE}
-      cache-expiry-seconds: ${IDENTITY_REGISTRATION_RATE_CACHE_EXPIRY_SECONDS}
-      trusted-proxy-ip: ${IDENTITY_REGISTRATION_TRUSTED_PROXY_IP}
-    login-rate-capacity: ${IDENTITY_LOGIN_RATE_CAPACITY}
-    refresh-rate-capacity: ${IDENTITY_REFRESH_RATE_CAPACITY}
-    logout-rate-capacity: ${IDENTITY_LOGOUT_RATE_CAPACITY}
-    logout-all-rate-capacity: ${IDENTITY_LOGOUT_ALL_RATE_CAPACITY}
     worker:
       poll-ms: ${IDENTITY_REGISTRATION_WORKER_POLL_MS}
       batch-size: ${IDENTITY_REGISTRATION_WORKER_BATCH_SIZE}
@@ -83,6 +73,11 @@ identity:
         iterations: 2
 
 management:
+  server:
+    port: ${IDENTITY_MANAGEMENT_PORT}
+    address: 127.0.0.1
+    ssl:
+      enabled: false
   endpoints:
     web:
       exposure:
@@ -95,3 +90,10 @@ management:
 
 server:
   port: ${SERVER_PORT}
+  forward-headers-strategy: none
+  ssl:
+    enabled: true
+    client-auth: need
+    certificate: ${IDENTITY_HTTP_CERTIFICATE}
+    certificate-private-key: ${IDENTITY_HTTP_PRIVATE_KEY}
+    trust-certificate: ${IDENTITY_HTTP_TRUST_CERTIFICATE}

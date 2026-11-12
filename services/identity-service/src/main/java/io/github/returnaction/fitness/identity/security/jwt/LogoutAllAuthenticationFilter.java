@@ -1,8 +1,5 @@
 package io.github.returnaction.fitness.identity.security.jwt;
 
-import io.github.returnaction.fitness.identity.registration.exception.RegistrationRateLimitException;
-import io.github.returnaction.fitness.identity.registration.web.ClientIpAddressResolver;
-import io.github.returnaction.fitness.identity.registration.web.RegistrationRateLimiter;
 import io.github.returnaction.fitness.identity.shared.exception.InvalidAccessTokenException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -23,9 +20,8 @@ import org.springframework.web.servlet.HandlerExceptionResolver;
  */
 @RequiredArgsConstructor
 public final class LogoutAllAuthenticationFilter extends OncePerRequestFilter {
+
     private final AccessTokenVerifier verifier;
-    private final ClientIpAddressResolver clientAddress;
-    private final RegistrationRateLimiter limiter;
     private final HandlerExceptionResolver exceptionResolver;
 
     @Override
@@ -49,12 +45,6 @@ public final class LogoutAllAuthenticationFilter extends OncePerRequestFilter {
             }
         } catch (IllegalArgumentException invalid) {
             response.setStatus(HttpServletResponse.SC_NOT_ACCEPTABLE);
-            return;
-        }
-        try {
-            limiter.check(clientAddress.resolve(request));
-        } catch (RegistrationRateLimitException limited) {
-            handleError(request, response, limited);
             return;
         }
         String authorization = request.getHeader("Authorization");

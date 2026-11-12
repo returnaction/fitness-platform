@@ -71,8 +71,6 @@ paths:
           $ref: '#/components/responses/UnsupportedMediaType'
         '422':
           $ref: '#/components/responses/ValidationError'
-        '429':
-          $ref: '#/components/responses/RateLimited'
         '500':
           $ref: '#/components/responses/InternalError'
         '503':
@@ -126,8 +124,6 @@ paths:
           $ref: '#/components/responses/UnsupportedMediaType'
         '422':
           $ref: '#/components/responses/ValidationError'
-        '429':
-          $ref: '#/components/responses/RateLimited'
         '500':
           $ref: '#/components/responses/InternalError'
         '503':
@@ -194,8 +190,6 @@ paths:
           $ref: '#/components/responses/UnsupportedMediaType'
         '422':
           $ref: '#/components/responses/RefreshValidationError'
-        '429':
-          $ref: '#/components/responses/RateLimited'
         '500':
           $ref: '#/components/responses/InternalError'
         '503':
@@ -240,8 +234,6 @@ paths:
           $ref: '#/components/responses/UnsupportedMediaType'
         '422':
           $ref: '#/components/responses/LogoutValidationError'
-        '429':
-          $ref: '#/components/responses/RateLimited'
         '500':
           $ref: '#/components/responses/InternalError'
         '503':
@@ -271,8 +263,6 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '406':
           $ref: '#/components/responses/NotAcceptable'
-        '429':
-          $ref: '#/components/responses/RateLimited'
         '500':
           $ref: '#/components/responses/InternalError'
         '503':
@@ -484,23 +474,6 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
-    RateLimited:
-      description: Request rate limit exceeded.
-      headers:
-        Retry-After:
-          description: Seconds until the client can retry.
-          schema:
-            type: integer
-            minimum: 1
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
-          example:
-            error:
-              code: rate_limited
-              message: Try again later.
-              request_id: 2c160d4b-0f61-4702-99e1-99713d0c9326
     RegistrationUnavailable:
       description: |
         Creation has not completed within the configured wait or is

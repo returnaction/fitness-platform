@@ -93,7 +93,6 @@
         <!-- Nimbus JOSE + JWT: библиотека для работы с JWT-токенами (авторизация). -->
         <nimbus-jose-jwt.version>10.5</nimbus-jose-jwt.version>
         <!-- Bucket4j: Rate Limiting (защита от DDoS, "не больше 10 запросов в минуту от одного юзера"). -->
-        <bucket4j.version>8.16.0</bucket4j.version>
 
         <!-- === КРИПТОГРАФИЯ И АННОТАЦИИ === -->
         <!-- BouncyCastle: провайдер шифрования для алгоритма Argon2 (хеширование паролей). -->

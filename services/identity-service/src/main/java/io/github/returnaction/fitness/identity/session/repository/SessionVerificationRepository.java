@@ -10,6 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 /** Читает актуальную сессию из собственной базы Identity без кеширования. */
 @Repository
 public class SessionVerificationRepository {
+
     private final EntityManager entityManager;
 
     @SuppressFBWarnings(value = "EI_EXPOSE_REP2", justification = "Spring injects a transaction-scoped EntityManager proxy")
