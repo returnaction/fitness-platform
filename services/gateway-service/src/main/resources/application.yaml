@@ -3,6 +3,9 @@ spring:
     name: gateway-service
   profiles:
     default: local
+  threads:
+    virtual:
+      enabled: true
   autoconfigure:
     exclude: org.springframework.boot.security.autoconfigure.UserDetailsServiceAutoConfiguration
 
@@ -23,3 +26,23 @@ management:
       probes:
         enabled: true
       show-details: never
+
+gateway:
+  request:
+    timeout: 3s
+  upstreams:
+    services:
+      IDENTITY:
+        base-url: ${IDENTITY_HTTP_BASE_URL}
+  security:
+    access-token:
+      jwks-uri: ${GATEWAY_JWKS_URL}
+      issuer: ${GATEWAY_JWT_ISSUER}
+      audience: ${GATEWAY_JWT_AUDIENCE}
+    session-verification:
+      host: ${IDENTITY_SESSION_HOST}
+      port: ${IDENTITY_SESSION_PORT}
+      trust-certificate: ${GATEWAY_TRUST_CERTIFICATE}
+      certificate: ${GATEWAY_CERTIFICATE}
+      private-key: ${GATEWAY_PRIVATE_KEY}
+      shutdown-timeout: ${SESSION_SHUTDOWN_TIMEOUT}
