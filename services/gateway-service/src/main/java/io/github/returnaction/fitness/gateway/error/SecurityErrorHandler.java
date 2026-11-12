@@ -13,10 +13,7 @@ import org.springframework.stereotype.Component;
 
 @Component
 @RequiredArgsConstructor
-public final class SecurityErrorHandler
-        implements
-            AuthenticationEntryPoint,
-            AccessDeniedHandler {
+public final class SecurityErrorHandler implements AuthenticationEntryPoint, AccessDeniedHandler {
 
     private final GatewayErrorWriter errorWriter;
 

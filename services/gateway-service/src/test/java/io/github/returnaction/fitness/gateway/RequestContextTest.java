@@ -1,5 +1,8 @@
 package io.github.returnaction.fitness.gateway;
 
+import java.util.ArrayList;
+import java.util.concurrent.Future;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -58,7 +61,7 @@ class RequestContextTest {
         var filter = new RequestIdFilter();
         var ids = new HashSet<String>();
         try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
-            var futures = new java.util.ArrayList<java.util.concurrent.Future<String>>();
+            var futures = new ArrayList<Future<String>>();
             for (int i = 0; i < 32; i++) {
                 futures.add(executor.submit(() -> {
                     var response = new MockHttpServletResponse();

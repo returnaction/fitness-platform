@@ -1,5 +1,21 @@
 package io.github.returnaction.fitness.gateway;
 
+import io.github.returnaction.fitness.gateway.configuration.properties.AccessTokenProperties;
+import io.github.returnaction.fitness.gateway.configuration.properties.JwksStartupProperties;
+import io.github.returnaction.fitness.gateway.security.session.SessionVerificationClient;
+import java.nio.charset.StandardCharsets;
+import java.time.Instant;
+import java.util.concurrent.CountDownLatch;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import org.mockito.Mockito;
+import org.springframework.beans.factory.support.BeanDefinitionRegistry;
+import org.springframework.boot.DefaultApplicationArguments;
+import org.springframework.context.ApplicationListener;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.jwt.JwtException;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -30,9 +46,9 @@ class JwksStartupTest {
 
     @Test
     void slowBodyTimesOutAndShutdownCancelsRetry() throws Exception {
-        var firstRequest = new java.util.concurrent.CountDownLatch(1);
-        var secondRequest = new java.util.concurrent.CountDownLatch(2);
-        var release = new java.util.concurrent.CountDownLatch(1);
+        var firstRequest = new CountDownLatch(1);
+        var secondRequest = new CountDownLatch(2);
+        var release = new CountDownLatch(1);
         var calls = new AtomicInteger();
         var server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         try (var workers = Executors.newVirtualThreadPerTaskExecutor()) {
@@ -54,12 +70,12 @@ class JwksStartupTest {
             });
             server.start();
             var loader = new JwksInitializer(
-                    new io.github.returnaction.fitness.gateway.configuration.properties.AccessTokenProperties(
+                    new AccessTokenProperties(
                             URI.create("http://127.0.0.1:" + server.getAddress().getPort() + "/keys"), "issuer",
                             "audience"),
-                    new io.github.returnaction.fitness.gateway.configuration.properties.JwksStartupProperties(
+                    new JwksStartupProperties(
                             Duration.ofMillis(200), Duration.ofMillis(100)));
-            var run = workers.submit(() -> loader.run(new org.springframework.boot.DefaultApplicationArguments()));
+            var run = workers.submit(() -> loader.run(new DefaultApplicationArguments()));
             try {
                 assertThat(firstRequest.await(3, TimeUnit.SECONDS)).isTrue();
                 assertThat(secondRequest.await(3, TimeUnit.SECONDS)).isTrue();
@@ -82,7 +98,7 @@ class JwksStartupTest {
 
     @Test
     void shutdownInterruptsLongRetryPause() throws Exception {
-        var failed = new java.util.concurrent.CountDownLatch(1);
+        var failed = new CountDownLatch(1);
         var server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         server.createContext("/keys", exchange -> {
             exchange.sendResponseHeaders(503, -1);
@@ -91,13 +107,13 @@ class JwksStartupTest {
         });
         server.start();
         var loader = new JwksInitializer(
-                new io.github.returnaction.fitness.gateway.configuration.properties.AccessTokenProperties(
+                new AccessTokenProperties(
                         URI.create("http://127.0.0.1:" + server.getAddress().getPort() + "/keys"), "issuer",
                         "audience"),
-                new io.github.returnaction.fitness.gateway.configuration.properties.JwksStartupProperties(
+                new JwksStartupProperties(
                         Duration.ofSeconds(1), Duration.ofSeconds(30)));
         try (var worker = Executors.newVirtualThreadPerTaskExecutor()) {
-            var run = worker.submit(() -> loader.run(new org.springframework.boot.DefaultApplicationArguments()));
+            var run = worker.submit(() -> loader.run(new DefaultApplicationArguments()));
             try {
                 assertThat(failed.await(3, TimeUnit.SECONDS)).isTrue();
                 loader.stop();
@@ -119,7 +135,7 @@ class JwksStartupTest {
         assertThatThrownBy(() -> TrustedJwks.parse("{}")).isInstanceOf(Exception.class);
         assertThatThrownBy(() -> TrustedJwks.parse("{\"keys\":[]}")).isInstanceOf(Exception.class);
         assertThatThrownBy(() -> TrustedJwks.parse(new JWKSet(key).toString(false))).isInstanceOf(Exception.class);
-        assertThatThrownBy(() -> TrustedJwks.parse(new JWKSet(java.util.List.of(key.toPublicJWK(),
+        assertThatThrownBy(() -> TrustedJwks.parse(new JWKSet(List.of(key.toPublicJWK(),
                 key.toPublicJWK())).toString())).isInstanceOf(Exception.class);
         var wrongCurve = new ECKeyGenerator(Curve.P_384).keyID("wrong").generate();
         assertThatThrownBy(() -> TrustedJwks.parse(new JWKSet(wrongCurve.toPublicJWK()).toString()))
@@ -133,7 +149,7 @@ class JwksStartupTest {
         var server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         server.createContext("/keys", exchange -> {
             calls.incrementAndGet();
-            byte[] body = payload.get().getBytes(java.nio.charset.StandardCharsets.UTF_8);
+            byte[] body = payload.get().getBytes(StandardCharsets.UTF_8);
             exchange.sendResponseHeaders(200, body.length);
             exchange.getResponseBody().write(body);
             exchange.close();
@@ -144,12 +160,12 @@ class JwksStartupTest {
             var application = new SpringApplication(GatewayApplication.class);
             // This test exercises JWKS startup, independently of the gRPC TLS fixtures.
             application.addInitializers(context -> context.addBeanFactoryPostProcessor(factory -> {
-                ((org.springframework.beans.factory.support.BeanDefinitionRegistry) factory)
+                ((BeanDefinitionRegistry) factory)
                         .removeBeanDefinition("grpcSessionVerificationClient");
-                factory.registerSingleton("sessionVerificationClient", org.mockito.Mockito.mock(
-                        io.github.returnaction.fitness.gateway.security.session.SessionVerificationClient.class));
+                factory.registerSingleton("sessionVerificationClient", Mockito.mock(
+                        SessionVerificationClient.class));
             }));
-            application.addListeners((org.springframework.context.ApplicationListener<ContextRefreshedEvent>) event -> {
+            application.addListeners((ApplicationListener<ContextRefreshedEvent>) event -> {
                 if (event.getApplicationContext().getParent() == null) {
                     contextRef.set((ConfigurableApplicationContext) event.getApplicationContext());
                 }
@@ -183,10 +199,10 @@ class JwksStartupTest {
                 assertThat(get(client, api, "/api/v1/auth/login").statusCode()).isEqualTo(405);
                 int completedCalls = calls.get();
                 payload.set("invalid");
-                var decoder = context.getBean(org.springframework.security.oauth2.jwt.JwtDecoder.class);
+                var decoder = context.getBean(JwtDecoder.class);
                 assertThat(decoder.decode(token(signingKey, "trusted"))).isNotNull();
                 assertThatThrownBy(() -> decoder.decode(token(signingKey, "unknown")))
-                        .isInstanceOf(org.springframework.security.oauth2.jwt.JwtException.class);
+                        .isInstanceOf(JwtException.class);
                 Thread.sleep(350);
                 assertThat(calls.get()).isEqualTo(completedCalls);
                 assertThat(get(client, management, "/actuator/health/readiness").statusCode()).isEqualTo(200);
@@ -210,9 +226,9 @@ class JwksStartupTest {
     }
 
     private String token(com.nimbusds.jose.jwk.ECKey key, String kid) throws Exception {
-        long now = java.time.Instant.now().getEpochSecond();
-        String id = java.util.UUID.randomUUID().toString();
-        var claims = java.util.Map.<String, Object>of("sub", id, "sid", id, "jti", id,
+        long now = Instant.now().getEpochSecond();
+        String id = UUID.randomUUID().toString();
+        var claims = Map.<String, Object>of("sub", id, "sid", id, "jti", id,
                 "iss", "test-identity", "aud", "test-gateway", "iat", now - 1, "exp", now + 60);
         var token = new com.nimbusds.jose.JWSObject(
                 new com.nimbusds.jose.JWSHeader.Builder(com.nimbusds.jose.JWSAlgorithm.ES256).keyID(kid).build(),

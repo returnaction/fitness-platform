@@ -1,5 +1,7 @@
 package io.github.returnaction.fitness.gateway;
 
+import io.github.returnaction.fitness.gateway.configuration.ProductionConfiguration;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.github.returnaction.fitness.gateway.configuration.properties.AccessTokenProperties;
@@ -56,14 +58,14 @@ class GatewayPropertiesTest {
 
     @Test
     void productionRejectsUnprotectedEndpoints() {
-        runner.withUserConfiguration(io.github.returnaction.fitness.gateway.configuration.ProductionConfiguration.class)
+        runner.withUserConfiguration(ProductionConfiguration.class)
                 .withPropertyValues("spring.profiles.active=production")
                 .run(context -> assertThat(context).hasFailed());
     }
 
     @Test
     void productionAcceptsHttpsEndpoints() {
-        runner.withUserConfiguration(io.github.returnaction.fitness.gateway.configuration.ProductionConfiguration.class)
+        runner.withUserConfiguration(ProductionConfiguration.class)
                 .withPropertyValues("spring.profiles.active=production",
                         "gateway.security.access-token.jwks-uri=https://localhost/keys",
                         "gateway.upstreams.services.IDENTITY.base-url=https://localhost")

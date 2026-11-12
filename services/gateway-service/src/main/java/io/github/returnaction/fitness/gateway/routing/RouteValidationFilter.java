@@ -1,5 +1,7 @@
 package io.github.returnaction.fitness.gateway.routing;
 
+import io.github.returnaction.fitness.gateway.readiness.ManagementPort;
+
 import io.github.returnaction.fitness.gateway.error.GatewayErrorCode;
 import static org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher.withDefaults;
 
@@ -21,7 +23,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 public final class RouteValidationFilter extends OncePerRequestFilter {
 
     private final GatewayErrorWriter errorWriter;
-    private final io.github.returnaction.fitness.gateway.readiness.ManagementPort management;
+    private final ManagementPort management;
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {

@@ -1,5 +1,7 @@
 package io.github.returnaction.fitness.gateway.security;
 
+import io.github.returnaction.fitness.gateway.security.session.SessionVerificationFilter;
+
 import java.util.List;
 import io.github.returnaction.fitness.gateway.error.SecurityErrorHandler;
 import io.github.returnaction.fitness.gateway.readiness.ManagementPort;
@@ -26,7 +28,7 @@ public class SecurityConfiguration {
                                             RouteValidationFilter routeValidation,
                                             RouteAccessPolicy policy,
                                             JwtDecoder decoder,
-                                            io.github.returnaction.fitness.gateway.security.session.SessionVerificationFilter sessionFilter) throws Exception {
+                                            SessionVerificationFilter sessionFilter) throws Exception {
         var bearer = new DefaultBearerTokenResolver();
         var authentication = new JwtAuthenticationConverter();
         authentication.setJwtGrantedAuthoritiesConverter(jwt -> List.of());

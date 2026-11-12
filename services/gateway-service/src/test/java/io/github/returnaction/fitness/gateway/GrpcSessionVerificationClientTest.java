@@ -1,5 +1,7 @@
 package io.github.returnaction.fitness.gateway;
 
+import java.util.concurrent.atomic.AtomicLong;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -60,7 +62,7 @@ class GrpcSessionVerificationClientTest {
                 new GeneralName(GeneralName.uniformResourceIdentifier, "spiffe://fitness.local/gateway"), false);
         var status = new AtomicInteger(1);
         var captured = new AtomicReference<CheckSessionRequest>();
-        var remaining = new java.util.concurrent.atomic.AtomicLong();
+        var remaining = new AtomicLong();
         var calls = new AtomicInteger();
         var service = new IdentitySessionServiceGrpc.IdentitySessionServiceImplBase() {
 

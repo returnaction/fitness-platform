@@ -1,5 +1,13 @@
 package io.github.returnaction.fitness.gateway;
 
+import io.github.returnaction.fitness.gateway.security.session.SessionVerificationClient;
+import io.github.returnaction.fitness.gateway.security.session.SessionVerificationUnavailableException;
+import io.github.returnaction.fitness.gateway.timeout.RequestDeadline;
+import java.util.Arrays;
+import java.util.concurrent.atomic.AtomicReference;
+import org.mockito.ArgumentMatchers;
+import org.mockito.Mockito;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.clearInvocations;
@@ -43,8 +51,8 @@ import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 @ActiveProfiles("test")
 class JwtValidationTest {
 
-    @org.springframework.test.context.bean.override.mockito.MockitoBean
-    private io.github.returnaction.fitness.gateway.security.session.SessionVerificationClient sessions;
+    @MockitoBean
+    private SessionVerificationClient sessions;
 
     private static final Instant NOW = Instant.parse("2026-11-12T12:00:00Z");
     private static final ECKey KEY = key();
@@ -67,8 +75,8 @@ class JwtValidationTest {
 
     @BeforeEach
     void configureTrustAndTime() {
-        when(sessions.isActive(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
-                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any())).thenReturn(true);
+        when(sessions.isActive(ArgumentMatchers.any(), ArgumentMatchers.any(),
+                ArgumentMatchers.any(), ArgumentMatchers.any())).thenReturn(true);
         when(keys.ready()).thenReturn(true);
         when(keys.keys()).thenReturn(List.of(KEY.toPublicJWK()));
         when(clock.instant()).thenReturn(NOW);
@@ -125,7 +133,7 @@ class JwtValidationTest {
             invalid.put(name, Map.of("invalid", true));
             assertThatThrownBy(() -> decoder.decode(sign(invalid))).as("type " + name).isInstanceOf(JwtException.class);
         }
-        for (Object roles : List.of("USER", List.of(1), java.util.Arrays.asList("USER", null))) {
+        for (Object roles : List.of("USER", List.of(1), Arrays.asList("USER", null))) {
             var invalid = claims();
             invalid.put("roles", roles);
             assertThatThrownBy(() -> decoder.decode(sign(invalid))).isInstanceOf(JwtException.class);
@@ -183,9 +191,9 @@ class JwtValidationTest {
             assertThat(request(client, "/unknown", "bad").statusCode()).isEqualTo(404);
             assertThat(request(client, "/api/v1/auth/logout-all?x=1", "bad").statusCode()).isEqualTo(400);
         }
-        verify(decoder, never()).decode(org.mockito.ArgumentMatchers.anyString());
-        verify(sessions, never()).isActive(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
-                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+        verify(decoder, never()).decode(ArgumentMatchers.anyString());
+        verify(sessions, never()).isActive(ArgumentMatchers.any(), ArgumentMatchers.any(),
+                ArgumentMatchers.any(), ArgumentMatchers.any());
     }
 
     @Test
@@ -195,7 +203,7 @@ class JwtValidationTest {
             assertThat(invalid.statusCode()).isEqualTo(401);
             assertThat(invalid.body()).contains("invalid_access_token", "request_id");
             assertThat(invalid.headers().firstValue("WWW-Authenticate")).contains("Bearer");
-            org.mockito.Mockito.verifyNoInteractions(sessions);
+            Mockito.verifyNoInteractions(sessions);
             var valid = request(client, "/api/v1/auth/logout-all", sign(claims()));
             assertThat(valid.statusCode()).isEqualTo(403);
             assertThat(valid.body()).contains("access_denied");
@@ -208,11 +216,11 @@ class JwtValidationTest {
         var claims = claims();
         var user = UUID.fromString((String) claims.get("sub"));
         var session = UUID.fromString((String) claims.get("sid"));
-        var requestId = new java.util.concurrent.atomic.AtomicReference<UUID>();
-        when(sessions.isActive(org.mockito.ArgumentMatchers.eq(user), org.mockito.ArgumentMatchers.eq(session),
-                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any())).thenAnswer(invocation -> {
+        var requestId = new AtomicReference<UUID>();
+        when(sessions.isActive(ArgumentMatchers.eq(user), ArgumentMatchers.eq(session),
+                ArgumentMatchers.any(), ArgumentMatchers.any())).thenAnswer(invocation -> {
                     requestId.set(invocation.getArgument(2));
-                    io.github.returnaction.fitness.gateway.timeout.RequestDeadline deadline = invocation.getArgument(3);
+                    RequestDeadline deadline = invocation.getArgument(3);
                     assertThat(deadline.remainingNanos()).isPositive().isLessThanOrEqualTo(3_000_000_000L);
                     return false;
                 });
@@ -221,10 +229,10 @@ class JwtValidationTest {
             assertThat(invalid.statusCode()).isEqualTo(401);
             assertThat(invalid.headers().firstValue("X-Request-Id")).contains(requestId.get().toString());
             assertThat(invalid.body()).contains(requestId.get().toString(), "invalid_access_token");
-            when(sessions.isActive(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
-                    org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any()))
+            when(sessions.isActive(ArgumentMatchers.any(), ArgumentMatchers.any(),
+                    ArgumentMatchers.any(), ArgumentMatchers.any()))
                     .thenThrow(
-                            new io.github.returnaction.fitness.gateway.security.session.SessionVerificationUnavailableException(
+                            new SessionVerificationUnavailableException(
                                     "private transport diagnostics"));
             var failed = request(client, "/api/v1/auth/logout-all", sign(claims));
             assertThat(failed.statusCode()).isEqualTo(503);

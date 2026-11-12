@@ -1,5 +1,7 @@
 package io.github.returnaction.fitness.gateway.security.jwks;
 
+import java.util.Set;
+
 import java.util.HashSet;
 import java.util.List;
 import java.util.ArrayList;
@@ -31,7 +33,7 @@ public final class TrustedJwks {
                     && (ec.getAlgorithm() == null || JWSAlgorithm.ES256.equals(ec.getAlgorithm()))
                     && (ec.getKeyUse() == null || KeyUse.SIGNATURE.equals(ec.getKeyUse()))
                     && (ec.getKeyOperations() == null
-                            || ec.getKeyOperations().equals(java.util.Set.of(KeyOperation.VERIFY)))) {
+                            || ec.getKeyOperations().equals(Set.of(KeyOperation.VERIFY)))) {
                 ec.toECPublicKey();
                 usable.add(ec);
             }

@@ -1,5 +1,7 @@
 package io.github.returnaction.fitness.gateway.security.jwks;
 
+import java.util.concurrent.TimeoutException;
+
 import com.nimbusds.jose.jwk.ECKey;
 import io.github.returnaction.fitness.gateway.configuration.properties.AccessTokenProperties;
 import io.github.returnaction.fitness.gateway.configuration.properties.JwksStartupProperties;
@@ -66,7 +68,7 @@ public final class JwksInitializer implements ApplicationRunner {
                     }
                     var candidate = TrustedJwks.parse(response.body());
                     if (System.nanoTime() - started >= settings.attemptTimeout().toNanos()) {
-                        throw new java.util.concurrent.TimeoutException();
+                        throw new TimeoutException();
                     }
                     synchronized (this) {
                         if (!stopped) {

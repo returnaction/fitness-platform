@@ -1,5 +1,15 @@
 package io.github.returnaction.fitness.gateway;
 
+import io.github.returnaction.fitness.gateway.request.RequestIdFilter;
+import io.github.returnaction.fitness.gateway.security.jwks.JwksInitializer;
+import io.github.returnaction.fitness.gateway.security.session.SessionVerificationClient;
+import io.github.returnaction.fitness.gateway.timeout.RequestDeadlineFilter;
+import jakarta.servlet.ServletContext;
+import java.nio.charset.StandardCharsets;
+import org.junit.jupiter.api.BeforeEach;
+import org.mockito.Mockito;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -22,15 +32,15 @@ import tools.jackson.databind.ObjectMapper;
 @ActiveProfiles("test")
 class GatewayErrorsTest {
 
-    @org.springframework.test.context.bean.override.mockito.MockitoBean
-    private io.github.returnaction.fitness.gateway.security.session.SessionVerificationClient sessions;
+    @MockitoBean
+    private SessionVerificationClient sessions;
 
-    @org.springframework.test.context.bean.override.mockito.MockitoBean
-    private io.github.returnaction.fitness.gateway.security.jwks.JwksInitializer jwks;
+    @MockitoBean
+    private JwksInitializer jwks;
 
-    @org.junit.jupiter.api.BeforeEach
+    @BeforeEach
     void loadedKeys() {
-        org.mockito.Mockito.when(jwks.ready()).thenReturn(true);
+        Mockito.when(jwks.ready()).thenReturn(true);
     }
 
     @LocalServerPort
@@ -41,7 +51,7 @@ class GatewayErrorsTest {
     private GatewayErrorWriter writer;
 
     @Autowired
-    private jakarta.servlet.ServletContext servletContext;
+    private ServletContext servletContext;
 
     @Test
     void contextFiltersAreRegisteredOnce() {
@@ -49,12 +59,12 @@ class GatewayErrorsTest {
         assertThat(registrations.stream()
                 .filter(registration -> registration.getClassName()
                         .equals(
-                                io.github.returnaction.fitness.gateway.request.RequestIdFilter.class.getName()))
+                                RequestIdFilter.class.getName()))
                 .count()).isEqualTo(1);
         assertThat(registrations.stream()
                 .filter(registration -> registration.getClassName()
                         .equals(
-                                io.github.returnaction.fitness.gateway.timeout.RequestDeadlineFilter.class.getName()))
+                                RequestDeadlineFilter.class.getName()))
                 .count()).isEqualTo(1);
     }
 
@@ -82,7 +92,7 @@ class GatewayErrorsTest {
     void writerReplacesBufferedBodyButNeverAppendsAfterCommit() throws Exception {
         var response = new MockHttpServletResponse();
         response.setHeader("Content-Encoding", "gzip");
-        response.getOutputStream().write("old".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        response.getOutputStream().write("old".getBytes(StandardCharsets.UTF_8));
         String id = UUID.randomUUID().toString();
         writer.write(response, 400, GatewayErrorCode.INVALID_REQUEST, id);
         assertThat(response.getHeader("Content-Encoding")).isNull();

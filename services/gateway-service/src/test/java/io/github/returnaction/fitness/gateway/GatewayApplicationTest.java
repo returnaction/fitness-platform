@@ -1,5 +1,9 @@
 package io.github.returnaction.fitness.gateway;
 
+import io.github.returnaction.fitness.gateway.security.jwks.JwksInitializer;
+import io.github.returnaction.fitness.gateway.security.session.SessionVerificationClient;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.time.Duration;
@@ -15,11 +19,11 @@ import org.springframework.test.context.ActiveProfiles;
 @ActiveProfiles("test")
 class GatewayApplicationTest {
 
-    @org.springframework.test.context.bean.override.mockito.MockitoBean
-    private io.github.returnaction.fitness.gateway.security.session.SessionVerificationClient sessions;
+    @MockitoBean
+    private SessionVerificationClient sessions;
 
-    @org.springframework.test.context.bean.override.mockito.MockitoBean
-    private io.github.returnaction.fitness.gateway.security.jwks.JwksInitializer jwks;
+    @MockitoBean
+    private JwksInitializer jwks;
 
     @Autowired
     private AccessTokenProperties tokenProperties;

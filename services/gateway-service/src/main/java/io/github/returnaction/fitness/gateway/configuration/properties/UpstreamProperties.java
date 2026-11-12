@@ -12,8 +12,7 @@ import org.springframework.validation.annotation.Validated;
 
 @Validated
 @ConfigurationProperties(prefix = "gateway.upstreams")
-public record UpstreamProperties(
-        @NotEmpty Map<UpstreamId, @NotNull @Valid Settings> services) {
+public record UpstreamProperties(@NotEmpty Map<UpstreamId, @NotNull @Valid Settings> services) {
 
     public UpstreamProperties {
         if (services != null) {
@@ -24,8 +23,7 @@ public record UpstreamProperties(
     public URI baseUrl(UpstreamId upstreamId) {
         Settings settings = services.get(upstreamId);
         if (settings == null) {
-            throw new IllegalStateException(
-                    "Missing upstream configuration: " + upstreamId);
+            throw new IllegalStateException("Missing upstream configuration: " + upstreamId);
         }
         return settings.baseUrl();
     }

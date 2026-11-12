@@ -1,5 +1,14 @@
 package io.github.returnaction.fitness.gateway;
 
+import io.github.returnaction.fitness.gateway.routing.RouteValidationFilter;
+import io.github.returnaction.fitness.gateway.security.session.SessionVerificationClient;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletContext;
+import java.net.Socket;
+import java.nio.charset.StandardCharsets;
+import org.mockito.Mockito;
+import org.springframework.mock.web.MockHttpServletResponse;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -30,8 +39,8 @@ import tools.jackson.databind.ObjectMapper;
 @ActiveProfiles("test")
 class RouteValidationTest {
 
-    @org.springframework.test.context.bean.override.mockito.MockitoBean
-    private io.github.returnaction.fitness.gateway.security.session.SessionVerificationClient sessions;
+    @MockitoBean
+    private SessionVerificationClient sessions;
 
     @MockitoBean
     private JwksInitializer jwks;
@@ -42,11 +51,11 @@ class RouteValidationTest {
     @Autowired
     private RouteAccessPolicy policy;
     @Autowired
-    private jakarta.servlet.ServletContext servletContext;
+    private ServletContext servletContext;
 
     @BeforeEach
     void ready() {
-        org.mockito.Mockito.when(jwks.ready()).thenReturn(true);
+        Mockito.when(jwks.ready()).thenReturn(true);
     }
 
     @Test
@@ -68,22 +77,22 @@ class RouteValidationTest {
     @Test
     void rejectsEmptyQuerySentWithoutClientUriNormalization() throws Exception {
         for (var route : GatewayRouteCatalog.routes()) {
-            try (var socket = new java.net.Socket("127.0.0.1", port)) {
+            try (var socket = new Socket("127.0.0.1", port)) {
                 socket.setSoTimeout(3000);
                 socket.getOutputStream()
                         .write(("POST " + route.path() + "? HTTP/1.1\r\n"
                                 + "Host: localhost\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")
-                                .getBytes(java.nio.charset.StandardCharsets.US_ASCII));
+                                .getBytes(StandardCharsets.US_ASCII));
                 socket.getOutputStream().flush();
                 String response = new String(socket.getInputStream().readAllBytes(),
-                        java.nio.charset.StandardCharsets.UTF_8);
+                        StandardCharsets.UTF_8);
                 assertThat(response).startsWith("HTTP/1.1 400").contains("invalid_request");
             }
         }
     }
 
     @Autowired
-    private io.github.returnaction.fitness.gateway.routing.RouteValidationFilter validation;
+    private RouteValidationFilter validation;
 
     @Test
     void rejectedRequestsNeverInvokeNextFilter() throws Exception {
@@ -91,9 +100,9 @@ class RouteValidationTest {
                 new MockHttpServletRequest("GET", "/api/v1/auth/login"),
                 new MockHttpServletRequest("POST", "/api/v1/auth/login"))) {
             request.setQueryString("token=untrusted");
-            var chain = org.mockito.Mockito.mock(jakarta.servlet.FilterChain.class);
-            validation.doFilter(request, new org.springframework.mock.web.MockHttpServletResponse(), chain);
-            org.mockito.Mockito.verifyNoInteractions(chain);
+            var chain = Mockito.mock(FilterChain.class);
+            validation.doFilter(request, new MockHttpServletResponse(), chain);
+            Mockito.verifyNoInteractions(chain);
         }
     }
 
