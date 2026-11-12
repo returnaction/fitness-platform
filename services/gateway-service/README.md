@@ -1,69 +1,125 @@
 # Gateway Service
 
-Единая точка входа auth API. [Контракт v1](../../contracts/gateway-v1.md)
-описывает маршруты, авторизацию, заголовки, лимиты и ошибки.
-Spring Cloud BOM 2025.1.4 выбирает Gateway Server MVC 5.0.4;
-Java 25.0.5 и Spring Boot 4.1.2 наследуются от корневого POM.
-Gateway не владеет БД и не запускает Liquibase.
+Реализация [Spec 012](../../specs/012-gateway-refactor/spec.md).
+Настройки валидируются при запуске. Пять операций каталога проксируются в Identity
+после загрузки ключей и проверок доступа.
+Добавлены собственный request ID, контекст общего deadline и единый JSON ошибок.
+gRPC и HTTP используют общий deadline, включая передачу тела.
+Сервис не владеет БД и не запускает Liquibase.
+
+## Настройки
+
+Local — профиль по умолчанию. Если .env ещё нет, скопируйте .env.example в .env
+внутри модуля и задайте адреса Identity, issuer/audience и пути к TLS-файлам.
+В существующий .env добавляйте отсутствующие параметры, сохраняя свои значения.
+Local импортирует .env из текущего каталога и services/gateway-service/.env;
+второй файл имеет приоритет. Секреты и .env не добавляются в Git.
+Шаблон согласован с .env.example Identity: HTTP 8080, gRPC 9093,
+issuer http://localhost:8080. При изменении Identity обновите соответствующие
+значения Gateway. Пути в шаблоне рассчитаны на рабочий каталог в корне репозитория;
+для другого каталога используйте абсолютные пути с `/`.
+
+Production получает переменные окружения процесса, не импортирует .env
+и требует HTTPS для Identity HTTP и JWKS. Логи — ECS.
+Test импортирует test-environment.properties и не использует локальный .env.
+В тестах HTTP gRPC-клиент подменяется mock. Транспортный тест создаёт временные
+сертификаты и настоящий gRPC-сервер с обязательным mTLS.
+Для запуска приложения нужны действительные CA, сертификат Gateway и private key.
+
+Общий timeout в конфигурации — 3s. Management привязан к 127.0.0.1.
+При старте Gateway загружает JWKS из настроенного адреса Identity. Попытка имеет
+бюджет 3s; после ошибки пауза 5s, затем новая попытка без общего предела.
+Пустые/повреждённые наборы, дубли kid и закрытые ключи не принимаются.
+До загрузки прямое обращение к API возвращает 503 с request ID.
+Management работает только на отдельном loopback-порту: health/liveness остаётся
+доступным, health/readiness возвращает 503 до готовности и 200 после неё.
+Адреса: /actuator/health/liveness и /actuator/health/readiness на MANAGEMENT_PORT.
+На пользовательском порту эти пути не обходят защиту.
+
+После загрузки повторов и обновления ключей нет; отказ Identity не снимает
+готовность Gateway. Остановка отменяет текущую загрузку/ожидание повтора.
+После готовности каталог допускает только POST register/login/refresh/logout/logout-all
+под /api/v1/auth/. Неизвестный путь даёт 404, неверный метод — 405 с Allow: POST,
+наличие query string — 400 (включая пустой вопросительный знак).
+OPTIONS не получает исключения для preflight; разрешающие CORS-заголовки отсутствуют.
+Локальная проверка JWT уже подключена для logout-all: ES256, kid из загруженного
+набора, issuer/audience, обязательные UUID/даты и формат roles. Неизвестный kid
+даёт 401 без сетевой загрузки. Публичные операции пропускают JWT decoder.
+После корректного JWT выполняется CheckSession по переиспользуемому mTLS-каналу:
+INVALID даёт 401, технический сбой или истечение deadline — 503 identity_unavailable.
+В gRPC передаются проверенные sub/sid, новый request ID и остаток общего deadline.
+Публичные операции пропускают проверку сессии и передаются без Authorization.
+После ACTIVE logout-all передаётся с исходным проверенным bearer.
+Клиентские user/role headers не дают доступа и не передаются в Identity.
+
+Общий Apache HTTP-клиент не повторяет запросы, не следует redirects, не хранит
+cookies и не распаковывает ответы. Передаются Content-Type, Accept, Idempotency-Key,
+bearer защищённого маршрута, новый X-Request-Id и непосредственный адрес клиента
+в X-Forwarded-For. Присланные forwarded-заголовки удаляются.
+Путь и тело сохраняются; автоматическое добавление charset и разбор form/multipart
+в Gateway отключены. Проверку формата тела выполняет Identity.
+Статусы и тела ответов Identity возвращаются клиенту; X-Request-Id остаётся созданным Gateway.
+Один планировщик отменяет HTTP-вызов по общему deadline; регистрация живёт до
+завершения передачи тела и финального flush. До начала ответа таймаут даёт 504
+upstream_timeout, недоступность upstream — 502 upstream_unavailable. После начала
+ответа соединение закрывается без дописывания JSON. Клиентский обрыв не считается 502.
+Отмена ожидания не отменяет уже выполненную операцию Identity и не запускает retry.
+
+Отмена чтения/записи клиента использует адаптер закреплённого Tomcat HTTP/1.1:
+перед чтением задаётся остаток бюджета, при зависшей записи закрывается соединение.
+Tomcat получает запрет дочитывать отменённую загрузку. max-swallow-size=0B относится
+к отброшенному телу, а не к лимиту размера принимаемого запроса; проверено тело 2 МиБ.
+При замене контейнера или включении HTTP/2 адаптер требует отдельной реализации
+и проверки.
+
+Сквозной тест запускает настоящие Gateway, Identity, Accounts и Coins с временными
+сертификатами и одноразовым PostgreSQL-контейнером. Для каждого сервиса создаётся
+отдельная тестовая БД. Локальные .env и пользовательские БД не используются;
+процессы, контейнер и временные файлы очищаются в finally.
+Проверены пять операций, public bearer bypass, refresh/replay, отзыв сессий,
+отказ Identity, request ID, отсутствие секретов в логах и смена JWKS при рестарте.
+
+Для плановой смены ключей сначала опубликуйте в Identity старый и новый открытые
+ключи, перезапустите Gateway и проверьте readiness; затем переключайте выдачу
+токенов на новый ключ. Старый удаляется после истечения старых токенов, после
+чего Gateway нужно перезапустить снова. Поддержка двойного набора в Identity
+этой задачей не проверялась; бесшовность смены не гарантируется.
+При компрометации остановите экземпляры со старым набором, замените ключи,
+перезапустите Gateway и проверьте отказ старым токенам.
+Эти операции здесь не выполнялись.
+
+## Проверка из корня
+
+```powershell
+.\mvnw.cmd -pl services/gateway-service -am verify
+```
 
 ## Локальный запуск
 
-1. Соберите `mvnw.cmd -pl services/gateway-service -am verify`.
-2. Скопируйте `.env.example` этого сервиса в его `.env`. Задайте порты,
-   issuer/audience, совпадающие с Identity, и адрес JWKS Identity.
-3. Выпустите отдельный клиентский сертификат от той же CA, которой доверяет
-   session gRPC Identity. URI SAN должен быть
-   `spiffe://fitness.local/gateway-service`, EKU — clientAuth. Впишите пути
-   сертификата, PKCS8 private key и CA в GATEWAY_CERTIFICATE,
-   GATEWAY_PRIVATE_KEY и GATEWAY_TRUST_CERTIFICATE. Секреты храните вне Git.
-4. В окружении Identity задайте
-   `IDENTITY_SESSION_GRPC_ALLOWED_CALLER=spiffe://fitness.local/gateway-service`
-   и `IDENTITY_REGISTRATION_TRUSTED_PROXY_IP=127.0.0.1`; session gRPC должен
-   слушать loopback. Сертификат gRPC-сервера должен содержать DNS SAN localhost.
-   Адрес GATEWAY_SESSION_HOST должен совпадать с SAN, проверка имени не отключается.
-5. Запустите Identity, Accounts и Coins по их инструкциям, затем из корня:
-   `java -jar services/gateway-service/target/gateway-service-0.1.0-SNAPSHOT.jar`.
+Сначала запустите Identity с его PostgreSQL и сертификатами. Для успешной
+регистрации Identity также нужны Accounts и Coins; у Gateway собственной БД нет.
+Из корня репозитория после сборки:
 
-По шаблону API — `http://127.0.0.1:8088`, management —
-`http://127.0.0.1:8089/actuator/health`. Секреты и локальный `.env` не создаются
-автоматически и не перезаписываются. Некорректные обязательные настройки или
-отсутствующие сертификаты останавливают запуск. Недоступность Identity после
-запуска даёт временный отказ; токены при этом не считаются отозванными.
+```powershell
+java -jar services/gateway-service/target/gateway-service-0.1.0-SNAPSHOT.jar
+curl.exe http://127.0.0.1:9088/actuator/health/readiness
+```
 
-В local Identity привязан к 127.0.0.1. Другой компьютер не должен иметь прямого
-доступа к его HTTP/gRPC. Локальный пользователь и его процессы считаются доверенными;
-изолировать от них Identity одним loopback невозможно. Это не production-схема.
-Приложение Flutter использует Gateway; локальная проверка физического телефона
-выполняется через USB по [инструкции клиента](../../apps/mobile/README.md).
-Результаты и ограничения описаны в [Spec 008](../../specs/008-mobile-flutter-auth/verification.md).
-Разрешающих CORS origins нет.
+9088 — management-порт из шаблона; используйте свой MANAGEMENT_PORT, если он изменён.
+API по шаблону доступен на 127.0.0.1:8088. Readiness должен вернуть UP до начала
+пользовательских запросов. В production явно задавайте SPRING_PROFILES_ACTIVE=production.
 
-## Проверки
+## Сквозная проверка
 
-- `mvnw.cmd -pl services/gateway-service -am verify`: HTTP proxy, JWT/JWKS,
-  обновление ключей, лимиты, TLS, сбои, Spotless и SpotBugs.
-- `mvnw.cmd verify`: весь проект, включая тесты Identity на временной PostgreSQL.
-- После package четырёх сервисов:
-  `python scripts/verify-registration-e2e.py --gateway --postman`.
-  Нужны Docker для временных тестовых БД, OpenSSL, Python, Node.js/npx.
-  Newman закреплён как 6.2.3. Это тестовый PostgreSQL, не база локального приложения
-  и не PostgreSQL в Docker Compose. Тест создаёт и удаляет собственные ресурсы.
-- Импортируйте [существующую коллекцию](../../postman/fitness-local.postman_collection.json)
-  в Postman. `base_url` указывает на Gateway; тестовые email и пароль генерируются.
-  Отдельная папка outage пропускается по умолчанию: для неё заранее получите
-  access-токен, остановите Identity и задайте локальные environment-переменные
-  `run_outage=true`, `outage_access_token`. После проверки включите Identity.
-  Коллекцию с реальными значениями секретов не экспортировать в Git.
+Сквозная проверка требует Docker, Python и OpenSSL в PATH. Подготовка и запуск
+из корня репозитория:
 
-## Эксплуатационные ограничения v1
+```powershell
+.\mvnw.cmd -pl services/identity-service,services/accounts-service,services/coins-service,services/gateway-service -am -DskipTests package
+python -B services/gateway-service/src/test/python/verify_gateway_e2e.py
+```
 
-Один экземпляр, локальные rate limits. Нет автоматических повторов HTTP POST
-или CheckSession. HTTP-клиент явно запрещает retries и redirects; потерянный
-ответ refresh должен обрабатываться согласно контракту Identity.
-Кеш JWKS не разрешает кешировать ACTIVE сессию. При ротации публикуйте старый
-и новый открытые ключи на необходимый период, если требуется сохранять старые
-токены; текущий Identity публикует один настроенный ключ, поэтому его замена
-не обещает бесшовного сохранения старых токенов.
-Метрика `gateway.session.check` различает active/invalid/unavailable без user ID.
-Management не публикуется через API-порт. Production-развёртывание и несколько
-экземпляров требуют отдельного этапа.
+Упаковка с `-DskipTests` подготавливает jar для четырёх процессов; она не заменяет
+отдельный `verify` выше. Сквозной сценарий сохраняет общий deadline Gateway 3s.
+Если регистрация не успела завершиться, тест явно повторяет запрос с тем же
+Idempotency-Key; автоматического повтора внутри Gateway нет.
