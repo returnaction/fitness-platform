@@ -2,6 +2,7 @@ FROM eclipse-temurin:25.0.5_8-jdk AS build
 WORKDIR /workspace
 COPY .mvn .mvn
 COPY mvnw pom.xml ./
+COPY config config
 COPY contracts/grpc-contracts contracts/grpc-contracts
 COPY contracts/proto contracts/proto
 COPY services/gateway-service services/gateway-service

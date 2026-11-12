@@ -9,11 +9,15 @@ gRPC и HTTP используют общий deadline, включая перед
 
 ## Настройки
 
-Local — профиль по умолчанию. Скопируйте .env.example в .env внутри модуля
-и задайте адреса Identity, issuer/audience и пути к TLS-файлам вашего окружения.
+Local — профиль по умолчанию. Если .env ещё нет, скопируйте .env.example в .env
+внутри модуля и задайте адреса Identity, issuer/audience и пути к TLS-файлам.
+В существующий .env добавляйте отсутствующие параметры, сохраняя свои значения.
 Local импортирует .env из текущего каталога и services/gateway-service/.env;
 второй файл имеет приоритет. Секреты и .env не добавляются в Git.
-Адреса в примере — образец, а не обнаруженные настройки Identity.
+Шаблон согласован с .env.example Identity: HTTP 8080, gRPC 9093,
+issuer http://localhost:8080. При изменении Identity обновите соответствующие
+значения Gateway. Пути в шаблоне рассчитаны на рабочий каталог в корне репозитория;
+для другого каталога используйте абсолютные пути с `/`.
 
 Production получает переменные окружения процесса, не импортирует .env
 и требует HTTPS для Identity HTTP и JWKS. Логи — ECS.
@@ -89,6 +93,23 @@ Tomcat получает запрет дочитывать отменённую �
 ```powershell
 .\mvnw.cmd -pl services/gateway-service -am verify
 ```
+
+## Локальный запуск
+
+Сначала запустите Identity с его PostgreSQL и сертификатами. Для успешной
+регистрации Identity также нужны Accounts и Coins; у Gateway собственной БД нет.
+Из корня репозитория после сборки:
+
+```powershell
+java -jar services/gateway-service/target/gateway-service-0.1.0-SNAPSHOT.jar
+curl.exe http://127.0.0.1:9088/actuator/health/readiness
+```
+
+9088 — management-порт из шаблона; используйте свой MANAGEMENT_PORT, если он изменён.
+API по шаблону доступен на 127.0.0.1:8088. Readiness должен вернуть UP до начала
+пользовательских запросов. В production явно задавайте SPRING_PROFILES_ACTIVE=production.
+
+## Сквозная проверка
 
 Сквозная проверка требует Docker, Python и OpenSSL в PATH. Подготовка и запуск
 из корня репозитория:
