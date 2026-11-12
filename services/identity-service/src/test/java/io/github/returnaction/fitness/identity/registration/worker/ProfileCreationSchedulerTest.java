@@ -13,6 +13,7 @@ import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
 class ProfileCreationSchedulerTest {
+
     @Test
     void processesOnlyConfiguredBatchAndClaimsOneAtATime() {
         var repository = mock(RegistrationLeaseRepository.class);

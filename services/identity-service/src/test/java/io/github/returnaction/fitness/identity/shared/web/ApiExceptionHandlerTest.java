@@ -5,7 +5,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
-import io.github.returnaction.fitness.identity.registration.exception.RegistrationRateLimitException;
 import io.github.returnaction.fitness.identity.session.exception.AuthenticationFailureException;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -15,6 +14,7 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 
 class ApiExceptionHandlerTest {
+
     @Test
     void authenticationFailuresKeepTheirStatusMessageAndHeaders() {
         record Case(AuthenticationFailureException.Reason reason, int status, String code, String message) {
@@ -61,22 +61,6 @@ class ApiExceptionHandlerTest {
         assertThat(response.getBody()).isNotNull();
         assertThat(response.getBody().error().code()).isEqualTo("method_not_allowed");
         assertThat(response.getBody().error().requestId()).isEqualTo(requestId);
-    }
-
-    @Test
-    void rateLimitKeepsRetryHeaderAndErrorBody() {
-        var request = new MockHttpServletRequest();
-        String requestId = UUID.randomUUID().toString();
-        request.setAttribute(RequestIdFilter.REQUEST_ID_ATTRIBUTE, requestId);
-
-        var response = new ApiExceptionHandler().handleRateLimit(new RegistrationRateLimitException(17), request);
-
-        assertThat(response.getStatusCode().value()).isEqualTo(429);
-        assertThat(response.getHeaders().getFirst("Retry-After")).isEqualTo("17");
-        assertThat(response.getBody()).isNotNull();
-        assertThat(response.getBody().error().code()).isEqualTo("rate_limited");
-        assertThat(response.getBody().error().requestId()).isEqualTo(requestId);
-        assertThat(response.getBody().error().details()).isEmpty();
     }
 
     @Test

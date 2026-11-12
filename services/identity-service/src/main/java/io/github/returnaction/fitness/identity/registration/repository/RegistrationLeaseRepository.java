@@ -11,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 /** Короткие транзакции аренды операций; сетевые вызовы выполняются отдельно. */
 @Repository
 public class RegistrationLeaseRepository {
+
     private final EntityManager entityManager;
     private final double retryInitialSeconds;
     private final double retryMaxSeconds;

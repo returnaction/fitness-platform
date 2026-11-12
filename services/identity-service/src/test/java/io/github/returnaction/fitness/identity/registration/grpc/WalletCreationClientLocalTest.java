@@ -26,6 +26,7 @@ import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
  */
 @EnabledIfSystemProperty(named = "fitness.localStepCaSmoke", matches = "true")
 class WalletCreationClientLocalTest {
+
     @Test
     void identityClientConnectsToCoinsUsingStepCaCertificates() throws Exception {
         File secrets = new File("../../secrets");
@@ -37,6 +38,7 @@ class WalletCreationClientLocalTest {
                         .clientAuth(ClientAuth.REQUIRE)
                         .build())
                 .addService(new WalletCreationServiceGrpc.WalletCreationServiceImplBase() {
+
                     @Override
                     public void createWalletIfAbsent(
                                                      CreateWalletIfAbsentRequest request,

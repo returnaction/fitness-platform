@@ -18,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 /** Создаёт сессию только для завершённой регистрации с проверенным паролем. */
 @Service
 public class RegistrationSessionService {
+
     @SuppressFBWarnings(value = "EI_EXPOSE_REP2", justification = "Spring-managed repository is shared and not exposed.")
     private final RegistrationSessionRepository repository;
 
@@ -76,6 +77,7 @@ public class RegistrationSessionService {
     }
 
     public static final class IssuedSession {
+
         private final UUID sessionId;
         private final UUID userId;
         private final Instant expiresAt;

@@ -21,17 +21,20 @@ class LombokMapStructIntegrationTest {
     @Getter
     @Setter
     public static class Source {
+
         private String name;
     }
 
     @Getter
     @Setter
     public static class Target {
+
         private String name;
     }
 
     @Mapper
     public interface ExampleMapper {
+
         Target map(Source source);
     }
 }

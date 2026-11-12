@@ -1,6 +1,6 @@
 package io.github.returnaction.fitness.identity.session.controller;
 
-import io.github.returnaction.fitness.identity.security.jwt.AccessTokenVerifier;
+import java.util.UUID;
 import io.github.returnaction.fitness.identity.session.dto.LogoutRequest;
 import io.github.returnaction.fitness.identity.session.service.LogoutService;
 import jakarta.validation.Valid;
@@ -29,9 +29,9 @@ public class LogoutController {
     }
 
     @PostMapping(value = "/logout-all", produces = MediaType.APPLICATION_JSON_VALUE)
-    ResponseEntity<Void> logoutAll(@AuthenticationPrincipal AccessTokenVerifier.Identity identity) {
+    ResponseEntity<Void> logoutAll(@AuthenticationPrincipal UUID userId) {
 
-        service.logoutAll(identity);
+        service.logoutAll(userId);
 
         return ResponseEntity.noContent().build();
     }

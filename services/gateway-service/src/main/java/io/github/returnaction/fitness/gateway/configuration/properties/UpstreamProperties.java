@@ -5,10 +5,11 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
-import java.net.URI;
-import java.util.Map;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.validation.annotation.Validated;
+
+import java.net.URI;
+import java.util.Map;
 
 @Validated
 @ConfigurationProperties(prefix = "gateway.upstreams")

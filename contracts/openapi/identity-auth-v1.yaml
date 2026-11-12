@@ -71,8 +71,6 @@ paths:
           $ref: '#/components/responses/UnsupportedMediaType'
         '422':
           $ref: '#/components/responses/ValidationError'
-        '429':
-          $ref: '#/components/responses/RateLimited'
         '500':
           $ref: '#/components/responses/InternalError'
         '503':
@@ -126,8 +124,6 @@ paths:
           $ref: '#/components/responses/UnsupportedMediaType'
         '422':
           $ref: '#/components/responses/ValidationError'
-        '429':
-          $ref: '#/components/responses/RateLimited'
         '500':
           $ref: '#/components/responses/InternalError'
         '503':
@@ -194,8 +190,6 @@ paths:
           $ref: '#/components/responses/UnsupportedMediaType'
         '422':
           $ref: '#/components/responses/RefreshValidationError'
-        '429':
-          $ref: '#/components/responses/RateLimited'
         '500':
           $ref: '#/components/responses/InternalError'
         '503':
@@ -240,8 +234,6 @@ paths:
           $ref: '#/components/responses/UnsupportedMediaType'
         '422':
           $ref: '#/components/responses/LogoutValidationError'
-        '429':
-          $ref: '#/components/responses/RateLimited'
         '500':
           $ref: '#/components/responses/InternalError'
         '503':
@@ -252,27 +244,28 @@ paths:
       summary: Завершить все сессии текущего пользователя
       operationId: logoutAllSessions
       description: |
-        Описано в спецификации 003. Независимый лимит: 30 запросов в минуту
-        с IP. Нужен действующий access-токен и активная сессия. После фиксации
-        отзыва всех сессий, включая текущую, возвращается 204. Повтор с тем же
-        отозванным access-токеном получает 401. Access-токены, ранее выданные
-        другим устройствам, при локальной проверке могут действовать до истечения
-        срока, не более 15 минут. Тело запроса не требуется.
+        Gateway проверяет JWT и активность сессии перед передачей запроса.
+        Identity извлекает sub без повторной проверки подписи и передаёт UUID
+        пользователя через SecurityContext без ролей. Локальный HTTP caller
+        считается доверенным без технического подтверждения его личности.
+        После допуска Gateway истечение токена, отзыв исходной сессии или
+        блокировка пользователя не отменяют отзыв всех сессий. Транзакция
+        и блокировка пользователя сохраняются. Уже закрытые сессии дают 204;
+        технические ошибки не маскируются под успех. Новый внешний запрос с
+        отозванной сессией отклоняет Gateway. Тело запроса не требуется.
       security:
         - BearerAccess: []
       responses:
         '204':
           description: Сессии отозваны; тело отсутствует.
         '401':
-          description: Отсутствующий, невалидный, истёкший или отозванный access; код invalid_access_token.
+          description: Отсутствующий или повреждённый токен, некорректный sub или отсутствующий пользователь; код invalid_access_token. Истечение JWT и активность сессии проверяет Gateway.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '406':
           $ref: '#/components/responses/NotAcceptable'
-        '429':
-          $ref: '#/components/responses/RateLimited'
         '500':
           $ref: '#/components/responses/InternalError'
         '503':
@@ -484,23 +477,6 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
-    RateLimited:
-      description: Request rate limit exceeded.
-      headers:
-        Retry-After:
-          description: Seconds until the client can retry.
-          schema:
-            type: integer
-            minimum: 1
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
-          example:
-            error:
-              code: rate_limited
-              message: Try again later.
-              request_id: 2c160d4b-0f61-4702-99e1-99713d0c9326
     RegistrationUnavailable:
       description: |
         Creation has not completed within the configured wait or is

@@ -6,6 +6,7 @@ package io.github.returnaction.fitness.identity.registration.exception;
  * причину отказа.
  */
 public class RecoveryConflictException extends RuntimeException {
+
     private final String code;
 
     public RecoveryConflictException(String code) {

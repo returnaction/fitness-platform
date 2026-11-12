@@ -19,6 +19,7 @@ import javax.net.ssl.SSLSession;
  * TLS-сертификата.
  */
 public final class IdentityAuthorizationInterceptor implements ServerInterceptor {
+
     private static final String IDENTITY = "spiffe://fitness.local/identity-service";
 
     @Override

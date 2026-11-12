@@ -1,15 +1,11 @@
 package io.github.returnaction.fitness.identity.security.config;
 
-import io.github.returnaction.fitness.identity.registration.security.RecoveryAccessVerifier;
-import io.github.returnaction.fitness.identity.registration.security.RecoveryAuthenticationFilter;
-import io.github.returnaction.fitness.identity.registration.web.ClientIpAddressResolver;
-import io.github.returnaction.fitness.identity.registration.web.RegistrationRateLimiter;
-import io.github.returnaction.fitness.identity.security.jwt.AccessTokenVerifier;
+import io.github.returnaction.fitness.identity.security.HttpOperationFilter;
 import io.github.returnaction.fitness.identity.security.jwt.LogoutAllAuthenticationFilter;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.env.Environment;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -17,32 +13,31 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.servlet.HandlerExceptionResolver;
+import tools.jackson.databind.json.JsonMapper;
 
 @Configuration
 public class SecurityConfiguration {
 
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http,
-                                            RecoveryAccessVerifier verifier,
-                                            AccessTokenVerifier accessVerifier,
-                                            ClientIpAddressResolver clientAddress,
-                                            @Qualifier("handlerExceptionResolver") HandlerExceptionResolver exceptionResolver,
-                                            @Value("${identity.registration.logout-all-rate-capacity}") long capacity,
-                                            @Value("${identity.registration.rate-limit.period-seconds}") long period,
-                                            @Value("${identity.registration.rate-limit.cache-size}") long cacheSize,
-                                            @Value("${identity.registration.rate-limit.cache-expiry-seconds}") long expiry) throws Exception {
+                                            Environment environment,
+                                            JsonMapper mapper,
+                                            @Qualifier("handlerExceptionResolver") HandlerExceptionResolver exceptionResolver) throws Exception {
         return http.csrf(AbstractHttpConfigurer::disable)
                 .httpBasic(AbstractHttpConfigurer::disable)
                 .formLogin(AbstractHttpConfigurer::disable)
                 .logout(AbstractHttpConfigurer::disable)
                 .sessionManagement(sessions -> sessions.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .addFilterBefore(new RecoveryAuthenticationFilter(verifier), UsernamePasswordAuthenticationFilter.class)
-                .addFilterBefore(new LogoutAllAuthenticationFilter(accessVerifier, clientAddress,
-                        new RegistrationRateLimiter(capacity, period, cacheSize, expiry), exceptionResolver),
+                .addFilterBefore(new HttpOperationFilter(environment, mapper),
+                        UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(new LogoutAllAuthenticationFilter(exceptionResolver),
                         UsernamePasswordAuthenticationFilter.class)
                 .authorizeHttpRequests(authorization -> authorization
                         .requestMatchers(
-                                "/actuator/health", "/actuator/health/**", "/actuator/info", "/actuator/prometheus")
+                                "/actuator/health",
+                                "/actuator/health/**",
+                                "/actuator/info",
+                                "/actuator/prometheus")
                         .permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/register")
                         .permitAll()
@@ -57,7 +52,7 @@ public class SecurityConfiguration {
                         .requestMatchers(HttpMethod.GET, "/.well-known/jwks.json")
                         .permitAll()
                         .requestMatchers("/api/v1/admin/identity/registration-operations/**")
-                        .hasAuthority("identity.registration.recover")
+                        .denyAll()
                         .anyRequest()
                         .denyAll())
                 .build();

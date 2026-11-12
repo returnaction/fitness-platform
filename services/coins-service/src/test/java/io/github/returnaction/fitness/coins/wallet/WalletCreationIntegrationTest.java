@@ -46,6 +46,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 @SpringBootTest
 @ActiveProfiles("test")
 class WalletCreationIntegrationTest {
+
     @MockitoBean
     private SecureGrpcServer managedGrpcServer;
 
@@ -88,11 +89,13 @@ class WalletCreationIntegrationTest {
     void retriesGrpcRequestAfterCommittedWalletResponseIsLost() throws Exception {
         var loseFirstResponse = new AtomicBoolean(true);
         var faultInjectedService = new WalletCreationServiceGrpc.WalletCreationServiceImplBase() {
+
             @Override
             public void createWalletIfAbsent(CreateWalletIfAbsentRequest request,
                                              StreamObserver<CreateWalletIfAbsentResponse> observer) {
                 boolean drop = loseFirstResponse.getAndSet(false);
                 grpcService.createWalletIfAbsent(request, new StreamObserver<>() {
+
                     @Override
                     public void onNext(CreateWalletIfAbsentResponse response) {
                         if (!drop)

@@ -12,6 +12,7 @@ import org.springframework.stereotype.Component;
  */
 @Component
 public final class RegistrationCompletionWaiter {
+
     private final RegistrationReadinessRepository repository;
     private final long waitMillis;
     private final long pollMillis;

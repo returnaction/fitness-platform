@@ -6,6 +6,7 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class IdempotencyKeyValidator {
+
     public UUID parse(String value) {
         try {
             UUID uuid = UUID.fromString(value);

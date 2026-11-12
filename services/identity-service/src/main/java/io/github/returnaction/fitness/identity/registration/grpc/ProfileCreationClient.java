@@ -17,6 +17,7 @@ import org.springframework.stereotype.Component;
 /** Внутренний mTLS-клиент, используемый обработчиком регистрации. */
 @Component
 public final class ProfileCreationClient {
+
     private final ManagedChannel channel;
 
     public ProfileCreationClient(

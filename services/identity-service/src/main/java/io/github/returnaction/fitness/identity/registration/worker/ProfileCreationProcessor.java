@@ -13,6 +13,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 @Component
 @RequiredArgsConstructor
 public class ProfileCreationProcessor {
+
     private final ProfileCreationClient client;
     private final RegistrationLeaseRepository leases;
 

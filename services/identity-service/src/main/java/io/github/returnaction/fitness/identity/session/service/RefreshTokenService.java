@@ -15,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 /** Ротация refresh и подпись access token в одной транзакции. */
 @Service
 public class RefreshTokenService {
+
     @SuppressFBWarnings(value = "EI_EXPOSE_REP2", justification = "Spring-managed repository is shared and not exposed.")
     private final RefreshTokenRepository repository;
 
@@ -109,6 +110,7 @@ public class RefreshTokenService {
     }
 
     public static final class Result {
+
         private final String code;
         private final String access;
         private final String refresh;

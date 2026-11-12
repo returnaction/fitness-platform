@@ -1,6 +1,7 @@
 package io.github.returnaction.fitness.identity.shared.web;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -31,6 +32,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 class RequestIdFilterSecurityTest {
+
     // Тестируем HTTP и БД без запуска фоновых задач и реальных gRPC-соединений.
     @org.springframework.test.context.bean.override.mockito.MockitoBean
     private io.github.returnaction.fitness.identity.registration.grpc.ProfileCreationClient accountsClient;
@@ -117,5 +119,16 @@ class RequestIdFilterSecurityTest {
         mockMvc.perform(get("/api/v1/auth/register"))
                 .andExpect(status().isForbidden())
                 .andExpect(header().exists("X-Request-Id"));
+    }
+
+    @Test
+    void jwksWorksOverHttpAndLogoutStillRequiresUserJwt() throws Exception {
+        mockMvc.perform(get("/.well-known/jwks.json"))
+                .andExpect(status().isOk());
+        mockMvc.perform(post("/api/v1/auth/logout-all"))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(post("/api/v1/admin/identity/registration-operations/test")
+                .header("Authorization", "Bearer ignored"))
+                .andExpect(status().isForbidden());
     }
 }

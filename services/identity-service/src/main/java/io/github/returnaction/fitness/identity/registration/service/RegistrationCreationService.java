@@ -27,6 +27,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 @Service
 @RequiredArgsConstructor
 public class RegistrationCreationService {
+
     private final PasswordEncoder passwordEncoder;
     private final UserRepository userRepository;
     private final UserCredentialRepository userCredentialRepository;

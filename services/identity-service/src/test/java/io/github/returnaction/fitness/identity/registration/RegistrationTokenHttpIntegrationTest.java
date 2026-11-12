@@ -3,6 +3,11 @@ package io.github.returnaction.fitness.identity.registration;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import io.github.returnaction.fitness.identity.registration.security.RecoveryAccessVerifier;
+import io.github.returnaction.fitness.identity.registration.service.RegistrationRecoveryService;
+import io.github.returnaction.fitness.identity.registration.exception.RecoveryAccessException;
+import io.github.returnaction.fitness.identity.shared.exception.InvalidAccessTokenException;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -41,10 +46,11 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import tools.jackson.databind.json.JsonMapper;
 
 @Testcontainers(disabledWithoutDocker = true)
-@SpringBootTest(properties = "identity.registration.login-rate-capacity=1000")
+@SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 class RegistrationTokenHttpIntegrationTest {
+
     // Тестируем HTTP и БД без запуска фоновых задач и реальных gRPC-соединений.
     @org.springframework.test.context.bean.override.mockito.MockitoBean
     private io.github.returnaction.fitness.identity.registration.grpc.ProfileCreationClient accountsClient;
@@ -91,6 +97,9 @@ class RegistrationTokenHttpIntegrationTest {
 
     @Autowired
     private io.github.returnaction.fitness.identity.session.grpc.SessionVerificationGrpcService sessionGrpc;
+
+    @org.springframework.test.context.bean.override.mockito.MockitoSpyBean
+    private io.github.returnaction.fitness.identity.session.repository.RefreshTokenRepository refreshTokens;
 
     @Autowired
     private RegistrationService registration;
@@ -144,7 +153,7 @@ class RegistrationTokenHttpIntegrationTest {
     }
 
     @Test
-    void logoutAllRejectsAccessTokenThatExpiresWhileWaitingForLock() throws Exception {
+    void logoutAllCompletesWhenAccessTokenExpiresWhileWaitingForLock() throws Exception {
         UUID user = UUID.randomUUID();
         UUID session = UUID.randomUUID();
         createActor(user, session, "USER");
@@ -164,9 +173,53 @@ class RegistrationTokenHttpIntegrationTest {
             if (waitMillis > 0)
                 Thread.sleep(waitMillis + 100);
             connection.commit();
-            assertThat(result.get(15, TimeUnit.SECONDS)).isEqualTo(401);
-            assertThat(sessions.check(user, session).active()).isTrue();
+            assertThat(result.get(15, TimeUnit.SECONDS)).isEqualTo(204);
+            assertThat(sessions.check(user, session).active()).isFalse();
         }
+    }
+
+    @Test
+    void logoutAllCompletesAfterSessionRevocationAndUserSuspension() throws Exception {
+        UUID user = UUID.randomUUID();
+        UUID original = UUID.randomUUID();
+        createActor(user, original, "USER");
+        String token = signer.sign(user, original, Instant.now().plusSeconds(900), java.util.List.of(RoleCode.USER));
+        UUID remaining = UUID.randomUUID();
+        jdbc.sql(
+                "INSERT INTO auth_sessions (id, user_id, expires_at) VALUES (:id, :user, clock_timestamp()+interval '1 day')")
+                .param("id", remaining)
+                .param("user", user)
+                .update();
+        jdbc.sql("UPDATE auth_sessions SET revoked_at=clock_timestamp() WHERE id=:id").param("id", original).update();
+        jdbc.sql("UPDATE users SET status='SUSPENDED' WHERE id=:id").param("id", user).update();
+        mvc.perform(post("/api/v1/auth/logout-all").header("Authorization", "Bearer " + token))
+                .andExpect(status().isNoContent());
+        assertThat(jdbc.sql("SELECT count(*) FROM auth_sessions WHERE user_id=:id AND revoked_at IS NULL")
+                .param("id", user)
+                .query(Integer.class)
+                .single()).isZero();
+    }
+
+    @Test
+    void logoutAllRollsBackRevocationWhenDatabaseOperationFails() throws Exception {
+        UUID user = UUID.randomUUID();
+        UUID session = UUID.randomUUID();
+        createActor(user, session, "USER");
+        String token = signer.sign(user, session, Instant.now().plusSeconds(900), java.util.List.of(RoleCode.USER));
+        org.mockito.Mockito.doAnswer(invocation -> {
+            invocation.callRealMethod();
+            throw new org.springframework.dao.DataAccessResourceFailureException("simulated revoke failure");
+        }).when(refreshTokens).revokeAllSessions(user);
+        try {
+            mvc.perform(post("/api/v1/auth/logout-all").header("Authorization", "Bearer " + token))
+                    .andExpect(status().isServiceUnavailable());
+            assertThat(sessions.check(user, session).active()).isTrue();
+        } finally {
+            org.mockito.Mockito.reset(refreshTokens);
+        }
+        mvc.perform(post("/api/v1/auth/logout-all").header("Authorization", "Bearer " + token))
+                .andExpect(status().isNoContent());
+        assertThat(sessions.check(user, session).active()).isFalse();
     }
 
     @Test
@@ -205,12 +258,11 @@ class RegistrationTokenHttpIntegrationTest {
     }
 
     @Test
-    void logoutAllRejectsInvalidAndExpiredTokens() throws Exception {
+    void logoutAllRejectsMalformedTokenButAcceptsTokenExpiredAfterGateway() throws Exception {
         UUID user = UUID.randomUUID();
         UUID session = UUID.randomUUID();
         createActor(user, session, "USER");
-        String valid = signer.sign(user, session, Instant.now().plusSeconds(3600), java.util.List.of(RoleCode.USER));
-        mvc.perform(post("/api/v1/auth/logout-all").header("Authorization", "Bearer " + valid + "x"))
+        mvc.perform(post("/api/v1/auth/logout-all").header("Authorization", "Bearer not-a-jwt"))
                 .andExpect(status().isUnauthorized());
         String encoded = Files.readString(privateKey)
                 .replace("-----BEGIN PRIVATE KEY-----", "")
@@ -223,8 +275,8 @@ class RegistrationTokenHttpIntegrationTest {
                 java.time.Clock.fixed(past, java.time.ZoneOffset.UTC));
         String expired = expiredSigner.sign(user, session, past.plusSeconds(900), java.util.List.of(RoleCode.USER));
         mvc.perform(post("/api/v1/auth/logout-all").header("Authorization", "Bearer " + expired))
-                .andExpect(status().isUnauthorized());
-        assertThat(sessions.check(user, session).active()).isTrue();
+                .andExpect(status().isNoContent());
+        assertThat(sessions.check(user, session).active()).isFalse();
     }
 
     @Test
@@ -406,7 +458,7 @@ class RegistrationTokenHttpIntegrationTest {
     }
 
     @Test
-    void simultaneousLogoutAllAllowsOnlyOneSuccess() throws Exception {
+    void simultaneousAdmittedLogoutAllRequestsBothSucceed() throws Exception {
         UUID user = UUID.randomUUID();
         UUID session = UUID.randomUUID();
         createActor(user, session, "USER");
@@ -424,7 +476,7 @@ class RegistrationTokenHttpIntegrationTest {
             var second = executor.submit(call);
             gate.countDown();
             assertThat(java.util.List.of(first.get(15, TimeUnit.SECONDS), second.get(15, TimeUnit.SECONDS)))
-                    .containsExactlyInAnyOrder(204, 401);
+                    .containsExactlyInAnyOrder(204, 204);
         }
     }
 
@@ -491,7 +543,7 @@ class RegistrationTokenHttpIntegrationTest {
         assertThat(sessions.check(identity.userId(), identity.sessionId()).active()).isFalse();
         assertThat(accessVerifier.verify(access)).isEqualTo(identity);
         mvc.perform(post("/api/v1/auth/logout-all").header("Authorization", "Bearer " + access))
-                .andExpect(status().isUnauthorized());
+                .andExpect(status().isNoContent());
         mvc.perform(post("/api/v1/auth/refresh").contentType(APPLICATION_JSON)
                 .content("{\"refresh_token\":\"" + secondRefresh + "\"}")).andExpect(status().isUnauthorized());
         mvc.perform(post("/api/v1/auth/logout").contentType(APPLICATION_JSON).content("{}"))
@@ -752,51 +804,40 @@ class RegistrationTokenHttpIntegrationTest {
         String regularJwt = signer.sign(regular, regularSession, Instant.now().plusSeconds(3600),
                 java.util.List.of(RoleCode.USER));
         String path = "/api/v1/admin/identity/registration-operations/" + operation.operationId();
-        mvc.perform(get(path)).andExpect(status().isUnauthorized());
-        mvc.perform(get(path).header("Authorization", "Bearer invalid")).andExpect(status().isUnauthorized());
-        mvc.perform(get(path).header("Authorization", "Bearer " + adminJwt + "x"))
-                .andExpect(status().isUnauthorized());
-        mvc.perform(get(path).header("Authorization", "Bearer " + regularJwt)).andExpect(status().isForbidden());
+        mvc.perform(get(path)).andExpect(status().isForbidden());
         mvc.perform(get(path).header("Authorization", "Bearer " + adminJwt))
-                .andExpect(status().isOk())
-                .andExpect(
-                        jsonPath("$.operation_id").value(operation.operationId().toString()))
-                .andExpect(jsonPath("$.status").value("PENDING"))
-                .andExpect(jsonPath("$.version").value(1))
-                .andExpect(jsonPath("$.recovery_blocked_at").isNotEmpty())
-                .andExpect(jsonPath("$.last_error_code").value("COINS_PERMISSION_DENIED"));
-        mvc.perform(get("/api/v1/admin/identity/registration-operations/" + UUID.randomUUID())
-                .header("Authorization", "Bearer " + adminJwt))
-                .andExpect(status().isNotFound());
-        mvc.perform(get("/api/v1/admin/identity/registration-operations/not-a-uuid")
-                .header("Authorization", "Bearer " + adminJwt))
-                .andExpect(status().isBadRequest());
-        mvc.perform(post(path + "/resume")
-                .header("Authorization", "Bearer " + adminJwt)
+                .andExpect(status().isForbidden());
+        mvc.perform(post(path + "/resume").header("Authorization", "Bearer " + adminJwt)
                 .contentType(APPLICATION_JSON)
                 .content("{\"expected_version\":1,\"reason\":\"Fixed access\"}"))
-                .andExpect(status().isOk())
-                .andExpect(
-                        jsonPath("$.operation_id").value(operation.operationId().toString()))
-                .andExpect(jsonPath("$.status").value("PENDING"))
-                .andExpect(jsonPath("$.version").value(2));
-        mvc.perform(post(path + "/resume")
-                .header("Authorization", "Bearer " + adminJwt)
-                .contentType(APPLICATION_JSON)
-                .content("{\"expected_version\":1,\"reason\":\"Fixed access\"}"))
-                .andExpect(status().isConflict());
+                .andExpect(status().isForbidden());
+        // HTTP recovery is closed, but its underlying authentication and audit remain
+        // intact.
+        assertThatThrownBy(() -> recoveryVerifier.verify(adminJwt + "x"))
+                .isInstanceOf(InvalidAccessTokenException.class);
+        assertThatThrownBy(() -> recoveryVerifier.verify(regularJwt))
+                .isInstanceOf(RecoveryAccessException.class);
+        assertThat(recoveryVerifier.verify(adminJwt)).isEqualTo(admin);
+        var blocked = recoveryService.read(operation.operationId());
+        recoveryService.resume(operation.operationId(), admin, blocked.version(), "Fixed access");
         assertThat(jdbc.sql(
                 "SELECT count(*) FROM registration_recovery_audit WHERE operation_id=:id AND actor_user_id=:actor")
                 .param("id", operation.operationId())
                 .param("actor", admin)
                 .query(Integer.class)
-                .single())
-                .isEqualTo(1);
+                .single()).isEqualTo(1);
         jdbc.sql("UPDATE auth_sessions SET revoked_at=clock_timestamp() WHERE id=:id")
                 .param("id", adminSession)
                 .update();
-        mvc.perform(get(path).header("Authorization", "Bearer " + adminJwt)).andExpect(status().isUnauthorized());
+        assertThatThrownBy(() -> recoveryVerifier.verify(adminJwt))
+                .isInstanceOf(RecoveryAccessException.class);
     }
+
+    @Autowired
+    private RecoveryAccessVerifier recoveryVerifier;
+
+    @Autowired
+    private RegistrationRecoveryService recoveryService;
 
     private void createActor(UUID user, UUID session, String role) {
         jdbc.sql("INSERT INTO users (id,email_canonical,status) VALUES (:id,:email,'ACTIVE')")

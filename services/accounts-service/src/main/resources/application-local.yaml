@@ -9,3 +9,6 @@ logging:
     io.github.returnaction.fitness.accounts: DEBUG
     # HikariCP выводит фактические minimumIdle и maximumPoolSize; пароль маскируется.
     com.zaxxer.hikari.HikariConfig: DEBUG
+
+server:
+  address: 127.0.0.1

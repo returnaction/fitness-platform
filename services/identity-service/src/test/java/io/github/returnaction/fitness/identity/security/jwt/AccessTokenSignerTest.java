@@ -18,6 +18,7 @@ import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
 class AccessTokenSignerTest {
+
     @Test
     void signsRequiredClaimsAndNeverOutlivesSession() throws Exception {
         var generator = KeyPairGenerator.getInstance("EC");

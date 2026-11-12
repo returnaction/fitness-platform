@@ -9,6 +9,7 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 
 /** Временные ключи тестов; локальные ключи разработчика не используются. */
 public final class TestJwtKeys {
+
     private TestJwtKeys() {
     }
 

@@ -1,9 +1,7 @@
 package io.github.returnaction.fitness.identity.session.service;
 
 import io.github.returnaction.fitness.identity.shared.exception.InvalidAccessTokenException;
-import io.github.returnaction.fitness.identity.security.jwt.AccessTokenVerifier;
 import io.github.returnaction.fitness.identity.session.repository.RefreshTokenRepository;
-import io.github.returnaction.fitness.identity.session.repository.SessionVerificationRepository;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Base64;
@@ -15,8 +13,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 @Service
 @RequiredArgsConstructor
 public class LogoutService {
+
     private final RefreshTokenRepository repository;
-    private final SessionVerificationRepository sessions;
     private final TransactionTemplate transactions;
 
     public void logout(String token) {
@@ -49,15 +47,11 @@ public class LogoutService {
         });
     }
 
-    public void logoutAll(AccessTokenVerifier.Identity identity) {
+    public void logoutAll(UUID userId) {
         transactions.executeWithoutResult(status -> {
-            if (!"ACTIVE".equals(repository.lockUser(identity.userId())))
+            if (repository.lockUser(userId) == null)
                 throw new InvalidAccessTokenException();
-            if (!identity.expiresAt().isAfter(java.time.Instant.now()))
-                throw new InvalidAccessTokenException();
-            if (!sessions.check(identity.userId(), identity.sessionId()).active())
-                throw new InvalidAccessTokenException();
-            repository.revokeAllSessions(identity.userId());
+            repository.revokeAllSessions(userId);
         });
     }
 

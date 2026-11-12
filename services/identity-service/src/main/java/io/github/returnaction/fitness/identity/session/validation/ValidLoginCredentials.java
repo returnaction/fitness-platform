@@ -13,6 +13,7 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
 @Target(TYPE)
 @Retention(RUNTIME)
 public @interface ValidLoginCredentials {
+
     String message() default "invalid";
     Class<?>[] groups() default {};
     Class<? extends Payload>[] payload() default {};

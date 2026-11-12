@@ -13,6 +13,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 @Component
 @RequiredArgsConstructor
 public class WalletCreationProcessor {
+
     private final WalletCreationClient client;
     private final RegistrationLeaseRepository leases;
 

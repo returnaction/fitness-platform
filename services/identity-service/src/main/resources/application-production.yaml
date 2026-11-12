@@ -4,4 +4,4 @@ logging:
       console: ecs
 
 server:
-  forward-headers-strategy: framework
+  forward-headers-strategy: none

@@ -165,10 +165,7 @@ def main():
                             IDENTITY_SESSION_GRPC_PRIVATE_KEY=str(directory / "server.key"),
                             IDENTITY_SESSION_GRPC_TRUST_CERTIFICATE=str(directory / "ca.crt"),
                             IDENTITY_SESSION_GRPC_ALLOWED_CALLER="spiffe://fitness.local/gateway-service",
-                            IDENTITY_REGISTRATION_TRUSTED_PROXY_IP="127.0.0.1",
-                            IDENTITY_REGISTRATION_WORKER_POLL_MS="100", IDENTITY_LOGIN_RATE_CAPACITY="1000",
-                            IDENTITY_REFRESH_RATE_CAPACITY="1000", IDENTITY_LOGOUT_RATE_CAPACITY="1000",
-                            IDENTITY_LOGOUT_ALL_RATE_CAPACITY="1000", IDENTITY_REGISTRATION_RATE_CAPACITY="1000")
+                            IDENTITY_REGISTRATION_WORKER_POLL_MS="100")
             for service in ("accounts", "coins"):
                 prefix = "IDENTITY_" + service.upper() + "_GRPC"
                 identity.update({prefix + "_PORT": str(ports[service + "_grpc"]), prefix + "_CERTIFICATE": str(directory / "client.crt"),

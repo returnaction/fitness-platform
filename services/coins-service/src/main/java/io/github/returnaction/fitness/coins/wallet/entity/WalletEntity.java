@@ -18,6 +18,7 @@ import lombok.NoArgsConstructor;
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class WalletEntity {
+
     @Id
     @Column(name = "user_id", nullable = false, updatable = false)
     private UUID userId;

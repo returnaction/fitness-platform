@@ -25,6 +25,7 @@ import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 /** Ручная локальная проверка файлов step-ca; в CI не запускается. */
 @EnabledIfSystemProperty(named = "fitness.localStepCaSmoke", matches = "true")
 class LocalStepCaSmokeTest {
+
     @Test
     void connectsWithLocallyIssuedCertificates() throws Exception {
         File directory = new File("../../secrets");

@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequiredArgsConstructor
 public class JwksController {
+
     private final PublicJwtKeys keys;
 
     @GetMapping("/.well-known/jwks.json")

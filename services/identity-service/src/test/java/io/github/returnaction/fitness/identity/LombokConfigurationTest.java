@@ -16,6 +16,7 @@ class LombokConfigurationTest {
     @Getter
     @RequiredArgsConstructor
     private static class Example {
+
         private final String name;
     }
 }

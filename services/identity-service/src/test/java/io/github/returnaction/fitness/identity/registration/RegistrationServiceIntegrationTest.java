@@ -68,6 +68,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 class RegistrationServiceIntegrationTest {
+
     // Тестируем HTTP и БД без запуска фоновых задач и реальных gRPC-соединений.
     @org.springframework.test.context.bean.override.mockito.MockitoBean
     private io.github.returnaction.fitness.identity.registration.grpc.ProfileCreationClient accountsClient;

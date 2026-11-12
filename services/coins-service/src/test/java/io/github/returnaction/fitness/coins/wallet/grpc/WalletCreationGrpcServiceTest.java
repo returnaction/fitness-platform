@@ -22,6 +22,7 @@ import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.ArgumentCaptor;
 
 class WalletCreationGrpcServiceTest {
+
     private final WalletCreationService creation = mock(WalletCreationService.class);
     private final WalletCreationGrpcService service = new WalletCreationGrpcService(creation);
 

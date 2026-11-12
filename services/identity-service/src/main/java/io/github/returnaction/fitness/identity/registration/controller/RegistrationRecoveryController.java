@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1/admin/identity/registration-operations")
 @RequiredArgsConstructor
 public class RegistrationRecoveryController {
+
     private final RegistrationRecoveryService recovery;
 
     @GetMapping("/{id}")

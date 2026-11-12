@@ -17,6 +17,7 @@ import org.junit.jupiter.api.Test;
 import org.slf4j.LoggerFactory;
 
 class RegistrationTaskRunnerTest {
+
     @Test
     void workerFailuresDoNotLogPrivateExceptionDetails() {
         Logger logger = (Logger) LoggerFactory.getLogger(RegistrationTaskRunner.class);

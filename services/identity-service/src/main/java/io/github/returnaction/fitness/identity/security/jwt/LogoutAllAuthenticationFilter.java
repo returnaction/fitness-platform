@@ -1,8 +1,5 @@
 package io.github.returnaction.fitness.identity.security.jwt;
 
-import io.github.returnaction.fitness.identity.registration.exception.RegistrationRateLimitException;
-import io.github.returnaction.fitness.identity.registration.web.ClientIpAddressResolver;
-import io.github.returnaction.fitness.identity.registration.web.RegistrationRateLimiter;
 import io.github.returnaction.fitness.identity.shared.exception.InvalidAccessTokenException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -10,6 +7,9 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.List;
+import java.util.UUID;
+import java.text.ParseException;
+import com.nimbusds.jwt.SignedJWT;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -18,14 +18,12 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import org.springframework.web.servlet.HandlerExceptionResolver;
 
 /**
- * Проверяет JWT до контроллера logout-all; сессия повторно проверяется в
- * транзакции.
+ * Извлекает пользователя из JWT, уже проверенного Gateway. Локальный HTTP
+ * caller считается доверенным без проверки его личности.
  */
 @RequiredArgsConstructor
 public final class LogoutAllAuthenticationFilter extends OncePerRequestFilter {
-    private final AccessTokenVerifier verifier;
-    private final ClientIpAddressResolver clientAddress;
-    private final RegistrationRateLimiter limiter;
+
     private final HandlerExceptionResolver exceptionResolver;
 
     @Override
@@ -51,27 +49,40 @@ public final class LogoutAllAuthenticationFilter extends OncePerRequestFilter {
             response.setStatus(HttpServletResponse.SC_NOT_ACCEPTABLE);
             return;
         }
-        try {
-            limiter.check(clientAddress.resolve(request));
-        } catch (RegistrationRateLimitException limited) {
-            handleError(request, response, limited);
-            return;
-        }
         String authorization = request.getHeader("Authorization");
         if (authorization == null || !authorization.startsWith("Bearer ") || authorization.length() <= 7) {
             handleError(request, response, new InvalidAccessTokenException());
             return;
         }
+        UUID userId;
         try {
-            var identity = verifier.verify(authorization.substring(7));
-            SecurityContextHolder.getContext()
-                    .setAuthentication(
-                            new UsernamePasswordAuthenticationToken(identity, null, List.of()));
+            userId = readUserId(authorization.substring(7));
         } catch (InvalidAccessTokenException invalid) {
             handleError(request, response, invalid);
             return;
         }
-        chain.doFilter(request, response);
+        var context = SecurityContextHolder.createEmptyContext();
+        context.setAuthentication(new UsernamePasswordAuthenticationToken(userId, null, List.of()));
+        SecurityContextHolder.setContext(context);
+        try {
+            chain.doFilter(request, response);
+        } finally {
+            SecurityContextHolder.clearContext();
+        }
+    }
+
+    private static UUID readUserId(String token) {
+        try {
+            String subject = SignedJWT.parse(token).getJWTClaimsSet().getSubject();
+            if (subject == null)
+                throw new InvalidAccessTokenException();
+            UUID userId = UUID.fromString(subject);
+            if (!userId.toString().equals(subject))
+                throw new InvalidAccessTokenException();
+            return userId;
+        } catch (ParseException | IllegalArgumentException invalid) {
+            throw new InvalidAccessTokenException();
+        }
     }
 
     private void handleError(HttpServletRequest request, HttpServletResponse response, Exception exception) {
