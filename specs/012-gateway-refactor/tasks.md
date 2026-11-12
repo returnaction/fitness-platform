@@ -2,7 +2,7 @@
 
 > **Спецификация:** [spec.md](spec.md)  
 > **План:** [plan.md](plan.md)  
-> **Статус:** in-progress; выполнены Э02–Э07, включая JWT и gRPC-проверку сессии.
+> **Статус:** in-progress; выполнены Э02–Э08, включая JWT, сессию и HTTP-проксирование.
 
 Основание — целевые решения Spec 012. Старый код Gateway не определяет требования.
 Начало изменения приложения и удаления старого кода требует команды на реализацию.
@@ -98,7 +98,7 @@ T003/T005 — сводные задачи: закрываются только �
     UpstreamId, временная закрытая security chain. Маршруты и gRPC пока не подключены.
     Команда: `.\mvnw.cmd "-Dmaven.repo.local=C:\Users\Oberg\.m2\repository" -B -ntp -pl services/gateway-service -am spotless:apply verify`.
     Результат: 6 тестов Gateway и 3 теста gRPC-контрактов, Spotless и SpotBugs прошли.
-  - [ ] T003b: Единый каталог пяти операций, маршрутизация и policy из него;
+  - [x] T003b: Единый каталог пяти операций, маршрутизация и policy из него;
     ошибки старта при дублях, пустом каталоге, неверном/отсутствующем upstream.
     - [x] Э05 (2026-11-12): GatewayRouteCatalog, RouteAccessPolicy, валидация
       каталога при создании policy и RouteValidationFilter в security chain.
@@ -118,7 +118,7 @@ T003/T005 — сводные задачи: закрываются только �
     Реальный servlet-контекст подтверждает однократную регистрацию обоих фильтров.
     Отсчёт — gRPC Deadline с монотонным временем, остаток после истечения равен нулю.
     Отмена транспорта ещё не реализована: T003f/T002b остаются открытыми.
-  - [ ] T003d: JWT/claims с единым Clock, локальная проверка подписи, Token Relay;
+  - [x] T003d: JWT/claims с единым Clock, локальная проверка подписи, Token Relay;
     публичные операции пропускают JWT/CheckSession и удаляют Authorization.
     - [x] Э06 (2026-11-12): Resource Server/Jose, NimbusJwtDecoder с локальным
       выбором ES256-ключа по kid из опубликованного набора; никакого сетевого source.
@@ -145,8 +145,24 @@ T003/T005 — сводные задачи: закрываются только �
     контрактов, Spotless и SpotBugs прошли. Реальный Identity/отзыв в БД — Э10.
   - [ ] T003f: Общий HTTP-транспорт и планировщик отмены; отмена активна до завершения
     тела, снимается при завершении, не пишет JSON и не затрагивает следующий запрос.
-  - [ ] T003g: Allowlist исходящих заголовков, новый request ID, защита от поддельной
+  - [x] T003g: Allowlist исходящих заголовков, новый request ID, защита от поддельной
     идентичности/forwarded-контекста; итоговые заголовки проверяются на downstream.
+    Э08 (2026-11-12), завершение T003b/T003d/T003g: маршруты создаются из каталога
+    с отдельным before(uri), security разрешает публичные операции и проверенные
+    защищённые запросы. Общий Apache HTTP-клиент без retries, redirects, cookies
+    и распаковки ответа. Итоговые заголовки проверены реальным HTTP-сервером:
+    allowlist, новый ID, непосредственный адрес клиента, исходный bearer только
+    на logout-all. Поддельные user/role/forwarded-заголовки отсутствуют.
+    Проверены пять POST-путей, неизменённые JSON/form/multipart-тела, возврат
+    статусов/тел 422/307/503 и отсутствие HTTP-вызова при отказах JWT/сессии.
+    Отключены servlet encoding, multipart parsing и встроенная пересборка form;
+    ProxyRequestBodyFilter предотвращает потребление тела при чтении MVC parameters.
+    Проверка: Maven Wrapper `-pl services/gateway-service -am spotless:apply verify`
+    с cache `C:\Users\Oberg\.m2\repository`: 32 теста Gateway + 3 теста контрактов,
+    Spotless и SpotBugs прошли. В SessionVerificationProperties wildcard-импорт
+    заменён явными импортами согласно проверке сборки.
+    Общая отмена HTTP, 502/504, медленные тела и гонки остаются Э09;
+    настоящий Identity, refresh и отзыв сессий в БД — Э10. T003/T005 открыты.
   - [ ] T003h: Единый GatewayErrorCode/DTO/writer/advice/security handlers;
     корректные статусы, отсутствие повторной записи после commit, безопасные логи.
     - [x] Э03: DTO из Identity в собственном пакете, enum, writer с Spring ObjectMapper,

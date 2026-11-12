@@ -115,7 +115,9 @@ class RouteValidationTest {
                 boolean protectedRoute = route.path().endsWith("/logout-all");
                 assertThat(policy.protectedRequests().matches(request)).isEqualTo(protectedRoute);
                 assertThat(policy.publicRequests().matches(request)).isEqualTo(!protectedRoute);
-                assertError(client, "POST", route.path(), "", 401, "invalid_access_token");
+                if (protectedRoute) {
+                    assertError(client, "POST", route.path(), "", 401, "invalid_access_token");
+                }
             }
         }
         assertThat(policy.publicRequests().matches(new MockHttpServletRequest("GET", "/api/v1/auth/login"))).isFalse();

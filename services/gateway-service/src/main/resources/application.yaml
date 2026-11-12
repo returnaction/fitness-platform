@@ -1,4 +1,15 @@
 spring:
+  servlet:
+    encoding:
+      enabled: false
+    multipart:
+      enabled: false
+  cloud:
+    gateway:
+      server:
+        webmvc:
+          form-filter:
+            enabled: false
   jackson:
     property-naming-strategy: SNAKE_CASE
   application:

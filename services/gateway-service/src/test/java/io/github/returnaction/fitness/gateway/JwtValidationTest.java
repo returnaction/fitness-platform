@@ -38,6 +38,9 @@ import io.github.returnaction.fitness.gateway.routing.GatewayRouteCatalog;
 import io.github.returnaction.fitness.gateway.routing.RouteAccess;
 import io.github.returnaction.fitness.gateway.security.jwks.JwksInitializer;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterAll;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
@@ -50,6 +53,18 @@ import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("test")
 class JwtValidationTest {
+
+    private static final TestUpstream UPSTREAM = new TestUpstream();
+
+    @DynamicPropertySource
+    static void upstream(DynamicPropertyRegistry registry) {
+        registry.add("gateway.upstreams.services.IDENTITY.base-url", UPSTREAM::baseUrl);
+    }
+
+    @AfterAll
+    static void stopUpstream() {
+        UPSTREAM.close();
+    }
 
     @MockitoBean
     private SessionVerificationClient sessions;
@@ -75,6 +90,8 @@ class JwtValidationTest {
 
     @BeforeEach
     void configureTrustAndTime() {
+        UPSTREAM.calls.set(0);
+        UPSTREAM.status.set(200);
         when(sessions.isActive(ArgumentMatchers.any(), ArgumentMatchers.any(),
                 ArgumentMatchers.any(), ArgumentMatchers.any())).thenReturn(true);
         when(keys.ready()).thenReturn(true);
@@ -184,12 +201,13 @@ class JwtValidationTest {
                     continue;
                 }
                 for (String token : List.of("", "malformed", sign(claims()), sign(expired))) {
-                    // Temporary denyAll remains until forwarding is implemented.
-                    assertThat(request(client, route.path(), token).statusCode()).isEqualTo(401);
+                    assertThat(request(client, route.path(), token).statusCode()).isEqualTo(200);
+                    assertThat(UPSTREAM.received.get().header("Authorization")).isNull();
                 }
             }
             assertThat(request(client, "/unknown", "bad").statusCode()).isEqualTo(404);
             assertThat(request(client, "/api/v1/auth/logout-all?x=1", "bad").statusCode()).isEqualTo(400);
+            assertThat(UPSTREAM.calls.get()).isEqualTo(16);
         }
         verify(decoder, never()).decode(ArgumentMatchers.anyString());
         verify(sessions, never()).isActive(ArgumentMatchers.any(), ArgumentMatchers.any(),
@@ -197,17 +215,19 @@ class JwtValidationTest {
     }
 
     @Test
-    void protectedRouteChecksSessionOnlyAfterValidJwtAndStaysClosedUntilForwarding() throws Exception {
+    void protectedRouteForwardsOnlyAfterValidJwtAndActiveSession() throws Exception {
         try (var client = HttpClient.newHttpClient()) {
             var invalid = request(client, "/api/v1/auth/logout-all", sign(claims(), KEY, "unknown"));
             assertThat(invalid.statusCode()).isEqualTo(401);
             assertThat(invalid.body()).contains("invalid_access_token", "request_id");
             assertThat(invalid.headers().firstValue("WWW-Authenticate")).contains("Bearer");
             Mockito.verifyNoInteractions(sessions);
+            assertThat(UPSTREAM.calls.get()).isZero();
             var valid = request(client, "/api/v1/auth/logout-all", sign(claims()));
-            assertThat(valid.statusCode()).isEqualTo(403);
-            assertThat(valid.body()).contains("access_denied");
+            assertThat(valid.statusCode()).isEqualTo(200);
+            assertThat(UPSTREAM.calls.get()).isEqualTo(1);
             assertThat(request(client, "/api/v1/auth/logout-all", "").statusCode()).isEqualTo(401);
+            assertThat(UPSTREAM.calls.get()).isEqualTo(1);
         }
     }
 
@@ -237,6 +257,89 @@ class JwtValidationTest {
             var failed = request(client, "/api/v1/auth/logout-all", sign(claims));
             assertThat(failed.statusCode()).isEqualTo(503);
             assertThat(failed.body()).contains("identity_unavailable").doesNotContain("private transport diagnostics");
+            assertThat(UPSTREAM.calls.get()).isZero();
+        }
+    }
+
+    @Test
+    void forwardsFiveOperationsWithOnlyAllowedHeadersAndOriginalBody() throws Exception {
+        String token = sign(claims());
+        String body = "{ \"value\" : \"исходное тело\" }";
+        try (var client = HttpClient.newHttpClient()) {
+            for (var route : GatewayRouteCatalog.routes()) {
+                var outgoing = HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + route.path()))
+                        .header("Authorization", "Bearer " + token)
+                        .header("Content-Type", "application/json")
+                        .header("Accept", "application/json")
+                        .header("Idempotency-Key", "operation-key")
+                        .header("X-Request-Id", "forged-id")
+                        .header("X-User-Id", "forged-user")
+                        .header("X-Roles", "ADMIN")
+                        .header("Cookie", "client=private")
+                        .header("Forwarded", "for=203.0.113.7;proto=https")
+                        .header("X-Forwarded-For", "203.0.113.7")
+                        .header("X-Forwarded-Host", "evil.example")
+                        .header("X-Forwarded-Proto", "https")
+                        .header("X-Extra", "remove")
+                        .POST(HttpRequest.BodyPublishers.ofString(body))
+                        .build();
+                var response = client.send(outgoing, HttpResponse.BodyHandlers.ofString());
+                assertThat(response.statusCode()).isEqualTo(200);
+                assertThat(response.body()).isEqualTo("{\"result\":\"unchanged\"}");
+                var received = UPSTREAM.received.get();
+                assertThat(received.method()).isEqualTo("POST");
+                assertThat(received.path()).isEqualTo(route.path());
+                assertThat(received.body()).isEqualTo(body);
+                assertThat(received.header("Content-Type")).isEqualTo("application/json");
+                assertThat(received.header("Accept")).isEqualTo("application/json");
+                assertThat(received.header("Idempotency-Key")).isEqualTo("operation-key");
+                assertThat(received.header("Authorization")).isEqualTo(
+                        route.access() == RouteAccess.PUBLIC ? null : "Bearer " + token);
+                assertThat(received.header("X-Forwarded-For")).isEqualTo("127.0.0.1");
+                assertThat(received.headers()).doesNotContainKeys("X-User-Id", "X-Roles", "Cookie", "Forwarded",
+                        "X-Forwarded-Host", "X-Forwarded-Proto", "X-Extra");
+                String id = response.headers().firstValue("X-Request-Id").orElseThrow();
+                assertThat(UUID.fromString(id)).isNotNull();
+                assertThat(received.header("X-Request-Id")).isEqualTo(id);
+            }
+        }
+        assertThat(UPSTREAM.calls.get()).isEqualTo(5);
+        verify(sessions).isActive(ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any(),
+                ArgumentMatchers.any());
+    }
+
+    @Test
+    void preservesDownstreamErrorsAndRedirectsWithoutRetriesOrCookieReuse() throws Exception {
+        try (var client = HttpClient.newHttpClient()) {
+            for (int status : List.of(422, 307, 503)) {
+                UPSTREAM.status.set(status);
+                int before = UPSTREAM.calls.get();
+                var response = request(client, "/api/v1/auth/login", "");
+                assertThat(response.statusCode()).isEqualTo(status);
+                assertThat(response.body()).isEqualTo("{\"result\":\"unchanged\"}");
+                assertThat(UPSTREAM.calls.get()).isEqualTo(before + 1);
+                assertThat(UPSTREAM.received.get().header("Cookie")).isNull();
+            }
+        }
+    }
+
+    @Test
+    void preservesFormAndMultipartBodiesWithoutTurningThemIntoQueryParameters() throws Exception {
+        var bodies = Map.of(
+                "application/x-www-form-urlencoded", "name=a%20b&name=c+z&literal=%2f",
+                "multipart/form-data; boundary=sample",
+                "--sample\r\nContent-Disposition: form-data; name=\"x\"\r\n\r\nvalue\r\n--sample--\r\n");
+        try (var client = HttpClient.newHttpClient()) {
+            for (var entry : bodies.entrySet()) {
+                var outgoing = HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + "/api/v1/auth/login"))
+                        .header("Content-Type", entry.getKey())
+                        .POST(HttpRequest.BodyPublishers.ofString(entry.getValue()))
+                        .build();
+                assertThat(client.send(outgoing, HttpResponse.BodyHandlers.ofString()).statusCode()).isEqualTo(200);
+                assertThat(UPSTREAM.received.get().body()).isEqualTo(entry.getValue());
+                assertThat(UPSTREAM.received.get().path()).isEqualTo("/api/v1/auth/login");
+                assertThat(UPSTREAM.received.get().header("Content-Type")).isEqualTo(entry.getKey());
+            }
         }
     }
 

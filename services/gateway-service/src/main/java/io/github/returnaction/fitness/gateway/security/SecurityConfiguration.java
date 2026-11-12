@@ -51,7 +51,10 @@ public class SecurityConfiguration {
                         .accessDeniedHandler(errors))
                 .authorizeHttpRequests(authorize -> authorize.requestMatchers(management::matches)
                         .permitAll()
-                        // Remains closed until session verification (E07) and forwarding (E08).
+                        .requestMatchers(policy.publicRequests())
+                        .permitAll()
+                        .requestMatchers(policy.protectedRequests())
+                        .authenticated()
                         .anyRequest()
                         .denyAll())
                 .exceptionHandling(
