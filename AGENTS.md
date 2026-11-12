@@ -4,10 +4,10 @@ This root file applies to the entire repository, including the
 [System Design documentation](system-design/README.md). More specific
 instructions in nested directories supplement the root instructions.
 
-## Active SDD Scope: 013-pending
+## Active SDD Scope: 014-accounts-profile
 
 Until the user explicitly changes the scope, a request to continue development
-means continuing [013-pending](specs/013-pending/spec.md).
+means continuing [014-accounts-profile](specs/014-accounts-profile/spec.md).
 Do not start implementing another feature or a system-design roadmap item just
 because it exists in the documentation. When the specification is complete or
 all remaining tasks are blocked, report the status and ask the user what to do
@@ -15,9 +15,9 @@ next rather than choosing a different feature.
 
 Before each development step:
 
-1. Read the current [task list](specs/013-pending/tasks.md),
-   [specification](specs/013-pending/spec.md), and
-   [plan](specs/013-pending/plan.md). Identify an open task, its
+1. Read the current [task list](specs/014-accounts-profile/tasks.md),
+   [specification](specs/014-accounts-profile/spec.md), and
+   [plan](specs/014-accounts-profile/plan.md). Identify an open task, its
    acceptance criteria, and any dependencies. Respect an explicit user request
    and the current branch; do not assume the first unchecked item is always
    actionable.
@@ -38,42 +38,29 @@ Before each development step:
    next task tied to the specification. Continue with another in-scope task
    when the user has authorized continued work and no intervention is needed.
 
-### Spec 013 execution scope
+### Spec 014 execution scope
 
-- The agreed local Spec 013 scope is complete through T007. T003 is cancelled;
-  Docker/server preparation (T008), Content-Encoding and unrelated follow-ups
-  remain outside scope. Do not start them automatically. Verification evidence
-  is in tasks.md and verification-t006.md; commits remain user-controlled.
+- Status is in-progress at the user's request on 2026-11-13. This status change
+  does not authorize execution: wait for the user's explicit start command.
 
-- Do not begin implementation until the user explicitly gives the start command.
-- The current request authorizes drafting Spec 013 for service access protection
-  and Identity pre-authentication on `39-gateway-refactor`, created from main.
-  Its directory remains `specs/013-pending`; read its current requirements.
-- Spec 013 scope and plan were approved after grilling on 2026-11-12; implementation requires
-  the user's explicit start command. Local services run as Java processes;
-  the future server deployment uses containers. Do not claim server protection
-  based only on local tests. Content-Encoding work is deferred by the user.
-- The user authorized T002 implementation. After completing each task, report
-  the changes and verification, then stop for user review. Do not commit or
-  start the next task without the user's next instruction.
-- Latest user decision: HTTP without HTTPS/client certificates for Identity.
-  Preserve existing gRPC mTLS. T003 HTTP mTLS is cancelled. Identity logout-all
-  work (T004–T007) is active in the plan: local HTTP trusts Gateway by assumption,
-  without authenticating the HTTP caller. Local bypass protection is not required
-  for this stage; do not claim server security. Do not prepare Docker deployment.
-  The user authorized Identity logout-all implementation and tests. Keep
-  SecurityContext with the UUID principal and no roles; retain authenticated()
-  and administrative AccessTokenVerifier. Report results and stop without committing.
-- Previous specifications' commit authorizations do not carry over to Spec 013.
-  Commits, push, merge, deployment and user-database migrations require
-  explicit authorization.
-- Record questions that genuinely require the user in
-  [questions.md](specs/013-pending/questions.md), with affected task,
-  evidence, options, recommendation, and blocked scope. Continue independent
-  tasks; do not guess product decisions or mark blocked work complete.
-- If every remaining task depends on user input or unavailable external access,
-  record the blockers and report the incomplete status. The goal of completion
-  does not authorize bypassing permissions or claiming unverified success.
+- The user explicitly requested Spec 014 for own-profile GET/PUT after approving
+  the draft and grilling decisions on 2026-11-13. The active specification is
+  `specs/014-accounts-profile` on `40-accounts-profile`, created from current main.
+- Only specification preparation is authorized now. Do not begin implementation,
+  edit OpenAPI/service code, run migrations, or treat approval of requirements
+  as a start command. Preserve the user's existing ProfileVisibility.java edit.
+- Scope is server only: Gateway and Accounts, contracts, documentation and tests.
+  Mobile behavior is reference material; public-profile viewing is outside scope.
+- Read spec.md, plan.md and tasks.md before each authorized step. After each task,
+  report evidence and stop for user review unless the user changes this workflow.
+- Commits, push, merge, deploy and user-database migrations require explicit
+  authorization. Earlier specifications' authorizations do not carry over.
+- Spec 013 is complete in its agreed local scope. Its records remain in specs/013-pending and are
+  historical and do not authorize new work. Local HTTP trust is an assumption,
+  not proof of server protection; preserve existing gRPC mTLS. Docker deployment
+  and Content-Encoding remain outside the active task.
+- Record genuinely new product questions with affected tasks, evidence, options,
+  recommendation and blocked scope in `specs/014-accounts-profile/questions.md`.
 
 ## Project and Technology
 
