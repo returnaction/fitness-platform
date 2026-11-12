@@ -1,0 +1,104 @@
+# Техническая проверка перед реализацией Spec 012
+
+Дата: 2026-11-12. Область: T001/T002, документация и исходники библиотек.
+Код приложения и тестового стенда в этой проверке не писался, приложение не запускалось.
+Старый Gateway не использован как источник требований.
+
+## Матрица текущих операций (T001)
+
+Все пути ниже имеют префикс `/api/v1/auth/`, метод POST. Остальные пути — 404,
+неверный метод — 405 с Allow, query после этих проверок — 400.
+
+| Путь | Доступ | JWT / CheckSession | Authorization в Identity | Проверка |
+| --- | --- | --- | --- | --- |
+| register | PUBLIC | не вызываются | удаляется | T005b |
+| login | PUBLIC | не вызываются | удаляется | T005b |
+| refresh | PUBLIC | не вызываются | удаляется | T005b |
+| logout | PUBLIC | не вызываются | удаляется | T005b |
+| logout-all | AUTHENTICATED | JWT, затем сессия | исходный проверенный bearer | T005b/T005c |
+
+До первоначальной загрузки ключей пользовательские операции не обслуживаются.
+JWT: ES256, issuer/audience, обязательные sub/sid/jti/iat/exp, формат roles,
+срок и границы времени — T005c. Неверный JWT/неизвестный kid/INVALID сессия — 401;
+техническая ошибка CheckSession — 503. HTTP upstream: 502/504 по причине, без retry.
+Новый request ID и allowlist исходящих заголовков — T005d и Э08.
+DTO ошибок и обработка после commit — T005f. Профили и обязательные настройки — Э02.
+CORS/query — T008/T012; без прикладного лимита тела — T011.
+
+## Совместимость и зависимости (T002a)
+
+Официально поддерживаются Java 25 и Spring Boot 4.1.2; Spring Cloud 2025.1.4
+совместим с Boot 4.1.x (поддержка начиная с Cloud 2025.1.2).
+Источники: [Spring Boot requirements](https://docs.spring.io/spring-boot/system-requirements.html),
+[Spring Cloud compatibility](https://spring.io/projects/spring-cloud/).
+
+Ранее полученное дерево зависимостей в verification/dependencies.txt содержит
+Gateway MVC 5.0.4, Framework 7.0.10, Jackson 3.1.7, Security crypto 7.1.2,
+HttpClient 5.6.5 / HttpCore 5.4.4. Это результат разрешения модели Maven,
+не подтверждение компиляции всех зависимостей или совместимости всего приложения.
+Для JWT нужны оба модуля spring-security-oauth2-resource-server и spring-security-oauth2-jose,
+а не только crypto или Nimbus. Их загрузка и сборка ещё не подтверждены.
+Источник: [Spring Security JWT dependencies](https://docs.spring.io/spring-security/reference/servlet/oauth2/resource-server/jwt.html).
+Версию gRPC 1.85.0 использует конфигурация проекта; полный runtime gRPC здесь не проверен.
+
+Ранее Maven Wrapper завершился внутренней ошибкой до запуска Maven. Обход через
+скачанный Wrapper-ом Maven 3.9.11 позволил получить дерево, но не делает стандартный
+вход сборки проверенным. В Э01 с разрешением на код/сборку воспроизвести и устранить
+проблему окружения Wrapper; не заменять стандартный способ сборки молча.
+
+## Отмена HTTP (T002b)
+
+Проверены локальные опубликованные sources.jar Gateway MVC 5.0.4 и Spring Web 7.0.10:
+
+- RestClientProxyExchange.exchange вызывает exchange с close=false; тело ответа
+  копируется позднее в callback GatewayServerResponse и закрывается в finally.
+  Следовательно, отмену нельзя снимать при возвращении заголовков или ServerResponse.
+- HttpComponentsClientHttpRequestFactory имеет protected createHttpUriRequest и
+  postProcessHttpRequest. Apache HttpUriRequestBase имеет cancel/abort и зависимость
+  отмены. Это доступная точка для адаптера общего транспорта, не отдельный пул на сервис.
+- Выбранное направление: адаптер фабрики регистрирует отменяемый запрос и остаток
+  deadline; обёртка ответа снимает регистрацию после закрытия тела, ошибки также
+  освобождают регистрацию. Планировщик не пишет JSON.
+
+[Apache API отмены](https://hc.apache.org/httpcomponents-client-5.6.x/current/httpclient5/apidocs/org/apache/hc/client5/http/classic/methods/HttpUriRequestBase.html).
+
+Существенное ограничение: RestClientProxyExchange читает входной ServletInputStream
+через StreamUtils.copy. Отмена исходящего HTTP-запроса сама по себе не доказывает
+прерывание заблокированного чтения от медленного клиента или записи ответа ему.
+Строгий общий предел до конца передачи требует проверки контейнера и адаптера.
+Это остаётся открытым в T002b/T005e; нельзя подменять его обычным read timeout
+или объявлять гарантированным по наличию cancel(). После commit новый JSON запрещён.
+
+## Ошибки (T002c)
+
+В sources.jar Spring Web MVC 7.0.10 метод ExceptionHandlerExceptionResolver.shouldApplyTo
+явно допускает HandlerFunction при наличии global advice. Глобальный
+@RestControllerAdvice без ограничивающих selectors подходит функциональным маршрутам.
+При selectors по классу/пакету контроллера применимость к HandlerFunction не гарантируется.
+Ошибки servlet-фильтров до DispatcherServlet требуют локального writer;
+security использует entry point/access denied handler, firewall — свой обработчик.
+Advice не заменяет эти пути. Фактические статусы и единый DTO проверяются в T005f.
+
+## Готовность (T002d)
+
+Выбранный механизм: первоначальная загрузка в ApplicationRunner до завершения startup;
+один атомарно опубликованный признак готовности ключей. До успеха отдельный gate
+на пользовательском API не пропускает запрос к маршрутам/security/downstream,
+включая прямой доступ к порту. Диагностический отказ 503 не является обслуживанием
+бизнес-операции. Management обрабатывается отдельно и остаётся доступным.
+Проверка gate выполняется после request ID, до проверки пользовательского маршрута.
+
+Readiness отражает готовность ключей и локальное состояние приложения; liveness
+не зависит от доступности Identity. Один readiness endpoint без gate не закрывает порт.
+Повторы первоначальной загрузки имеют timeout 3s и паузу 5s, прекращаются при shutdown
+или после первого успешного набора. После загрузки падение Identity не меняет этот набор
+и само по себе не снимает readiness. На каждый защищённый запрос остаётся CheckSession.
+Источник: [Spring Boot application availability](https://docs.spring.io/spring-boot/reference/features/spring-application.html).
+
+## Вывод и границы доказательства
+
+Совместимость основных поколений подтверждена, точки расширения найдены,
+решение по готовности и разделение ошибок определены. Нового продуктового выбора нет.
+T001 закрывается этой матрицей. T002a–d целиком не закрываются: исполняемая сборка,
+поведение отмены/медленного тела, гонки, фактические ответы и прямой доступ до готовности
+не проверены запуском. Эти доказательства получают с кодом на соответствующих этапах.
