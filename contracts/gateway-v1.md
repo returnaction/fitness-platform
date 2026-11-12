@@ -12,18 +12,25 @@
 | POST /api/v1/auth/refresh | Без access JWT; refresh проверяет Identity | Тот же путь Identity |
 | POST /api/v1/auth/logout | Без access JWT; refresh проверяет Identity | Тот же путь Identity |
 | POST /api/v1/auth/logout-all | ES256 JWT + CheckSession ACTIVE | Тот же путь Identity |
+| GET /api/v1/accounts/me | ES256 JWT + CheckSession ACTIVE | Тот же путь Accounts; runtime после T002 |
+| PUT /api/v1/accounts/me | ES256 JWT + CheckSession ACTIVE | Тот же путь Accounts; runtime после T002 |
 
 Пример: `POST /api/v1/auth/login`, `Content-Type: application/json`,
 `{"email":"test@example.com","password":"<password>"}`. Для logout-all:
 `Authorization: Bearer <access_token>`, без тела. DTO и ответы Identity сохраняются.
 Query string не поддерживается (400). Неизвестный путь — 404, другой метод
-известного пути — 405 с `Allow: POST`. Recovery, JWKS, actuator и gRPC наружу
+известного пути — 405 с Allow разрешённых методов (POST для auth; GET, PUT для /accounts/me после T002). Recovery, JWKS, actuator и gRPC наружу
 не маршрутизируются. Management Gateway доступен отдельно на loopback.
 
 Gateway передаёт только Content-Type, Accept, Authorization, Idempotency-Key,
 канонический X-Request-Id и X-Forwarded-For из TCP peer. Клиентские user/role,
 Cookie, Forwarded и X-Forwarded-* не являются доверенным контекстом.
 Identity доверяет X-Forwarded-For только от настроенного IP Gateway.
+
+Accounts владеет формой, ответами и бизнес-ошибками собственного профиля:
+[OpenAPI](openapi/accounts-profile-v1.yaml). Gateway пересылает исходный Bearer,
+метод, путь, тело и request_id, возвращает статус/тело и no-store. Поля профиля
+Gateway не валидирует. T001 задаёт контракт; маршрутизация появится в T002.
 
 ## Проверки и отказы
 

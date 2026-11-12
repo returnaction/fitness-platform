@@ -1,10 +1,11 @@
 openapi: 3.1.0
 info:
-  title: Fitness Gateway auth API
+  title: Fitness Gateway API
   version: 1.0.0
   description: >-
     Identity owns the referenced auth operations. Gateway additionally enforces
-    the limits and transport errors in ../gateway-v1.md. No other paths are public.
+    the limits and transport errors in ../gateway-v1.md. Accounts owns the own-profile
+    operations added by Spec 014 (runtime pending T002). No other paths are public.
 servers:
   - url: http://127.0.0.1:8088
     description: Local development only
@@ -19,12 +20,14 @@ paths:
     $ref: './identity-auth-v1.yaml#/paths/~1api~1v1~1auth~1logout'
   /api/v1/auth/logout-all:
     $ref: './identity-auth-v1.yaml#/paths/~1api~1v1~1auth~1logout-all'
+  /api/v1/accounts/me:
+    $ref: './accounts-profile-v1.yaml#/paths/~1api~1v1~1accounts~1me'
 components:
   securitySchemes:
     BearerAccess:
       $ref: './identity-auth-v1.yaml#/components/securitySchemes/BearerAccess'
 x-gateway-policy:
-  protected-paths: [/api/v1/auth/logout-all]
+  protected-paths: [/api/v1/auth/logout-all, /api/v1/accounts/me]
   session-check: grpc-mtls-every-request
   retries: 0
   max-body-bytes: 16384

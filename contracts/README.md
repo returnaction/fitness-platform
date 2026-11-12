@@ -15,6 +15,9 @@
 
 Текущие контракты:
 
+- [Accounts own-profile REST API v1](openapi/accounts-profile-v1.yaml) — согласованный GET/PUT своего профиля Spec 014; runtime ещё не реализован;
+- [Gateway REST API v1](openapi/gateway-v1.yaml) — ссылки на контракты владельцев;
+
 - [Identity REST API v1](openapi/identity-auth-v1.yaml) — регистрация, вход и обновление сессии;
 - [Accounts Creation gRPC v1](proto/accounts-profile-creation-v1.proto);
 - [Coins Creation gRPC v1](proto/coins-wallet-creation-v1.proto).
@@ -75,3 +78,17 @@ Identity, Accounts и Coins подключают его как Maven dependency;
     <artifactId>fitness-grpc-contracts</artifactId>
     <version>${project.version}</version>
 </dependency>
+
+## Проверка OpenAPI
+
+Инструменты закреплены в `openapi/requirements-validation.txt`.
+Установить их в отдельное Python-окружение и проверить контракты из корня репозитория:
+
+```powershell
+python -m pip install -r contracts/openapi/requirements-validation.txt
+python -m openapi_spec_validator contracts/openapi/accounts-profile-v1.yaml
+python -m openapi_spec_validator contracts/openapi/gateway-v1.yaml
+python -m openapi_spec_validator contracts/openapi/identity-auth-v1.yaml
+```
+
+Это проверка описаний и ссылок, а не реализация HTTP-маршрутов или проверка БД.
