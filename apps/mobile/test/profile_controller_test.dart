@@ -71,13 +71,19 @@ void main() {
     expect((await store.read('a', 0))?.pendingSave, isFalse);
   });
 
-  test('uncertain save is recovered by GET after restart, never PUT', () async {
+  test('interrupted save is recovered by GET after restart, never PUT', () async {
     final disk = Disk();
-    final api = Api()..update = (_) async => throw const IdentityNetworkException();
+    final pending = Completer<Profile>();
+    final started = Completer<void>();
+    final api = Api()..update = (_) { started.complete(); return pending.future; };
     final controller = make(api, ProfileStore(disk));
     await controller.open();
-    await expectLater(controller.save(value()), throwsA(isA<IdentityNetworkException>()));
+    final saving = controller.save(value());
+    final check = expectLater(saving, throwsA(isA<StaleProfileOperation>()));
+    await started.future;
     controller.dispose();
+    pending.completeError(const IdentityNetworkException());
+    await check;
     api.read = () async => value(2);
     final restarted = make(api, ProfileStore(disk));
     await restarted.open();
@@ -227,6 +233,107 @@ void main() {
     expect(await store.read('a', 0), isNull);
     disk.failRead = true;
     await expectLater(store.read('a', 0), throwsA(isA<ProfileStorageException>()));
+  });
+
+  for (final failure in <Exception>[
+    const IdentityNetworkException(), const FormatException('Malformed reply'),
+    const IdentityApiException(statusCode: 504, code: 'upstream_timeout', message: 'Failure'),
+  ]) {
+    test('uncertain ${failure.runtimeType} is confirmed by GET without another PUT', () async {
+      final store = ProfileStore(Disk());
+      final api = Api();
+      final controller = make(api, store);
+      await controller.open();
+      final submitted = Profile.fromJson({...value().toJson(), 'nickname': 'Changed'});
+      api.update = (_) async => throw failure;
+      api.read = () async => Profile.fromJson({...submitted.toJson(), 'version': 2});
+      await controller.save(submitted);
+      expect(controller.profile?.nickname, 'Changed');
+      expect(controller.pendingSave, isFalse);
+      expect(controller.needsReload, isFalse);
+      expect(controller.error, isNull);
+      expect(api.puts, 1);
+      expect(api.gets, 2);
+      expect((await store.read('a', 0))?.pendingSave, isFalse);
+    });
+  }
+
+  test('mismatching verification keeps uncertainty until explicit reload', () async {
+    final store = ProfileStore(Disk());
+    final api = Api();
+    final controller = make(api, store);
+    await controller.open();
+    api.update = (_) async => throw const IdentityNetworkException();
+    api.read = () async => value(3);
+    final submitted = Profile.fromJson({...value().toJson(), 'nickname': 'Changed'});
+    await expectLater(controller.save(submitted), throwsA(isA<ProfileSaveUncertainException>()));
+    expect(controller.pendingSave, isTrue);
+    expect(controller.needsReload, isTrue);
+    expect((await store.read('a', 0))?.pendingSave, isTrue);
+    await expectLater(controller.save(submitted), throwsStateError);
+    expect(api.puts, 1);
+    await controller.refresh();
+    expect(controller.pendingSave, isFalse);
+    expect(controller.needsReload, isFalse);
+    expect(controller.profile?.version, 3);
+  });
+
+  test('failed verification retains marker and never retries PUT', () async {
+    final store = ProfileStore(Disk());
+    final api = Api();
+    final controller = make(api, store);
+    await controller.open();
+    api.update = (_) async => throw const IdentityNetworkException();
+    api.read = () async => throw const IdentityNetworkException();
+    await expectLater(controller.save(value()), throwsA(isA<ProfileSaveUncertainException>()));
+    expect(controller.profile?.version, 1);
+    expect(controller.pendingSave, isTrue);
+    expect(api.puts, 1);
+    expect(api.gets, 2);
+  });
+
+  test('version conflict requires successful explicit reload before another save', () async {
+    final api = Api();
+    final controller = make(api, ProfileStore(Disk()));
+    await controller.open();
+    api.update = (_) async => throw const IdentityApiException(statusCode: 409,
+      code: 'profile_version_conflict', message: 'Failure');
+    await expectLater(controller.save(value()), throwsA(isA<IdentityApiException>()));
+    expect(controller.needsReload, isTrue);
+    expect(controller.pendingSave, isFalse);
+    await expectLater(controller.save(value()), throwsStateError);
+    api.read = () async => throw const IdentityNetworkException();
+    await controller.refresh();
+    expect(controller.needsReload, isTrue);
+    api.read = () async => value(3);
+    await controller.refresh();
+    expect(controller.needsReload, isFalse);
+    expect(controller.profile?.version, 3);
+    expect(api.puts, 1);
+  });
+
+  test('late failing PUT after logout never verifies or restores another account', () async {
+    final disk = Disk();
+    final store = ProfileStore(disk);
+    final pending = Completer<Profile>();
+    final started = Completer<void>();
+    final api = Api()..update = (_) { started.complete(); return pending.future; };
+    final controller = make(api, store);
+    await controller.open();
+    final saving = controller.save(value());
+    final check = expectLater(saving, throwsA(isA<StaleProfileOperation>()));
+    await started.future;
+    await expectLater(controller.save(value()), throwsStateError);
+    store.invalidate();
+    await store.clear();
+    await store.write('b', StoredProfile(profile: value(9), pendingSave: false), store.generation);
+    pending.completeError(const IdentityNetworkException());
+    await check;
+    expect(controller.profile, isNull);
+    expect(controller.error, isNull);
+    expect(api.gets, 1);
+    expect(api.puts, 1);
+    expect((await store.read('b', store.generation))?.profile?.version, 9);
   });
 
   test('late disk write is followed by logout deletion', () async {

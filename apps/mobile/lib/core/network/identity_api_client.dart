@@ -26,6 +26,7 @@ class IdentityApiClient implements AuthApiClient {
         BaseOptions(
           baseUrl: AppConfig.apiBaseUrl,
           connectTimeout: const Duration(seconds: 15),
+          sendTimeout: const Duration(seconds: 30),
           receiveTimeout: const Duration(seconds: 30),
           headers: const {'Accept': 'application/json'},
         ),

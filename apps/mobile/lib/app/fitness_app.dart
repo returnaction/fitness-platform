@@ -6,12 +6,28 @@ import '../features/auth/auth_controller.dart';
 import '../features/auth/auth_form_screen.dart';
 import '../features/auth/welcome_screen.dart';
 
-class FitnessApp extends ConsumerWidget {
+class FitnessApp extends ConsumerStatefulWidget {
   const FitnessApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<FitnessApp> createState() => _FitnessAppState();
+}
+
+class _FitnessAppState extends ConsumerState<FitnessApp> {
+  final _navigatorKey = GlobalKey<NavigatorState>();
+
+  @override
+  Widget build(BuildContext context) {
+    ref.listen(authControllerProvider, (previous, next) {
+      if (previous?.asData?.value == AuthStatus.authenticated &&
+          next.asData?.value != AuthStatus.authenticated) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _navigatorKey.currentState?.popUntil((route) => route.isFirst);
+        });
+      }
+    });
     return MaterialApp(
+      navigatorKey: _navigatorKey,
       title: 'Fitness App',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.indigo),

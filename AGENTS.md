@@ -4,12 +4,16 @@ This root file applies to the entire repository, including the
 [System Design documentation](system-design/README.md). More specific
 instructions in nested directories supplement the root instructions.
 
-## SDD Scope and Workflow
+## Active SDD Scope: 015-mobile-profile
+
+The active specification is [015-mobile-profile](specs/015-mobile-profile/spec.md).
+Continue only this scope when the user requests continued development; do not
+choose another feature or a system-design roadmap item on their behalf.
 
 - **Branch:** `41-mobile-profile`, created from current main; use the current
   checkout without creating a worktree, as requested by the user.
 - **Status:** in-progress — implementation started at the user's explicit request
-  on 2026-11-13; T002–T004 completed, next task T005 awaits review.
+  on 2026-11-13; T002–T005 completed, next task T006 awaits review.
 - **Topic:** mobile frontend for viewing and updating the user's own profile,
   using the existing Accounts GET/PUT endpoints from Spec 014.
 - **Authorized work:** the user explicitly authorized starting implementation on
@@ -18,7 +22,7 @@ instructions in nested directories supplement the root instructions.
   discuss them before making any such changes; keep dependent tasks open.
 - **Goal, scope and acceptance criteria:** recorded in [spec.md](specs/015-mobile-profile/spec.md).
 - **Plan and tasks:** [plan.md](specs/015-mobile-profile/plan.md) and
-  [tasks.md](specs/015-mobile-profile/tasks.md); implementation tasks are defined but not authorized.
+  [tasks.md](specs/015-mobile-profile/tasks.md); T002–T005 are verified; remaining tasks stay open.
 - **Device verification:** a connected physical phone is required; record actual
   evidence in [verification.md](specs/015-mobile-profile/verification.md). Do not
   close this requirement based only on APK installation or automated tests.

@@ -22,6 +22,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   final _fields = <String, TextEditingController>{};
   final _serverErrors = <String, String>{};
   late Profile _initial;
+  late int _sessionRevision;
   String? _date;
   late String _timezone;
   late ProfileVisibility _visibility;
@@ -32,6 +33,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   @override
   void initState() {
     super.initState();
+    _sessionRevision = ref.read(profileControllerProvider).sessionRevision;
     for (final field in ['nickname', 'firstName', 'lastName', 'bio']) {
       _fields[field] = TextEditingController();
     }
@@ -76,6 +78,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     return ListenableBuilder(
       listenable: controller,
       builder: (context, _) {
+        if (_sessionRevision != controller.sessionRevision) return const SizedBox.shrink();
         final errors = _submitted ? validateProfile(_draft()) : <String, String>{};
         return Scaffold(
           appBar: AppBar(title: const Text('Edit profile')),
@@ -136,19 +139,20 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                         ]),
                       ),
                       _fieldError(_serverErrors['visibility']),
-                      if (_message != null) ...[
-                        const SizedBox(height: 12),
-                        Text(_message!, style: TextStyle(
-                          color: Theme.of(context).colorScheme.error)),
-                      ],
-                      if (_reloadRequired)
-                        TextButton(
-                          onPressed: controller.loading || controller.saving ? null : _reload,
-                          child: const Text('Reload profile'),
-                        ),
                     ],
                   ),
                 )),
+                if (_message != null)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: Text(_message!, style: TextStyle(
+                      color: Theme.of(context).colorScheme.error)),
+                  ),
+                if (_reloadRequired)
+                  TextButton(
+                    onPressed: controller.loading || controller.saving ? null : _reload,
+                    child: const Text('Reload profile'),
+                  ),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(24, 12, 24, 16),
                   child: SizedBox(
@@ -222,7 +226,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   Future<void> _reload() async {
     final controller = ref.read(profileControllerProvider);
     await controller.refresh();
-    if (!mounted) return;
+    if (!mounted || _sessionRevision != controller.sessionRevision) return;
     setState(() {
       if (controller.error == null && controller.profile != null) {
         _setProfile(controller.profile!);
@@ -247,6 +251,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     setState(() { _serverErrors.clear(); _message = null; });
     try {
       await controller.save(draft);
+      if (_sessionRevision != controller.sessionRevision) return;
       if (mounted) Navigator.pop(context);
       if (messenger.mounted) {
         messenger.showSnackBar(const SnackBar(content: Text('Profile updated')));
@@ -256,6 +261,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     } on StaleProfileOperation {
       // Logout has already cleared this operation's state.
     } catch (error) {
+      if (_sessionRevision != controller.sessionRevision) return;
       if (!mounted) {
         if (messenger.mounted) {
           messenger.showSnackBar(const SnackBar(
@@ -278,7 +284,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
           _message = controller.pendingSave
             ? 'Could not confirm whether your changes were saved. Reload your profile.'
             : 'Could not save profile. Please try again.';
-          _reloadRequired = controller.pendingSave;
+          _reloadRequired = controller.pendingSave || controller.needsReload;
         }
       });
     }

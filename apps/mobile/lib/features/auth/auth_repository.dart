@@ -27,16 +27,20 @@ class AuthRepository {
   AuthRepository(this._api, this._tokenStorage, this._coordinator, {
     this.invalidateSessionData,
     this.clearSessionData,
+    this.onRequestSessionFailure,
   });
 
   final void Function()? invalidateSessionData;
   final Future<void> Function()? clearSessionData;
+  final void Function(SessionRestoreResult result, int generation)? onRequestSessionFailure;
 
   final AuthApiClient _api;
   final TokenStorage _tokenStorage;
   final SessionOperationCoordinator _coordinator;
 
   int _sessionGeneration = 0;
+  int get sessionGeneration => _sessionGeneration;
+  SessionRestoreResult? _requestFailure;
 
   Future<void> register({
     required String email,
@@ -93,6 +97,7 @@ class AuthRepository {
         data: {'refreshToken': tokens.refreshToken},
       );
       await _tokenStorage.write(SessionTokens.fromJson(response));
+      _requestFailure = null;
       return SessionRestoreResult.authenticated;
     } on IdentityApiException catch (error) {
       if (error.isIdentityUnavailable) {
@@ -151,6 +156,7 @@ class AuthRepository {
 
   Future<T> _changeSession<T>(Future<T> Function() action) {
     _sessionGeneration++;
+    _requestFailure = null;
     invalidateSessionData?.call();
     return _coordinator.run(action);
   }
@@ -159,8 +165,14 @@ class AuthRepository {
   /// Only an explicit 401 permits one retry after coordinated token refresh.
   Future<T> authenticatedRequest<T>(
     Future<T> Function(String accessToken) request,
-  ) async {
+  ) {
     final generation = _sessionGeneration;
+    return _runForSession(generation, () => _authenticatedRequest(generation, request));
+  }
+
+  Future<T> _authenticatedRequest<T>(
+    int generation, Future<T> Function(String accessToken) request,
+  ) async {
     var tokens = await _coordinator.run(() => _requestTokens(generation));
     for (var attempt = 0; attempt < 2; attempt++) {
       _checkGeneration(generation);
@@ -199,7 +211,7 @@ class AuthRepository {
     final tokens = await _readTokens();
     _checkGeneration(generation);
     if (tokens == null) {
-      throw const SessionRequestException(SessionRestoreResult.guest);
+      throw SessionRequestException(await _clearAfterUncertainRefresh());
     }
     return tokens;
   }
@@ -212,7 +224,7 @@ class AuthRepository {
 
   Future<String> profileAccountId() {
     final generation = _sessionGeneration;
-    return _coordinator.run(() async {
+    return _runForSession(generation, () => _coordinator.run(() async {
       final tokens = await _requestTokens(generation);
       // Used only to associate local data, never to authorize server access.
       try {
@@ -227,12 +239,35 @@ class AuthRepository {
       } catch (_) {
         throw const FormatException('Session has no profile account identifier.');
       }
-    });
+    }));
+  }
+
+  Future<T> _runForSession<T>(int generation, Future<T> Function() action) async {
+    try {
+      final result = await action();
+      _checkGeneration(generation);
+      if (_requestFailure != null) throw SessionRequestException(_requestFailure!);
+      return result;
+    } catch (error) {
+      _checkGeneration(generation);
+      final failure = error is TokenStorageException
+          ? const SessionRequestException(SessionRestoreResult.storageFailure)
+          : error;
+      if (failure is SessionRequestException) {
+        if (failure.result == SessionRestoreResult.storageFailure) {
+          _requestFailure = failure.result;
+          invalidateSessionData?.call();
+        }
+        onRequestSessionFailure?.call(failure.result, generation);
+      }
+      throw failure;
+    }
   }
 
   Future<SessionTokens?> _readTokens() => _tokenStorage.read();
 
   Future<SessionRestoreResult> _clearAfterUncertainRefresh() async {
+    _requestFailure = SessionRestoreResult.guest;
     invalidateSessionData?.call();
     return await _clearForExplicitLogout()
         ? SessionRestoreResult.guest

@@ -63,7 +63,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
                 children: [
                   if (controller.loading) const LinearProgressIndicator(),
-                  if (controller.error != null) ...[
+                  if (controller.saving) ...[
+                    const Text('Saving profile...'),
+                    const LinearProgressIndicator(),
+                  ] else if (controller.pendingSave || controller.needsReload) ...[
+                    Text(controller.pendingSave
+                      ? 'Could not confirm whether your changes were saved.'
+                      : 'Profile changed on another device.'),
+                    TextButton(
+                      onPressed: controller.loading || controller.saving ? null : controller.refresh,
+                      child: const Text('Reload profile'),
+                    ),
+                  ] else if (controller.error != null) ...[
                     const Text('Could not update profile. Pull down to try again.'),
                     const SizedBox(height: 16),
                   ],
@@ -84,7 +95,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     profile.visibility == ProfileVisibility.public ? 'Public' : 'Private'),
                   const SizedBox(height: 8),
                   OutlinedButton(
-                    onPressed: controller.saving || controller.pendingSave ? null : () {
+                    onPressed: controller.saving || controller.pendingSave || controller.needsReload ? null : () {
                       Navigator.of(context).push(MaterialPageRoute<void>(
                         builder: (_) => EditProfileScreen(initialProfile: profile),
                       ));

@@ -152,6 +152,64 @@ void main() {
     expect(api.sent?.dateOfBirth, '2000-02-28');
   });
 
+  testWidgets('version conflict keeps draft until explicit successful Reload', (tester) async {
+    final api = Api()..failure = const IdentityApiException(statusCode: 409,
+      code: 'profile_version_conflict', message: 'Failure');
+    await open(tester, api);
+    await enter(tester, 'nickname', 'Changed');
+    await save(tester);
+    expect(tester.widget<FilledButton>(find.byType(FilledButton)).onPressed, isNull);
+    await tester.ensureVisible(find.text('Reload profile'));
+    api.read = () async => throw const IdentityNetworkException();
+    await tester.tap(find.text('Reload profile'));
+    await tester.pumpAndSettle();
+    expect(find.text('Could not reload profile. Try again.'), findsOneWidget);
+    await tester.ensureVisible(find.byKey(const ValueKey('nickname')));
+    expect(tester.widget<TextFormField>(find.byKey(const ValueKey('nickname')))
+      .controller!.text, 'Changed');
+    api.read = () async => Profile.fromJson({...sample().toJson(),
+      'nickname': 'Remote', 'version': 9});
+    await tester.ensureVisible(find.text('Reload profile'));
+    await tester.tap(find.text('Reload profile'));
+    await tester.pumpAndSettle();
+    await enter(tester, 'nickname', 'FinalName');
+    api.failure = null;
+    await save(tester);
+    expect(api.sent?.version, 9);
+    expect(api.puts, 2);
+  });
+
+  testWidgets('lost PUT reply confirmed by GET closes form without resending', (tester) async {
+    final api = Api();
+    await open(tester, api);
+    await enter(tester, 'nickname', 'Changed');
+    api.failure = const IdentityNetworkException();
+    api.read = () async => Profile.fromJson({...api.sent!.toJson(), 'version': 8});
+    await save(tester);
+    expect(find.byType(EditProfileScreen), findsNothing);
+    expect(find.text('Profile updated'), findsOneWidget);
+    expect(api.puts, 1);
+    expect(api.gets, 2);
+  });
+
+  testWidgets('mismatching verification preserves draft and blocks another PUT', (tester) async {
+    final api = Api();
+    await open(tester, api);
+    await enter(tester, 'nickname', 'Changed');
+    api.failure = const IdentityNetworkException();
+    api.read = () async => Profile.fromJson({...sample().toJson(),
+      'nickname': 'Remote', 'version': 9});
+    await save(tester);
+    expect(find.byType(EditProfileScreen), findsOneWidget);
+    expect(tester.widget<TextFormField>(find.byKey(const ValueKey('nickname')))
+      .controller!.text, 'Changed');
+    expect(tester.widget<FilledButton>(find.byType(FilledButton)).onPressed, isNull);
+    expect(api.puts, 1);
+    expect(api.gets, 2);
+    await tester.ensureVisible(find.text('Reload profile'));
+    expect(find.text('Reload profile'), findsOneWidget);
+  });
+
   testWidgets('back remains available while saving; no forced return on completion', (tester) async {
     final pending = Completer<Profile>();
     final api = Api()..pending = pending;
@@ -182,8 +240,9 @@ class Api implements ProfileRepository {
   Profile? sent;
   Exception? failure;
   Completer<Profile>? pending;
+  Future<Profile> Function() read = () async => sample();
   @override
-  Future<Profile> getOwnProfile() async { gets++; return sample(); }
+  Future<Profile> getOwnProfile() async { gets++; return read(); }
   @override
   Future<Profile> updateOwnProfile(Profile profile) async {
     puts++;
