@@ -8,39 +8,33 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import io.github.returnaction.fitness.accounts.AccountsServiceApplication;
 import io.github.returnaction.fitness.accounts.profile.service.ProfileService;
+import io.github.returnaction.fitness.accounts.profile.service.ProfileUpdateService;
 import io.github.returnaction.fitness.accounts.profile.grpc.SecureGrpcServer;
 import io.github.returnaction.fitness.accounts.profile.service.ProfileCreationService;
 import java.util.List;
+import io.github.returnaction.fitness.accounts.profile.dto.UpdateProfileRequest;
+import org.springframework.http.MediaType;
+import static org.mockito.Mockito.verify;
 import java.util.UUID;
 import io.github.returnaction.fitness.accounts.profile.dto.ProfileResponse;
 import io.github.returnaction.fitness.accounts.profile.entity.ProfileVisibility;
 import static org.mockito.Mockito.when;
-import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.ApplicationContext;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Import;
-import org.springframework.context.annotation.Profile;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.FilterChainProxy;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.web.bind.annotation.RequestHeader;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestMethod;
-import org.springframework.web.bind.annotation.RestController;
 
 @SpringBootTest(classes = AccountsServiceApplication.class, properties = {
         "spring.autoconfigure.exclude=org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration,org.springframework.boot.security.autoconfigure.UserDetailsServiceAutoConfiguration"})
 @AutoConfigureMockMvc
 @ActiveProfiles({"test", "profile-security-test"})
-@Import(ProfileAuthenticationSecurityTest.Endpoints.class)
 class ProfileAuthenticationSecurityTest {
 
     private static final String PATH = "/api/v1/accounts/me";
@@ -55,6 +49,8 @@ class ProfileAuthenticationSecurityTest {
     private ProfileCreationService creationService;
     @MockitoBean
     private ProfileService profileService;
+    @MockitoBean
+    private ProfileUpdateService profileUpdateService;
 
     @MockitoBean
     private SecureGrpcServer grpcServer;
@@ -67,15 +63,23 @@ class ProfileAuthenticationSecurityTest {
     void productionChainAdmitsBothOperationsWithNoRolesAndNoSession() throws Exception {
         when(profileService.getOwnProfile(UUID.fromString(ID)))
                 .thenReturn(new ProfileResponse(ID, null, null, null, null, "UTC", ProfileVisibility.PRIVATE, 1L));
+        var input = new UpdateProfileRequest("Player_1", null, null, null, null, "UTC", ProfileVisibility.PRIVATE, 1L);
+        when(profileService.updateOwnProfile(UUID.fromString(ID), input))
+            .thenReturn(new ProfileResponse(ID, null, null, null, null, "UTC", ProfileVisibility.PRIVATE, 2L));
+        String body = """
+            {"nickname":"Player_1","firstName":null,"lastName":null,"bio":null,
+             "dateOfBirth":null,"timezone":"UTC","visibility":"PRIVATE","version":1}
+            """;
         for (HttpMethod method : List.of(HttpMethod.GET, HttpMethod.PUT)) {
-            var result = mvc.perform(request(method, PATH).header("Authorization", bearer()))
+            var result = mvc.perform(request(method, PATH).header("Authorization", bearer()).contentType(MediaType.APPLICATION_JSON).content(body))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath(method == HttpMethod.GET ? "$.nickname" : "$.userId").value(ID))
+                    .andExpect(jsonPath("$.nickname").value(ID))
                     .andExpect(header().string("Cache-Control", "no-store"))
                     .andReturn();
             assertThat(result.getRequest().getSession(false)).isNull();
             assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
         }
+        verify(profileService).updateOwnProfile(UUID.fromString(ID), input);
     }
 
     @Test
@@ -125,25 +129,4 @@ class ProfileAuthenticationSecurityTest {
                 .isEqualTo(1);
     }
 
-    @TestConfiguration
-    static class Endpoints {
-
-        @Bean
-        ContextController contextController() {
-            return new ContextController();
-        }
-    }
-
-    @RestController
-    @Profile("profile-security-test")
-    static class ContextController {
-
-        @RequestMapping(value = PATH, method = RequestMethod.PUT)
-        Map<String, Object> currentUser(@RequestHeader(value = "X-Test-Fail", defaultValue = "false") boolean fail) {
-            if (fail)
-                throw new IllegalStateException("test controller failure");
-            var authentication = SecurityContextHolder.getContext().getAuthentication();
-            return Map.of("userId", authentication.getPrincipal(), "roles", authentication.getAuthorities());
-        }
-    }
 }

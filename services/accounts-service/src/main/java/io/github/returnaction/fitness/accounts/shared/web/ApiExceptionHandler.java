@@ -1,7 +1,9 @@
 package io.github.returnaction.fitness.accounts.shared.web;
 
+import io.github.returnaction.fitness.accounts.profile.exception.NicknameAlreadyTakenException;
 import io.github.returnaction.fitness.accounts.profile.exception.ProfileUnavailableException;
 import io.github.returnaction.fitness.accounts.profile.exception.ProfileValidationException;
+import io.github.returnaction.fitness.accounts.profile.exception.ProfileVersionConflictException;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
@@ -65,6 +67,7 @@ public class ApiExceptionHandler {
 
     @ExceptionHandler(AuthenticationException.class)
     ResponseEntity<ApiErrorResponse> handleAuthentication(HttpServletRequest request) {
+
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
             .header(HttpHeaders.WWW_AUTHENTICATE, "Bearer")
             .header(HttpHeaders.CACHE_CONTROL, "no-store")
@@ -80,9 +83,15 @@ public class ApiExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     ResponseEntity<ApiErrorResponse> handleUnexpected(Exception exception, HttpServletRequest request) {
-        log.error("Unhandled request failure, request_id={}, error_type={}", requestId(request),
-            exception.getClass().getName());
-        return response(HttpStatus.INTERNAL_SERVER_ERROR, "internal_error", "Unexpected server error.", List.of(),
+
+        log.error("Unhandled request failure, request_id={}, error_type={}",
+            requestId(request), exception.getClass().getName());
+
+        return response(
+            HttpStatus.INTERNAL_SERVER_ERROR,
+            "internal_error",
+            "Unexpected server error.",
+            List.of(),
             request);
     }
 
@@ -90,8 +99,36 @@ public class ApiExceptionHandler {
     ResponseEntity<ApiErrorResponse> handleProfileValidation(ProfileValidationException exception,
                                                              HttpServletRequest request) {
 
-        return response(HttpStatus.UNPROCESSABLE_CONTENT, "validation_error", "Check the submitted data.",
-            exception.getDetails(), request);
+        return response(
+            HttpStatus.UNPROCESSABLE_CONTENT,
+            "validation_error",
+            "Check the submitted data.",
+            exception.getDetails(), request
+        );
+    }
+
+    @ExceptionHandler(ProfileVersionConflictException.class)
+    ResponseEntity<ApiErrorResponse> handleProfileVersionConflict(HttpServletRequest request) {
+
+        return response(
+            HttpStatus.CONFLICT,
+            "profile_version_conflict",
+            "Profile has changed. Reload it before saving.",
+            List.of(),
+            request
+        );
+    }
+
+    @ExceptionHandler(NicknameAlreadyTakenException.class)
+    ResponseEntity<ApiErrorResponse> handleNicknameAlreadyTaken(HttpServletRequest request) {
+
+        return response(
+            HttpStatus.CONFLICT,
+            "nickname_already_taken",
+            "Nickname is already taken.",
+            List.of(),
+            request
+        );
     }
 
     @ExceptionHandler(ProfileUnavailableException.class)
@@ -103,8 +140,12 @@ public class ApiExceptionHandler {
 
         log.warn("Profile unavailable, request_id={}, reason={}", requestId(request), reason);
 
-        return response(HttpStatus.SERVICE_UNAVAILABLE, "profile_unavailable", "Profile is temporarily unavailable.",
-            List.of(), request);
+        return response(
+            HttpStatus.SERVICE_UNAVAILABLE,
+            "profile_unavailable",
+            "Profile is temporarily unavailable.",
+            List.of(), request
+        );
     }
 
     private String validationCode(String constraint) {
@@ -118,13 +159,20 @@ public class ApiExceptionHandler {
         };
     }
 
-    private ResponseEntity<ApiErrorResponse> response(HttpStatus status, String code, String message,
-                                                      List<ApiErrorResponse.ErrorDetail> details, HttpServletRequest request) {
+    private ResponseEntity<ApiErrorResponse> response(HttpStatus status,
+                                                      String code,
+                                                      String message,
+                                                      List<ApiErrorResponse.ErrorDetail> details,
+                                                      HttpServletRequest request) {
+
         return ResponseEntity.status(status).body(errorBody(code, message, details, request));
     }
 
-    private ApiErrorResponse errorBody(String code, String message, List<ApiErrorResponse.ErrorDetail> details,
+    private ApiErrorResponse errorBody(String code,
+                                       String message,
+                                       List<ApiErrorResponse.ErrorDetail> details,
                                        HttpServletRequest request) {
+
         return new ApiErrorResponse(new ApiErrorResponse.Error(code, message, details, requestId(request)));
     }
 

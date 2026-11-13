@@ -8,6 +8,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.util.List;
+import io.github.returnaction.fitness.accounts.profile.exception.NicknameAlreadyTakenException;
+import io.github.returnaction.fitness.accounts.profile.exception.ProfileVersionConflictException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.MethodParameter;
@@ -105,8 +107,41 @@ class ApiExceptionHandlerTest {
                 .content("{\"name\":\"hello\"}")).andExpect(status().isNotAcceptable());
     }
 
+    @Test
+    void profileVersionConflictReturns409WithRequestId() throws Exception {
+        mvc.perform(get("/test/profile-conflict").header("X-Request-Id", REQUEST_ID))
+            .andExpect(status().isConflict())
+            .andExpect(jsonPath("$.error.code").value("profile_version_conflict"))
+            .andExpect(jsonPath("$.error.details").isEmpty())
+            .andExpect(jsonPath("$.error.requestId").value(REQUEST_ID));
+    }
+
+    @Test
+    void occupiedNicknameReturnsSafe409WithRequestId() throws Exception {
+        mvc.perform(get("/test/nickname-conflict").header("X-Request-Id", REQUEST_ID))
+            .andExpect(status().isConflict())
+            .andExpect(header().string("X-Request-Id", REQUEST_ID))
+            .andExpect(jsonPath("$.error.code").value("nickname_already_taken"))
+            .andExpect(jsonPath("$.error.message").value("Nickname is already taken."))
+            .andExpect(jsonPath("$.error.details").isEmpty())
+            .andExpect(jsonPath("$.error.requestId").value(REQUEST_ID))
+            .andExpect(result -> assertThat(result.getResponse().getContentAsString())
+                .doesNotContain("private-nickname", "SELECT", "Exception", "user_profiles_nickname_unique"));
+    }
+
     @RestController
     static class TestController {
+        @GetMapping("/test/nickname-conflict")
+        void nicknameConflict() {
+            throw new NicknameAlreadyTakenException(new IllegalStateException(
+                "private-nickname; SELECT; user_profiles_nickname_unique"));
+        }
+
+        @GetMapping("/test/profile-conflict")
+        void profileConflict() {
+            throw new ProfileVersionConflictException();
+        }
+
 
         @PostMapping(value = "/test/body", consumes = "application/json", produces = "application/json")
         Payload body(@RequestBody Payload payload) {

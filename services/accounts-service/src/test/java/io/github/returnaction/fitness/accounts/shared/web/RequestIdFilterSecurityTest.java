@@ -19,6 +19,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import io.github.returnaction.fitness.accounts.AccountsServiceApplication;
 import io.github.returnaction.fitness.accounts.profile.service.ProfileService;
+import io.github.returnaction.fitness.accounts.profile.service.ProfileUpdateService;
 import io.github.returnaction.fitness.accounts.profile.grpc.SecureGrpcServer;
 import io.github.returnaction.fitness.accounts.profile.service.ProfileCreationService;
 import org.junit.jupiter.api.Test;
@@ -47,6 +48,8 @@ class RequestIdFilterSecurityTest {
 
     @MockitoBean
     private ProfileService profileService;
+    @MockitoBean
+    private ProfileUpdateService profileUpdateService;
 
     @MockitoBean
     private SecureGrpcServer secureGrpcServer;

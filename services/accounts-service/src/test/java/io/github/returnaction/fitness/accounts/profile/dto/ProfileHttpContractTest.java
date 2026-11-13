@@ -10,13 +10,19 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import io.github.returnaction.fitness.accounts.AccountsServiceApplication;
-import io.github.returnaction.fitness.accounts.profile.service.ProfileService;
+import io.github.returnaction.fitness.accounts.profile.service.ProfileUpdateService;
 import io.github.returnaction.fitness.accounts.profile.entity.ProfileVisibility;
 import io.github.returnaction.fitness.accounts.profile.grpc.SecureGrpcServer;
 import io.github.returnaction.fitness.accounts.profile.service.ProfileCreationService;
 import java.time.LocalDate;
-import io.github.returnaction.fitness.accounts.profile.helpers.ProfileUpdateNormalizer;
-import io.github.returnaction.fitness.accounts.profile.helpers.ProfileUpdateValidator;
+import io.github.returnaction.fitness.accounts.profile.repository.ProfileRepository;
+import io.github.returnaction.fitness.accounts.profile.entity.UserProfileEntity;
+import java.util.Optional;
+import java.util.UUID;
+import org.junit.jupiter.api.BeforeEach;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -35,7 +41,6 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
-import org.springframework.context.annotation.Profile;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.MediaType;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -44,9 +49,6 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RestController;
 import tools.jackson.databind.json.JsonMapper;
 
 @SpringBootTest(classes = AccountsServiceApplication.class, properties = {
@@ -68,10 +70,21 @@ class ProfileHttpContractTest {
     @MockitoBean
     private ProfileCreationService creationService;
     @MockitoBean
-    private ProfileService profileService;
+    private ProfileRepository repository;
+    @MockitoBean
+    private ProfileUpdateService profileUpdateService;
 
     @MockitoBean
     private SecureGrpcServer grpcServer;
+
+    @BeforeEach
+    void stubPersistenceAfterRealNormalizationAndValidation() {
+        when(profileUpdateService.update(isNull(), any(UpdateProfileRequest.class))).thenAnswer(invocation -> {
+            UpdateProfileRequest request = invocation.getArgument(1);
+            return new ProfileResponse(request.nickname(), request.firstName(), request.lastName(), request.bio(),
+                request.dateOfBirth(), request.timezone(), request.visibility(), request.version() + 1);
+        });
+    }
 
     private static Map<String, String> fields() {
         var fields = new LinkedHashMap<String, String>();
@@ -214,8 +227,8 @@ class ProfileHttpContractTest {
                 return request;
             })).andExpect(status().isBadRequest()).andExpect(jsonPath("$.error.code").value("invalid_request"));
         }
-        when(profileService.getOwnProfile(null)).thenReturn(
-                new ProfileResponse("Player_1", null, null, null, null, "UTC", ProfileVisibility.PRIVATE, 1L));
+        when(repository.findById(null)).thenReturn(Optional.of(
+            new UserProfileEntity(UUID.randomUUID(), UUID.randomUUID(), "Player_1")));
         mvc.perform(get(PATH)).andExpect(status().isOk());
         mvc.perform(get("/actuator/health?foo=bar")).andExpect(status().isOk());
     }
@@ -261,7 +274,7 @@ class ProfileHttpContractTest {
                 "timezone", "invalid_value", "visibility", "required", "version", "out_of_range"));
         assertThat(result.getResponse().getContentAsString()).doesNotContain("private-name", "private-bio", "Mars/Base",
                 "Exception");
-        verifyNoInteractions(profileService, creationService);
+        verifyNoInteractions(repository, profileUpdateService, creationService);
     }
 
     @ParameterizedTest
@@ -274,7 +287,7 @@ class ProfileHttpContractTest {
                 .andExpect(jsonPath("$.error.details[0].code").value("invalid_format"))
                 .andExpect(result -> jsonPath("$.error.requestId").value(result.getResponse().getHeader("X-Request-Id"))
                         .match(result));
-        verifyNoInteractions(profileService, creationService);
+        verifyNoInteractions(repository, profileUpdateService, creationService);
     }
 
     @Test
@@ -290,7 +303,8 @@ class ProfileHttpContractTest {
                 .andExpect(jsonPath("$.firstName").value("𐐀".repeat(100)))
                 .andExpect(jsonPath("$.lastName").value((Object) null))
                 .andExpect(jsonPath("$.bio").value("😀".repeat(500)));
-        verifyNoInteractions(profileService, creationService);
+        verify(profileUpdateService).update(isNull(), any(UpdateProfileRequest.class));
+        verifyNoInteractions(repository, creationService);
     }
 
     @TestConfiguration
@@ -303,34 +317,6 @@ class ProfileHttpContractTest {
                     .csrf(AbstractHttpConfigurer::disable)
                     .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
                     .build();
-        }
-
-        @Bean
-        ContractController contractController(ProfileUpdateNormalizer normalizer, ProfileUpdateValidator validator) {
-            return new ContractController(normalizer, validator);
-        }
-    }
-
-    // Test-only HTTP adapter: no profile persistence or production authentication
-    // is implemented here.
-    @RestController
-    @Profile("profile-contract-test")
-    static class ContractController {
-
-        private final ProfileUpdateNormalizer normalizer;
-        private final ProfileUpdateValidator validator;
-
-        ContractController(ProfileUpdateNormalizer normalizer, ProfileUpdateValidator validator) {
-            this.normalizer = normalizer;
-            this.validator = validator;
-        }
-
-        @PutMapping(value = PATH, consumes = "application/json", produces = "application/json")
-        ProfileResponse putProfile(@RequestBody UpdateProfileRequest request) {
-            request = normalizer.normalize(request);
-            validator.validate(request);
-            return new ProfileResponse(request.nickname(), request.firstName(), request.lastName(), request.bio(),
-                    request.dateOfBirth(), request.timezone(), request.visibility(), request.version());
         }
 
     }

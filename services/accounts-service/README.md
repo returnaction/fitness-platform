@@ -27,9 +27,9 @@ Jackson 3 допускает также массивы и другие пред�
 Security. Ошибки MVC и отказы Security используют ApiExceptionHandler;
 SecurityExceptionHandler передаёт исключения в HandlerExceptionResolver.
 
-GET реализован в ProfileController; PUT и сохранение профиля ожидают T007.
-ProfileHttpContractTest использует тестовый PUT-контроллер, mock ProfileService
-для GET и тестовую цепочку Security, разрешённую только в его контексте.
+GET и PUT реализованы в ProfileController. ProfileHttpContractTest использует
+настоящие контроллер и ProfileService, mock репозитория/транзакционного updater
+и тестовую цепочку Security, разрешённую только в его контексте.
 Проверки преобразования JSON и HTTP не доказывают сохранение профиля в БД.
 
 
@@ -49,7 +49,7 @@ Accounts доверяет проверке JWT и сессии Gateway; филь
 Существующий gRPC mTLS сохраняется.
 
 ProfileAuthenticationSecurityTest проверяет production-цепочку Security с настоящим
-GET-контроллером и mock ProfileService, а PUT пока обслуживает тестовый контроллер.
+GET/PUT-контроллером и mock ProfileService. Тестовых PUT-контроллеров больше нет.
 ProfileAuthenticationFilterTest проверяет разбор claims, очистку и изоляцию
 параллельных запросов. Эти проверки не заменяют интеграционные тесты БД.
 
@@ -89,6 +89,33 @@ Timezone должен входить в ZoneId.getAvailableZoneIds(); произ
 и строки с пробелами по краям не нормализуются в допустимую зону.
 
 Unit-тесты используют фиксированные часы. ProfileHttpContractTest вызывает
-настоящие нормализатор и валидатор из тестового PUT-контроллера, проверяя 400/422,
-агрегацию ошибок, requestId/no-store и отсутствие вызовов сервиса сохранения.
-Это подготовка к T007: production PUT и транзакционная запись ещё не реализованы.
+настоящие контроллер, сервис, нормализатор и валидатор, проверяя 400/422,
+агрегацию ошибок, requestId/no-store и отсутствие вызова записи при ошибке.
+Успешный вызов записи подменён mock; реальная БД проверяется отдельно.
+
+
+## Обновление профиля — Spec 014 T007
+
+ProfileService сохраняет GET и подготавливает запрос обновления вне транзакции.
+ProfileUpdateService выполняет native UPDATE RETURNING через ProfileRepository
+в @Transactional(timeout = 2)-транзакции. Результат читается через отдельную
+UpdateProfileProjection; ноль строк различается как отсутствующий профиль либо
+конфликт версии. ProfileVersionConflictException имеет HTTP-обработчик 409.
+Работа JPA-запроса и rollback подтверждены ProfileUpdateIntegrationTest.
+
+Конфликт индекса user_profiles_nickname_unique с SQLSTATE 23505 переводится
+после rollback в NicknameAlreadyTakenException и HTTP 409 nickname_already_taken.
+Другие ошибки целостности сохраняются. На updateProfile нет @Modifying:
+UPDATE RETURNING возвращает проекцию, а не количество изменённых строк.
+
+PUT /api/v1/accounts/me принимает application/json, берёт UUID только из
+SecurityContext, возвращает ProfileResponse после commit с no-store.
+ProfileUpdateIntegrationTest проверяет настоящий HTTP PUT/GET через MockMvc,
+production Security и PostgreSQL: сохранение и нормализацию, null, версию,
+чужой X-User-Id, оба 409, 400/401/415/422/503, отсутствие записи при отказе,
+rollback и остановку одноразовой тестовой БД. Gateway в эти тесты не входит.
+
+Дополнительные настройки пула, statement_timeout/lock_timeout и проверки их
+срабатывания отложены пользователем в T007a. Они не реализованы и не считаются
+проверенными. Сохраняется только ранее добавленный @Transactional(timeout = 2).
+В тесте остановки БД локально ограничено ожидание пула; это не настройка приложения.

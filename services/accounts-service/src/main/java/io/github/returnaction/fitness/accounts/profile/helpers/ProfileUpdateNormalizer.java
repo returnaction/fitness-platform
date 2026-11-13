@@ -7,9 +7,16 @@ import org.springframework.stereotype.Component;
 public class ProfileUpdateNormalizer {
 
     public UpdateProfileRequest normalize(UpdateProfileRequest request) {
-        return new UpdateProfileRequest(strip(request.nickname()), normalizeOptional(request.firstName()),
-                normalizeOptional(request.lastName()), normalizeOptional(request.bio()), request.dateOfBirth(),
-                request.timezone(), request.visibility(), request.version());
+
+        return new UpdateProfileRequest(
+            strip(request.nickname()),
+            normalizeOptional(request.firstName()),
+            normalizeOptional(request.lastName()),
+            normalizeOptional(request.bio()),
+            request.dateOfBirth(),
+            request.timezone(),
+            request.visibility(),
+            request.version());
     }
 
     private String normalizeOptional(String value) {
