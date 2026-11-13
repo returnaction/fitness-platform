@@ -4,22 +4,16 @@ This root file applies to the entire repository, including the
 [System Design documentation](system-design/README.md). More specific
 instructions in nested directories supplement the root instructions.
 
-## Active SDD Scope: 016-container-maintenance
+## SDD Scope and Workflow
 
-- **Specification:** [016-container-maintenance](specs/016-container-maintenance/spec.md).
-- **Branch:** 42-maintenance, separate worktree created from main at the user's request.
-- **Status:** in-progress — T003 completed; T004 changes applied, full image verification pending in T005. Stop for user review.
-- **Authorized work:** the user authorized implementation of the agreed nine-service scope; stop after each task for review.
-- **Scope:** non-root runtime and exact Java versions for all nine Java microservices listed in Spec 016;
-  Gateway is included in verification and is the reference. No deployment, network, API or mobile changes.
-- **Plan and tasks:** [plan.md](specs/016-container-maintenance/plan.md),
-  [tasks.md](specs/016-container-maintenance/tasks.md).
-- **Decisions:** [questions.md](specs/016-container-maintenance/questions.md).
-- **Execution:** report after each authorized task and stop for review; no commits without permission.
-- Spec 015 is being worked on separately in branch 41. Do not modify that checkout.
-
-When complete, clear this active scope and retain the history in its own directory.
-Do not select further work automatically.
+No specification is currently active. Spec 016 is complete; its requirements,
+plan and verification remain in [specs/016-container-maintenance](specs/016-container-maintenance/spec.md)
+as historical records. They do not authorize new work. Wait for the user to
+select the next specification and record its branch, status, scope, authorized
+tasks, execution mode and decisions here. Do not choose further work automatically.
+After each authorized task, report evidence and stop for review unless the user
+explicitly authorizes continued work. Spec 015 is being worked on separately;
+do not modify the other checkout.
 
 ### Before each authorized development step
 
