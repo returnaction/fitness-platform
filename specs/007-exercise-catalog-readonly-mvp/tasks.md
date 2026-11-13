@@ -276,3 +276,4 @@ deadline/retry и то, как `challenge-service` удостоверяет се
 | Задача | Ветка | Pull Request | Статус |
 | --- | --- | --- | --- |
 | T003: подготовку PostgreSQL Catalog | `30-exercise-catalog-readonly-mvp` | — | Документация подготовлена, проверка ожидается |
+| T004: DataSource и Liquibase | `40-exercise-catalogue-service-initialdb` | [#42](https://github.com/returnaction/fitness-platform/pull/42) | Открыт, ждёт CI и ревью |
