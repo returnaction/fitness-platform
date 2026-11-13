@@ -27,7 +27,26 @@ Jackson 3 допускает также массивы и другие пред�
 Security. Ошибки MVC и отказы Security используют ApiExceptionHandler;
 SecurityExceptionHandler передаёт исключения в HandlerExceptionResolver.
 
-Реальные операции GET/PUT и фильтр Bearer ещё не реализованы: production-правило
-`denyAll` сохранено. ProfileHttpContractTest использует отдельный тестовый
+Реальные контроллеры GET/PUT и сохранение профиля ещё не реализованы. ProfileHttpContractTest использует отдельный тестовый
 контроллер и тестовую цепочку Security, разрешённую только в его контексте.
 Проверки преобразования JSON и HTTP не доказывают сохранение профиля в БД.
+
+
+## Пользовательский контекст — Spec 014 T004
+
+ProfileAuthenticationFilter подключён один раз внутри Spring Security, перед
+проверкой доступа. Для точных GET/PUT /api/v1/accounts/me он извлекает UUID из
+sub и известные роли USER/MODERATOR/ADMIN/SUPER_ADMIN. Нет ролей или список пуст —
+пользователь остаётся аутентифицированным без authorities, USER не добавляется.
+Неизвестные строки ролей игнорируются, повреждённые claims отклоняются с единым 401.
+Контекст очищается после выполнения запроса, включая ошибки.
+
+Эти две операции требуют authenticated(); management-разрешения сохранены,
+остальные маршруты запрещены. Имя зависимости обработчика — securityExceptionHandler.
+Accounts доверяет проверке JWT и сессии Gateway; фильтр не проверяет подпись
+или личность HTTP caller. Это локальное допущение, не техническая защита от обхода Gateway.
+Существующий gRPC mTLS сохраняется.
+
+ProfileAuthenticationSecurityTest проверяет production-цепочку Security с тестовым
+контроллером, а ProfileAuthenticationFilterTest — разбор claims, очистку и
+изоляцию параллельных запросов. Эти тесты не реализуют GET/PUT профиля из T005–T007.
