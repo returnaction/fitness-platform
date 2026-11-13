@@ -236,7 +236,7 @@ def main():
             for service in ("accounts", "coins"):
                 env = environment(service)
                 if service == "accounts":
-                    # Bound this fault-injection test; production pool/SQL timeout policy is T007a.
+                    # Bound connection waiting only for this fault-injection test.
                     env.update(SPRING_DATASOURCE_HIKARI_CONNECTIONTIMEOUT="1000",
                                SPRING_DATASOURCE_HIKARI_VALIDATIONTIMEOUT="500")
                 prefix = service.upper() + "_GRPC"

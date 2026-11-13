@@ -4,63 +4,60 @@ This root file applies to the entire repository, including the
 [System Design documentation](system-design/README.md). More specific
 instructions in nested directories supplement the root instructions.
 
-## Active SDD Scope: 014-accounts-profile
+## SDD Scope and Workflow
 
-Until the user explicitly changes the scope, a request to continue development
-means continuing [014-accounts-profile](specs/014-accounts-profile/spec.md).
-Do not start implementing another feature or a system-design roadmap item just
-because it exists in the documentation. When the specification is complete or
-all remaining tasks are blocked, report the status and ask the user what to do
-next rather than choosing a different feature.
+No specification is currently active. Completed specifications remain in `specs/`
+as historical requirements and verification records; they do not authorize new work.
+When the user selects the next specification, fill in the scope template below.
+Do not choose a feature or a system-design roadmap item on the user's behalf.
 
-Before each development step:
+### Scope template for the next specification
 
-1. Read the current [task list](specs/014-accounts-profile/tasks.md),
-   [specification](specs/014-accounts-profile/spec.md), and
-   [plan](specs/014-accounts-profile/plan.md). Identify an open task, its
-   acceptance criteria, and any dependencies. Respect an explicit user request
-   and the current branch; do not assume the first unchecked item is always
-   actionable.
+- **Specification:** not selected; directory format: `specs/<number>-<name>/`.
+- **Branch:** not selected; follow the Git Branches rules below.
+- **Status:** not started; use the specification's actual status once selected.
+- **Goal and acceptance criteria:** record in `spec.md`.
+- **Included scope:** record the agreed services, APIs, clients and deliverables.
+- **Excluded scope:** record explicit exclusions and agreed limitations.
+- **Authorized work:** record whether the user authorized preparation, specific
+  tasks or continued implementation. Approval of requirements alone does not
+  authorize implementation.
+- **Execution mode:** after each task, report evidence and stop for review unless
+  the user explicitly authorizes continued work.
+- **Questions and decisions:** record in `questions.md`, with affected tasks,
+  evidence, options, recommendation and any blocked scope.
+
+Replace these placeholders only with information established by the user or
+verified in the repository. Do not create a specification or branch merely to
+fill in the template. Once the selected specification is complete, clear its
+active scope here and keep its history in its own directory.
+
+### Before each authorized development step
+
+1. Read `spec.md`, `plan.md` and `tasks.md` in the active specification directory.
+   Identify the requested task, its acceptance criteria and dependencies.
+   Respect the user's request and the current branch; do not assume the first
+   unchecked item is always actionable.
 2. Tell the user which task is being addressed and why. Inspect the relevant
-   code, tests, contracts, configuration, and migrations before editing.
-3. Consult `system-design` when it provides context or a referenced decision
-   for that task. It is not an independent queue of implementation tasks.
-   Do not expand scope based on it. Explain contradictions, propose a
-   resolution, and ask the user when a material product decision is needed.
-4. Implement and verify the selected task and its necessary dependencies.
+   code, tests, contracts, configuration and migrations before editing.
+3. Consult `system-design` for relevant context or referenced decisions. It is
+   not an independent implementation queue. Explain contradictions and ask
+   the user when a material product decision is needed.
+4. Implement and verify only the authorized task and its necessary dependencies.
    Record meaningful newly discovered gaps in the task list; do not silently
    treat them as completed or launch unrelated work.
-5. Update the task list using evidence: check an item only when its whole scope
-   has been implemented and verified. Keep partial, skipped, or unverified work
-   open, splitting tasks where useful. Keep linked PR statuses accurate when
-   their state can be verified.
-6. Report the changes, checks and their limitations, remaining work, and the
-   next task tied to the specification. Continue with another in-scope task
-   when the user has authorized continued work and no intervention is needed.
+5. Check a task only when its whole agreed scope has been implemented and
+   verified. Keep partial or unverified work open; record skipped checks and
+   their implications. Keep linked PR statuses accurate when verifiable.
+6. Report changes, checks, limitations and remaining work. Follow the agreed
+   execution mode. When the specification is complete or all remaining tasks
+   are blocked, report the status and ask what to do next rather than choosing
+   another feature.
 
-### Spec 014 execution scope
-
-- Status is in-progress at the user's request on 2026-11-13. This status change
-  does not authorize execution: wait for the user's explicit start command.
-
-- The user explicitly requested Spec 014 for own-profile GET/PUT after approving
-  the draft and grilling decisions on 2026-11-13. The active specification is
-  `specs/014-accounts-profile` on `40-accounts-profile`, created from current main.
-- Only specification preparation is authorized now. Do not begin implementation,
-  edit OpenAPI/service code, run migrations, or treat approval of requirements
-  as a start command. Preserve the user's existing ProfileVisibility.java edit.
-- Scope is server only: Gateway and Accounts, contracts, documentation and tests.
-  Mobile behavior is reference material; public-profile viewing is outside scope.
-- Read spec.md, plan.md and tasks.md before each authorized step. After each task,
-  report evidence and stop for user review unless the user changes this workflow.
-- Commits, push, merge, deploy and user-database migrations require explicit
-  authorization. Earlier specifications' authorizations do not carry over.
-- Spec 013 is complete in its agreed local scope. Its records remain in specs/013-pending and are
-  historical and do not authorize new work. Local HTTP trust is an assumption,
-  not proof of server protection; preserve existing gRPC mTLS. Docker deployment
-  and Content-Encoding remain outside the active task.
-- Record genuinely new product questions with affected tasks, evidence, options,
-  recommendation and blocked scope in `specs/014-accounts-profile/questions.md`.
+Commits, push, merge, deploy and user-database migrations require explicit
+user authorization. Authorization from a previous specification does not
+carry over. Preserve existing user changes and established security guarantees;
+label assumptions and unverified protection as such.
 
 ## Project and Technology
 
@@ -146,8 +143,9 @@ has actually been performed.
 Test business rules and key errors, permissions, retries, and races. For
 important database operations, use PostgreSQL integration tests; verify
 migrations, contracts, and messaging with suitable integration tests. Run the
-project's existing build, formatter, static analysis, and tests as relevant to
-the task. When changing documentation only, check links and consistency; do
+project's existing build, static analysis, and tests as relevant to the task.
+Automatic formatting is disabled at the user's request; preserve manual code
+layout and do not reintroduce or run a formatter without an explicit request. When changing documentation only, check links and consistency; do
 not automatically run a build without a reason. Do not describe unverified
 work as working.
 

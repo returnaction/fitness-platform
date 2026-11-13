@@ -2,7 +2,7 @@ openapi: 3.1.0
 info:
   title: Fitness Accounts own-profile API
   version: 1.0.0
-  description: 'Контракт Spec 014; runtime ещё не реализован. Владелец профиля — Accounts. Gateway проверяет
+  description: 'Контракт реализованного и проверенного серверного API Spec 014. Владелец профиля — Accounts. Gateway проверяет
     JWT и CheckSession по gRPC mTLS. UUID владельца только из sub, не из тела/клиентских заголовков; роль
     не требуется. Локально Accounts доверяет Gateway без повторной проверки подписи: это не подтверждает
     личность HTTP caller. Query string запрещён. Строгие типы без coercion. Strip для nickname/firstName/lastName/bio
@@ -10,7 +10,7 @@ info:
     details всегда присутствует, при отсутствии деталей — [].'
 servers:
 - url: http://127.0.0.1:8088
-  description: Local Gateway; route pending T002
+  description: Local Gateway
 paths:
   /api/v1/accounts/me:
     parameters:
@@ -143,6 +143,11 @@ components:
     BearerAccess:
       $ref: ./identity-auth-v1.yaml#/components/securitySchemes/BearerAccess
   headers:
+    NoStore:
+      description: Содержит no-store; возможны дополнительные директивы запрета кеширования.
+      schema:
+        type: string
+      example: no-store
     RequestId:
       description: Общий идентификатор запроса.
       schema:
@@ -295,6 +300,8 @@ components:
       headers:
         X-Request-Id:
           $ref: '#/components/headers/RequestId'
+        Cache-Control:
+          $ref: '#/components/headers/NoStore'
       content:
         application/json:
           schema:
@@ -312,6 +319,8 @@ components:
       headers:
         X-Request-Id:
           $ref: '#/components/headers/RequestId'
+        Cache-Control:
+          $ref: '#/components/headers/NoStore'
         WWW-Authenticate:
           schema:
             type: string
@@ -333,6 +342,8 @@ components:
       headers:
         X-Request-Id:
           $ref: '#/components/headers/RequestId'
+        Cache-Control:
+          $ref: '#/components/headers/NoStore'
       content:
         application/json:
           schema:
@@ -351,6 +362,8 @@ components:
       headers:
         X-Request-Id:
           $ref: '#/components/headers/RequestId'
+        Cache-Control:
+          $ref: '#/components/headers/NoStore'
       content:
         application/json:
           schema:
@@ -360,7 +373,7 @@ components:
               value:
                 error:
                   code: validation_error
-                  message: Check the provided values.
+                  message: Check the submitted data.
                   details:
                   - field: nickname
                     code: invalid_length
@@ -373,6 +386,8 @@ components:
       headers:
         X-Request-Id:
           $ref: '#/components/headers/RequestId'
+        Cache-Control:
+          $ref: '#/components/headers/NoStore'
       content:
         application/json:
           schema:
@@ -382,14 +397,14 @@ components:
               value:
                 error:
                   code: profile_version_conflict
-                  message: Profile update conflicts with current data.
+                  message: Profile has changed. Reload it before saving.
                   details: []
                   requestId: da6add51-47f8-4603-a9ce-17e440a8da64
             nicknameTaken:
               value:
                 error:
                   code: nickname_already_taken
-                  message: Profile update conflicts with current data.
+                  message: Nickname is already taken.
                   details: []
                   requestId: da6add51-47f8-4603-a9ce-17e440a8da64
     Unavailable:
@@ -397,6 +412,8 @@ components:
       headers:
         X-Request-Id:
           $ref: '#/components/headers/RequestId'
+        Cache-Control:
+          $ref: '#/components/headers/NoStore'
       content:
         application/json:
           schema:
@@ -406,7 +423,7 @@ components:
               value:
                 error:
                   code: profile_unavailable
-                  message: Profile is unavailable.
+                  message: Profile is temporarily unavailable.
                   details: []
                   requestId: da6add51-47f8-4603-a9ce-17e440a8da64
     InternalError:
@@ -414,6 +431,8 @@ components:
       headers:
         X-Request-Id:
           $ref: '#/components/headers/RequestId'
+        Cache-Control:
+          $ref: '#/components/headers/NoStore'
       content:
         application/json:
           schema:
