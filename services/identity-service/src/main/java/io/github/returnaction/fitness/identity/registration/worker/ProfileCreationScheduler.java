@@ -18,11 +18,8 @@ public final class ProfileCreationScheduler {
     private final RegistrationTaskRunner batchRunner;
     private final int leaseSeconds;
 
-    public ProfileCreationScheduler(
-                                    RegistrationLeaseRepository leases,
-                                    ProfileCreationProcessor processor,
-                                    RegistrationTaskRunner batchRunner,
-                                    @Value("${identity.registration.worker.lease-seconds}") int leaseSeconds) {
+    public ProfileCreationScheduler(RegistrationLeaseRepository leases, ProfileCreationProcessor processor,
+        RegistrationTaskRunner batchRunner, @Value("${identity.registration.worker.lease-seconds}") int leaseSeconds) {
         if (leaseSeconds < 16) {
             throw new IllegalArgumentException("Invalid worker lease");
         }

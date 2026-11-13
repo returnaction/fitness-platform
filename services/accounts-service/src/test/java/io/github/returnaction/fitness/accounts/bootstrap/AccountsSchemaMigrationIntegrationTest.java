@@ -54,8 +54,8 @@ class AccountsSchemaMigrationIntegrationTest {
                 POSTGRES.getPassword())) {
             Database database = DatabaseFactory.getInstance()
                     .findCorrectDatabaseImplementation(new JdbcConnection(connection));
-            try (Liquibase liquibase = new Liquibase(
-                    "db/changelog/db.changelog-master.yaml", new ClassLoaderResourceAccessor(), database)) {
+            try (Liquibase liquibase = new Liquibase("db/changelog/db.changelog-master.yaml",
+                    new ClassLoaderResourceAccessor(), database)) {
                 liquibase.update(new Contexts(), new LabelExpression());
             }
         }

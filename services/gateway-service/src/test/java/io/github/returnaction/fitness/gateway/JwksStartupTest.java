@@ -70,11 +70,9 @@ class JwksStartupTest {
             });
             server.start();
             var loader = new JwksInitializer(
-                    new AccessTokenProperties(
-                            URI.create("http://127.0.0.1:" + server.getAddress().getPort() + "/keys"), "issuer",
-                            "audience"),
-                    new JwksStartupProperties(
-                            Duration.ofMillis(200), Duration.ofMillis(100)));
+                    new AccessTokenProperties(URI.create("http://127.0.0.1:" + server.getAddress().getPort() + "/keys"),
+                            "issuer", "audience"),
+                    new JwksStartupProperties(Duration.ofMillis(200), Duration.ofMillis(100)));
             var run = workers.submit(() -> loader.run(new DefaultApplicationArguments()));
             try {
                 assertThat(firstRequest.await(3, TimeUnit.SECONDS)).isTrue();
@@ -107,11 +105,9 @@ class JwksStartupTest {
         });
         server.start();
         var loader = new JwksInitializer(
-                new AccessTokenProperties(
-                        URI.create("http://127.0.0.1:" + server.getAddress().getPort() + "/keys"), "issuer",
-                        "audience"),
-                new JwksStartupProperties(
-                        Duration.ofSeconds(1), Duration.ofSeconds(30)));
+                new AccessTokenProperties(URI.create("http://127.0.0.1:" + server.getAddress().getPort() + "/keys"),
+                        "issuer", "audience"),
+                new JwksStartupProperties(Duration.ofSeconds(1), Duration.ofSeconds(30)));
         try (var worker = Executors.newVirtualThreadPerTaskExecutor()) {
             var run = worker.submit(() -> loader.run(new DefaultApplicationArguments()));
             try {
@@ -135,8 +131,9 @@ class JwksStartupTest {
         assertThatThrownBy(() -> TrustedJwks.parse("{}")).isInstanceOf(Exception.class);
         assertThatThrownBy(() -> TrustedJwks.parse("{\"keys\":[]}")).isInstanceOf(Exception.class);
         assertThatThrownBy(() -> TrustedJwks.parse(new JWKSet(key).toString(false))).isInstanceOf(Exception.class);
-        assertThatThrownBy(() -> TrustedJwks.parse(new JWKSet(List.of(key.toPublicJWK(),
-                key.toPublicJWK())).toString())).isInstanceOf(Exception.class);
+        assertThatThrownBy(
+                () -> TrustedJwks.parse(new JWKSet(List.of(key.toPublicJWK(), key.toPublicJWK())).toString()))
+                .isInstanceOf(Exception.class);
         var wrongCurve = new ECKeyGenerator(Curve.P_384).keyID("wrong").generate();
         assertThatThrownBy(() -> TrustedJwks.parse(new JWKSet(wrongCurve.toPublicJWK()).toString()))
                 .isInstanceOf(Exception.class);
@@ -160,10 +157,8 @@ class JwksStartupTest {
             var application = new SpringApplication(GatewayApplication.class);
             // This test exercises JWKS startup, independently of the gRPC TLS fixtures.
             application.addInitializers(context -> context.addBeanFactoryPostProcessor(factory -> {
-                ((BeanDefinitionRegistry) factory)
-                        .removeBeanDefinition("grpcSessionVerificationClient");
-                factory.registerSingleton("sessionVerificationClient", Mockito.mock(
-                        SessionVerificationClient.class));
+                ((BeanDefinitionRegistry) factory).removeBeanDefinition("grpcSessionVerificationClient");
+                factory.registerSingleton("sessionVerificationClient", Mockito.mock(SessionVerificationClient.class));
             }));
             application.addListeners((ApplicationListener<ContextRefreshedEvent>) event -> {
                 if (event.getApplicationContext().getParent() == null) {
@@ -201,8 +196,7 @@ class JwksStartupTest {
                 payload.set("invalid");
                 var decoder = context.getBean(JwtDecoder.class);
                 assertThat(decoder.decode(token(signingKey, "trusted"))).isNotNull();
-                assertThatThrownBy(() -> decoder.decode(token(signingKey, "unknown")))
-                        .isInstanceOf(JwtException.class);
+                assertThatThrownBy(() -> decoder.decode(token(signingKey, "unknown"))).isInstanceOf(JwtException.class);
                 Thread.sleep(350);
                 assertThat(calls.get()).isEqualTo(completedCalls);
                 assertThat(get(client, management, "/actuator/health/readiness").statusCode()).isEqualTo(200);
@@ -228,8 +222,8 @@ class JwksStartupTest {
     private String token(com.nimbusds.jose.jwk.ECKey key, String kid) throws Exception {
         long now = Instant.now().getEpochSecond();
         String id = UUID.randomUUID().toString();
-        var claims = Map.<String, Object>of("sub", id, "sid", id, "jti", id,
-                "iss", "test-identity", "aud", "test-gateway", "iat", now - 1, "exp", now + 60);
+        var claims = Map.<String, Object>of("sub", id, "sid", id, "jti", id, "iss", "test-identity", "aud",
+                "test-gateway", "iat", now - 1, "exp", now + 60);
         var token = new com.nimbusds.jose.JWSObject(
                 new com.nimbusds.jose.JWSHeader.Builder(com.nimbusds.jose.JWSAlgorithm.ES256).keyID(kid).build(),
                 new com.nimbusds.jose.Payload(claims));

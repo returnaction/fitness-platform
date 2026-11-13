@@ -55,8 +55,7 @@ public class RegistrationCreationService {
             throw new RegistrationConflictException("email_already_registered");
         }
 
-        RoleEntity userRole = roleRepository
-                .findByCode(RoleCode.USER)
+        RoleEntity userRole = roleRepository.findByCode(RoleCode.USER)
                 .orElseThrow(() -> new IllegalStateException("Required USER role is missing"));
         UUID userId = UUID.randomUUID();
         UserEntity user = new UserEntity(userId, input.emailCanonical(), UserStatus.PENDING);
@@ -70,11 +69,9 @@ public class RegistrationCreationService {
     }
 
     RegistrationStartResult repeat(RegistrationOperationEntity operation, ValidatedCredentials input) {
-        UserEntity user = userRepository
-                .findById(operation.getUserId())
+        UserEntity user = userRepository.findById(operation.getUserId())
                 .orElseThrow(() -> new IllegalStateException("Registration operation references a missing user"));
-        UserCredentialEntity credentials = userCredentialRepository
-                .findById(user.getId())
+        UserCredentialEntity credentials = userCredentialRepository.findById(user.getId())
                 .orElseThrow(() -> new IllegalStateException("User is missing credentials"));
         if (!user.getEmailCanonical().equals(input.emailCanonical())
                 || !passwordEncoder.matches(input.password(), credentials.getPasswordHash())) {

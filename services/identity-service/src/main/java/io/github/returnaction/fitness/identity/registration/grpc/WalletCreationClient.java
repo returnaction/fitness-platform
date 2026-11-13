@@ -20,12 +20,10 @@ public final class WalletCreationClient {
 
     private final ManagedChannel channel;
 
-    public WalletCreationClient(
-                                @Value("${identity.coins-grpc.host}") String host,
-                                @Value("${identity.coins-grpc.port}") int port,
-                                @Value("${identity.coins-grpc.certificate}") String certificate,
-                                @Value("${identity.coins-grpc.private-key}") String privateKey,
-                                @Value("${identity.coins-grpc.trust-certificate}") String trustCertificate) throws IOException {
+    public WalletCreationClient(@Value("${identity.coins-grpc.host}") String host,
+        @Value("${identity.coins-grpc.port}") int port, @Value("${identity.coins-grpc.certificate}") String certificate,
+        @Value("${identity.coins-grpc.private-key}") String privateKey,
+        @Value("${identity.coins-grpc.trust-certificate}") String trustCertificate) throws IOException {
         channel = NettyChannelBuilder.forAddress(host, port)
                 .sslContext(GrpcSslContexts.forClient()
                         .trustManager(new File(trustCertificate))

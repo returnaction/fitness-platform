@@ -16,7 +16,6 @@ public interface ProfileRepository extends JpaRepository<UserProfileEntity, UUID
             VALUES (:userId, :publicProfileId, :nickname)
             ON CONFLICT DO NOTHING
             """, nativeQuery = true)
-    int insertIfAbsent(@Param("userId") UUID userId,
-                       @Param("publicProfileId") UUID publicProfileId,
-                       @Param("nickname") String nickname);
+    int insertIfAbsent(@Param("userId") UUID userId, @Param("publicProfileId") UUID publicProfileId,
+        @Param("nickname") String nickname);
 }

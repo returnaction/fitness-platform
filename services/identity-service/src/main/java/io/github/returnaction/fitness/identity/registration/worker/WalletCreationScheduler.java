@@ -18,11 +18,8 @@ public final class WalletCreationScheduler {
     private final RegistrationTaskRunner batchRunner;
     private final int leaseSeconds;
 
-    public WalletCreationScheduler(
-                                   RegistrationLeaseRepository leases,
-                                   WalletCreationProcessor processor,
-                                   RegistrationTaskRunner batchRunner,
-                                   @Value("${identity.registration.worker.lease-seconds}") int leaseSeconds) {
+    public WalletCreationScheduler(RegistrationLeaseRepository leases, WalletCreationProcessor processor,
+        RegistrationTaskRunner batchRunner, @Value("${identity.registration.worker.lease-seconds}") int leaseSeconds) {
         if (leaseSeconds < 16) {
             throw new IllegalArgumentException("Invalid worker lease");
         }

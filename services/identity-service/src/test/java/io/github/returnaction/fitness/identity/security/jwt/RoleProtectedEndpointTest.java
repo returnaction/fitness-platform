@@ -49,13 +49,9 @@ class RoleProtectedEndpointTest {
         generator.initialize(new ECGenParameterSpec("secp256r1"));
         var pair = generator.generateKeyPair();
         privateKey = (ECPrivateKey) pair.getPrivate();
-        var publicKey = new ECKey.Builder(Curve.P_256, (ECPublicKey) pair.getPublic())
-                .keyID("key-1")
-                .build();
+        var publicKey = new ECKey.Builder(Curve.P_256, (ECPublicKey) pair.getPublic()).keyID("key-1").build();
         var verifier = new AccessTokenVerifier(new PublicJwtKeys(publicKey.toJSONObject()), ISSUER, AUDIENCE, "key-1");
-        mvc = MockMvcBuilders.standaloneSetup(new TestEndpoint())
-                .addFilters(new TestConsumerFilter(verifier))
-                .build();
+        mvc = MockMvcBuilders.standaloneSetup(new TestEndpoint()).addFilters(new TestConsumerFilter(verifier)).build();
     }
 
     @Test
@@ -68,9 +64,9 @@ class RoleProtectedEndpointTest {
                 mvc.perform(get("/test/" + roles[required]).header("Authorization", "Bearer " + token))
                         .andExpect(status().is(expected));
             }
-            org.assertj.core.api.Assertions.assertThat(SignedJWT.parse(token)
-                    .getJWTClaimsSet()
-                    .getStringListClaim("roles")).containsExactly(roles[assigned]);
+            org.assertj.core.api.Assertions
+                    .assertThat(SignedJWT.parse(token).getJWTClaimsSet().getStringListClaim("roles"))
+                    .containsExactly(roles[assigned]);
         }
     }
 
@@ -79,8 +75,7 @@ class RoleProtectedEndpointTest {
         var signer = new AccessTokenSigner(privateKey, "key-1", ISSUER, AUDIENCE, java.time.Clock.systemUTC());
         String token = signer.sign(UUID.randomUUID(), UUID.randomUUID(), Instant.now().plusSeconds(300),
                 List.of(io.github.returnaction.fitness.identity.registration.entity.role.RoleCode.ADMIN));
-        mvc.perform(get("/test/MODERATOR").header("Authorization", "Bearer " + token))
-                .andExpect(status().isOk());
+        mvc.perform(get("/test/MODERATOR").header("Authorization", "Bearer " + token)).andExpect(status().isOk());
         mvc.perform(get("/test/SUPER_ADMIN").header("Authorization", "Bearer " + token))
                 .andExpect(status().isForbidden());
     }
@@ -108,20 +103,19 @@ class RoleProtectedEndpointTest {
         String[] parts = valid.split("\\.");
         String altered = parts[0] + "." + java.util.Base64.getUrlEncoder()
                 .withoutPadding()
-                .encodeToString("{\"roles\":[\"SUPER_ADMIN\"]}".getBytes(java.nio.charset.StandardCharsets.UTF_8))
-                + "." + parts[2];
+                .encodeToString("{\"roles\":[\"SUPER_ADMIN\"]}".getBytes(java.nio.charset.StandardCharsets.UTF_8)) + "."
+                + parts[2];
         checkToken(altered, 401);
     }
 
     private void check(Object roles, String required, int expected) throws Exception {
-        mvc.perform(get("/test/" + required).header("Authorization", "Bearer "
-                + token(roles, ISSUER, AUDIENCE, Instant.now().plusSeconds(300), "key-1")))
+        mvc.perform(get("/test/" + required).header("Authorization",
+                "Bearer " + token(roles, ISSUER, AUDIENCE, Instant.now().plusSeconds(300), "key-1")))
                 .andExpect(status().is(expected));
     }
 
     private void checkToken(String token, int expected) throws Exception {
-        mvc.perform(get("/test/USER").header("Authorization", "Bearer " + token))
-                .andExpect(status().is(expected));
+        mvc.perform(get("/test/USER").header("Authorization", "Bearer " + token)).andExpect(status().is(expected));
     }
 
     private String token(Object roles, String issuer, String audience, Instant expiry, String keyId) throws Exception {
@@ -154,8 +148,8 @@ class TestEndpoint {
 class TestConsumerFilter extends OncePerRequestFilter {
 
     private final AccessTokenVerifier verifier;
-    private final RoleHierarchyImpl hierarchy = RoleHierarchyImpl.fromHierarchy(
-            "ROLE_SUPER_ADMIN > ROLE_ADMIN\nROLE_ADMIN > ROLE_MODERATOR\nROLE_MODERATOR > ROLE_USER");
+    private final RoleHierarchyImpl hierarchy = RoleHierarchyImpl
+            .fromHierarchy("ROLE_SUPER_ADMIN > ROLE_ADMIN\nROLE_ADMIN > ROLE_MODERATOR\nROLE_MODERATOR > ROLE_USER");
     private static final List<String> KNOWN = List.of("USER", "MODERATOR", "ADMIN", "SUPER_ADMIN");
 
     TestConsumerFilter(AccessTokenVerifier verifier) {
@@ -163,9 +157,8 @@ class TestConsumerFilter extends OncePerRequestFilter {
     }
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request,
-                                    HttpServletResponse response,
-                                    FilterChain chain) throws ServletException, IOException {
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
+        FilterChain chain) throws ServletException, IOException {
         String authorization = request.getHeader("Authorization");
         if (authorization == null || !authorization.startsWith("Bearer ")) {
             response.setStatus(401);

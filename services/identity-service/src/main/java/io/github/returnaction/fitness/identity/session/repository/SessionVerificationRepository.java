@@ -20,21 +20,18 @@ public class SessionVerificationRepository {
 
     @Transactional(readOnly = true)
     public Result check(UUID userId, UUID sessionId) {
-        Object[] row = (Object[]) entityManager
-                .createNativeQuery("""
-                        WITH checked AS MATERIALIZED (SELECT clock_timestamp() AS at)
-                        SELECT checked.at, EXISTS (
-                            SELECT 1 FROM auth_sessions s JOIN users u ON u.id = s.user_id
-                            WHERE s.id = :sessionId AND s.user_id = :userId
-                              AND u.status = 'ACTIVE' AND s.revoked_at IS NULL AND s.expires_at > checked.at
-                        ) AS active FROM checked
-                        """)
-                .setParameter("sessionId", sessionId)
-                .setParameter("userId", userId)
-                .getSingleResult();
+        Object[] row = (Object[]) entityManager.createNativeQuery("""
+                WITH checked AS MATERIALIZED (SELECT clock_timestamp() AS at)
+                SELECT checked.at, EXISTS (
+                    SELECT 1 FROM auth_sessions s JOIN users u ON u.id = s.user_id
+                    WHERE s.id = :sessionId AND s.user_id = :userId
+                      AND u.status = 'ACTIVE' AND s.revoked_at IS NULL AND s.expires_at > checked.at
+                ) AS active FROM checked
+                """).setParameter("sessionId", sessionId).setParameter("userId", userId).getSingleResult();
         return new Result((Boolean) row[1], (Instant) row[0]);
     }
 
-    public record Result(boolean active, Instant checkedAt) {
+    public record Result(boolean active,
+                         Instant checkedAt) {
     }
 }

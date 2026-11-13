@@ -27,7 +27,7 @@ public final class HttpDeadlineScope implements AutoCloseable {
     private boolean timedOut;
 
     public HttpDeadlineScope(RequestDeadline deadline,
-                             ScheduledThreadPoolExecutor scheduler) throws SocketTimeoutException {
+        ScheduledThreadPoolExecutor scheduler) throws SocketTimeoutException {
         this.deadline = deadline;
         if (deadline.expired()) {
             throw new SocketTimeoutException("Request deadline exceeded");

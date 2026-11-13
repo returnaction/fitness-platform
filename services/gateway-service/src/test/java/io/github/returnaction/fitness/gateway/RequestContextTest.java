@@ -65,9 +65,8 @@ class RequestContextTest {
             for (int i = 0; i < 32; i++) {
                 futures.add(executor.submit(() -> {
                     var response = new MockHttpServletResponse();
-                    filter.doFilter(new MockHttpServletRequest(), response,
-                            (request, result) -> assertThat(MDC.get("request_id"))
-                                    .isEqualTo(response.getHeader("X-Request-Id")));
+                    filter.doFilter(new MockHttpServletRequest(), response, (request,
+                        result) -> assertThat(MDC.get("request_id")).isEqualTo(response.getHeader("X-Request-Id")));
                     assertThat(MDC.get("request_id")).isNull();
                     return response.getHeader("X-Request-Id");
                 }));

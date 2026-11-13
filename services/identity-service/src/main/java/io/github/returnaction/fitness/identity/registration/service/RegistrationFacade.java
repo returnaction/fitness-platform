@@ -48,17 +48,8 @@ public class RegistrationFacade {
         try {
             IssuedTokens tokens = tokenService.createForRegistration(operation.operationId(), request.password());
 
-            return new RegisterResponse(
-                    new RegisteredUser(
-                            operation.userId(),
-                            operation.emailCanonical(),
-                            "ACTIVE"),
-                    new RegistrationTokenResponse(
-                            tokens.accessToken(),
-                            tokens.refreshToken(),
-                            "Bearer",
-                            900,
-                            2592000));
+            return new RegisterResponse(new RegisteredUser(operation.userId(), operation.emailCanonical(), "ACTIVE"),
+                    new RegistrationTokenResponse(tokens.accessToken(), tokens.refreshToken(), "Bearer", 900, 2592000));
 
         } catch (RegistrationNotReadyException exception) {
             throw new RegistrationUnavailableException();

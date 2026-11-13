@@ -17,21 +17,18 @@ import org.springframework.stereotype.Component;
 public final class AccessTokenClaimsValidator implements OAuth2TokenValidator<Jwt> {
 
     private static final Duration MAX_TOKEN_LIFETIME = Duration.ofMinutes(15);
-    private static final OAuth2Error INVALID_TOKEN = new OAuth2Error(
-            "invalid_token",
+    private static final OAuth2Error INVALID_TOKEN = new OAuth2Error("invalid_token",
             "Access token claims do not satisfy the token contract", null);
     private final Clock clock;
 
     @Override
     public OAuth2TokenValidatorResult validate(Jwt token) {
         var claims = token.getClaims();
-        if (!isCanonicalUuid(claims.get("sub"))
-                || !isCanonicalUuid(claims.get("sid"))
+        if (!isCanonicalUuid(claims.get("sub")) || !isCanonicalUuid(claims.get("sid"))
                 || !isCanonicalUuid(claims.get("jti"))) {
             return invalidToken();
         }
-        if (!(claims.get("iat") instanceof Instant issuedAt)
-                || !(claims.get("exp") instanceof Instant expiresAt)) {
+        if (!(claims.get("iat") instanceof Instant issuedAt) || !(claims.get("exp") instanceof Instant expiresAt)) {
             return invalidToken();
         }
         Instant now = clock.instant();

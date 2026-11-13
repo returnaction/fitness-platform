@@ -86,8 +86,7 @@ class RouteValidationTest {
                                 + "Host: localhost\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")
                                 .getBytes(StandardCharsets.US_ASCII));
                 socket.getOutputStream().flush();
-                String response = new String(socket.getInputStream().readAllBytes(),
-                        StandardCharsets.UTF_8);
+                String response = new String(socket.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
                 assertThat(response).startsWith("HTTP/1.1 400").contains("invalid_request");
             }
         }
@@ -132,13 +131,14 @@ class RouteValidationTest {
 
     @Test
     void catalogValidationRejectsEmptyDuplicateAndMissingUpstream() {
-        var upstreams = new UpstreamProperties(Map.of(UpstreamId.IDENTITY,
-                new UpstreamProperties.Settings(URI.create("http://localhost:1")),
-                UpstreamId.ACCOUNT, new UpstreamProperties.Settings(URI.create("http://localhost:2"))));
+        var upstreams = new UpstreamProperties(
+                Map.of(UpstreamId.IDENTITY, new UpstreamProperties.Settings(URI.create("http://localhost:1")),
+                        UpstreamId.ACCOUNT, new UpstreamProperties.Settings(URI.create("http://localhost:2"))));
         var routes = GatewayRouteCatalog.routes();
         GatewayRouteValidator.validate(routes, upstreams);
-        assertThatThrownBy(() -> GatewayRouteValidator.validate(routes, new UpstreamProperties(Map.of(
-                UpstreamId.IDENTITY, new UpstreamProperties.Settings(URI.create("http://localhost:1"))))))
+        assertThatThrownBy(() -> GatewayRouteValidator.validate(routes,
+                new UpstreamProperties(Map.of(UpstreamId.IDENTITY,
+                        new UpstreamProperties.Settings(URI.create("http://localhost:1"))))))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("ACCOUNT");
         assertThatThrownBy(() -> GatewayRouteValidator.validate(List.of(), upstreams))
@@ -150,12 +150,8 @@ class RouteValidationTest {
                 .isInstanceOf(IllegalStateException.class);
     }
 
-    private void assertError(HttpClient client,
-                             String method,
-                             String path,
-                             String bearer,
-                             int status,
-                             String code) throws Exception {
+    private void assertError(HttpClient client, String method, String path, String bearer, int status,
+        String code) throws Exception {
         var builder = HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + path))
                 .header("Origin", "https://untrusted.example")
                 .header("X-Request-Id", "client-id")

@@ -132,14 +132,10 @@ class GatewayErrorsTest {
                     .count()).as(type.getSimpleName()).isEqualTo(1);
         }
         assertThat(registrations.stream()
-                .filter(registration -> registration.getClassName()
-                        .equals(
-                                RequestIdFilter.class.getName()))
+                .filter(registration -> registration.getClassName().equals(RequestIdFilter.class.getName()))
                 .count()).isEqualTo(1);
         assertThat(registrations.stream()
-                .filter(registration -> registration.getClassName()
-                        .equals(
-                                RequestDeadlineFilter.class.getName()))
+                .filter(registration -> registration.getClassName().equals(RequestDeadlineFilter.class.getName()))
                 .count()).isEqualTo(1);
     }
 

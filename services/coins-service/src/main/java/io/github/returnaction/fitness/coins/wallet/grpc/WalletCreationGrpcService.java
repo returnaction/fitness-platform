@@ -23,23 +23,20 @@ public class WalletCreationGrpcService extends WalletCreationServiceGrpc.WalletC
 
     @Override
     public void createWalletIfAbsent(CreateWalletIfAbsentRequest request,
-                                     StreamObserver<CreateWalletIfAbsentResponse> observer) {
+        StreamObserver<CreateWalletIfAbsentResponse> observer) {
         UUID userId;
         try {
             canonicalUuid(request.getRequestId());
             canonicalUuid(request.getRegistrationOperationId());
             userId = canonicalUuid(request.getUserId());
         } catch (IllegalArgumentException exception) {
-            observer.onError(
-                    Status.INVALID_ARGUMENT.withDescription("Invalid UUID").asRuntimeException());
+            observer.onError(Status.INVALID_ARGUMENT.withDescription("Invalid UUID").asRuntimeException());
             return;
         }
         try {
             walletCreationService.createWalletIfAbsent(userId);
         } catch (RuntimeException exception) {
-            observer.onError(Status.INTERNAL
-                    .withDescription("Wallet creation failed")
-                    .asRuntimeException());
+            observer.onError(Status.INTERNAL.withDescription("Wallet creation failed").asRuntimeException());
             return;
         }
         observer.onNext(CreateWalletIfAbsentResponse.newBuilder()

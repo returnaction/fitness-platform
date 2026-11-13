@@ -20,12 +20,11 @@ public final class ProfileCreationClient {
 
     private final ManagedChannel channel;
 
-    public ProfileCreationClient(
-                                 @Value("${identity.accounts-grpc.host}") String host,
-                                 @Value("${identity.accounts-grpc.port}") int port,
-                                 @Value("${identity.accounts-grpc.certificate}") String certificate,
-                                 @Value("${identity.accounts-grpc.private-key}") String privateKey,
-                                 @Value("${identity.accounts-grpc.trust-certificate}") String trustCertificate) throws IOException {
+    public ProfileCreationClient(@Value("${identity.accounts-grpc.host}") String host,
+        @Value("${identity.accounts-grpc.port}") int port,
+        @Value("${identity.accounts-grpc.certificate}") String certificate,
+        @Value("${identity.accounts-grpc.private-key}") String privateKey,
+        @Value("${identity.accounts-grpc.trust-certificate}") String trustCertificate) throws IOException {
         channel = NettyChannelBuilder.forAddress(host, port)
                 .sslContext(GrpcSslContexts.forClient()
                         .trustManager(new File(trustCertificate))

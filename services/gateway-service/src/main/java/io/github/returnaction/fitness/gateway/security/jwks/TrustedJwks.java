@@ -32,8 +32,7 @@ public final class TrustedJwks {
             if (key instanceof ECKey ec && Curve.P_256.equals(ec.getCurve())
                     && (ec.getAlgorithm() == null || JWSAlgorithm.ES256.equals(ec.getAlgorithm()))
                     && (ec.getKeyUse() == null || KeyUse.SIGNATURE.equals(ec.getKeyUse()))
-                    && (ec.getKeyOperations() == null
-                            || ec.getKeyOperations().equals(Set.of(KeyOperation.VERIFY)))) {
+                    && (ec.getKeyOperations() == null || ec.getKeyOperations().equals(Set.of(KeyOperation.VERIFY)))) {
                 ec.toECPublicKey();
                 usable.add(ec);
             }

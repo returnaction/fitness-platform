@@ -220,8 +220,7 @@ class HttpDeadlineTest {
         return client.send(HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + "/api/v1/auth/login"))
                 .timeout(Duration.ofSeconds(3))
                 .POST(HttpRequest.BodyPublishers.noBody())
-                .build(),
-                HttpResponse.BodyHandlers.ofString());
+                .build(), HttpResponse.BodyHandlers.ofString());
     }
 
     @Test
@@ -233,12 +232,11 @@ class HttpDeadlineTest {
                 });
         int before = CALLS.get();
         try (var client = HttpClient.newHttpClient()) {
-            var response = client.send(
-                    HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + "/api/v1/auth/logout-all"))
+            var response = client
+                    .send(HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + "/api/v1/auth/logout-all"))
                             .header("Authorization", "Bearer valid")
                             .POST(HttpRequest.BodyPublishers.noBody())
-                            .build(),
-                    HttpResponse.BodyHandlers.ofString());
+                            .build(), HttpResponse.BodyHandlers.ofString());
             assertThat(response.statusCode()).isEqualTo(504);
             assertThat(CALLS.get()).isEqualTo(before);
             assertThat(scheduler.getQueue()).isEmpty();
@@ -253,8 +251,8 @@ class HttpDeadlineTest {
             socket.setReceiveBufferSize(1024);
             socket.connect(new InetSocketAddress("127.0.0.1", port));
             socket.getOutputStream()
-                    .write(("POST /api/v1/auth/login HTTP/1.1\r\nHost: localhost\r\n"
-                            + "Content-Length: 0\r\n\r\n").getBytes(StandardCharsets.US_ASCII));
+                    .write(("POST /api/v1/auth/login HTTP/1.1\r\nHost: localhost\r\n" + "Content-Length: 0\r\n\r\n")
+                            .getBytes(StandardCharsets.US_ASCII));
             assertThat(streamClosed.await(2, TimeUnit.SECONDS)).isTrue();
         }
         MODE.set(0);

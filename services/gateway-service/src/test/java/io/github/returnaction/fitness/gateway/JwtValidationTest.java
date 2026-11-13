@@ -97,8 +97,8 @@ class JwtValidationTest {
         ACCOUNTS.calls.set(0);
         ACCOUNTS.status.set(200);
         UPSTREAM.status.set(200);
-        when(sessions.isActive(ArgumentMatchers.any(), ArgumentMatchers.any(),
-                ArgumentMatchers.any(), ArgumentMatchers.any())).thenReturn(true);
+        when(sessions.isActive(ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any(),
+                ArgumentMatchers.any())).thenReturn(true);
         when(keys.ready()).thenReturn(true);
         when(keys.keys()).thenReturn(List.of(KEY.toPublicJWK()));
         when(clock.instant()).thenReturn(NOW);
@@ -171,12 +171,11 @@ class JwtValidationTest {
 
     @Test
     void rejectsInvalidTimeIssuerAudienceAndSignature() throws Exception {
-        for (var entry : Map.<String, Object>of(
-                "iat", NOW.plusSeconds(1).getEpochSecond(),
-                "exp", NOW.plusSeconds(901).getEpochSecond(),
-                "nbf", NOW.plusSeconds(1).getEpochSecond(),
-                "iss", "wrong",
-                "aud", List.of("wrong")).entrySet()) {
+        for (var entry : Map
+                .<String, Object>of("iat", NOW.plusSeconds(1).getEpochSecond(), "exp",
+                        NOW.plusSeconds(901).getEpochSecond(), "nbf", NOW.plusSeconds(1).getEpochSecond(), "iss",
+                        "wrong", "aud", List.of("wrong"))
+                .entrySet()) {
             var invalid = claims();
             invalid.put(entry.getKey(), entry.getValue());
             assertThatThrownBy(() -> decoder.decode(sign(invalid))).isInstanceOf(JwtException.class);
@@ -215,8 +214,8 @@ class JwtValidationTest {
             assertThat(UPSTREAM.calls.get()).isEqualTo(16);
         }
         verify(decoder, never()).decode(ArgumentMatchers.anyString());
-        verify(sessions, never()).isActive(ArgumentMatchers.any(), ArgumentMatchers.any(),
-                ArgumentMatchers.any(), ArgumentMatchers.any());
+        verify(sessions, never()).isActive(ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any(),
+                ArgumentMatchers.any());
     }
 
     @Test
@@ -242,8 +241,8 @@ class JwtValidationTest {
         var user = UUID.fromString((String) claims.get("sub"));
         var session = UUID.fromString((String) claims.get("sid"));
         var requestId = new AtomicReference<UUID>();
-        when(sessions.isActive(ArgumentMatchers.eq(user), ArgumentMatchers.eq(session),
-                ArgumentMatchers.any(), ArgumentMatchers.any())).thenAnswer(invocation -> {
+        when(sessions.isActive(ArgumentMatchers.eq(user), ArgumentMatchers.eq(session), ArgumentMatchers.any(),
+                ArgumentMatchers.any())).thenAnswer(invocation -> {
                     requestId.set(invocation.getArgument(2));
                     RequestDeadline deadline = invocation.getArgument(3);
                     assertThat(deadline.remainingNanos()).isPositive().isLessThanOrEqualTo(3_000_000_000L);
@@ -254,11 +253,9 @@ class JwtValidationTest {
             assertThat(invalid.statusCode()).isEqualTo(401);
             assertThat(invalid.headers().firstValue("X-Request-Id")).contains(requestId.get().toString());
             assertThat(invalid.body()).contains(requestId.get().toString(), "invalid_access_token");
-            when(sessions.isActive(ArgumentMatchers.any(), ArgumentMatchers.any(),
-                    ArgumentMatchers.any(), ArgumentMatchers.any()))
-                    .thenThrow(
-                            new SessionVerificationUnavailableException(
-                                    "private transport diagnostics"));
+            when(sessions.isActive(ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any(),
+                    ArgumentMatchers.any()))
+                    .thenThrow(new SessionVerificationUnavailableException("private transport diagnostics"));
             var failed = request(client, "/api/v1/auth/logout-all", sign(claims));
             assertThat(failed.statusCode()).isEqualTo(503);
             assertThat(failed.body()).contains("identity_unavailable").doesNotContain("private transport diagnostics");
@@ -305,8 +302,8 @@ class JwtValidationTest {
                 assertThat(received.header("Content-Type")).isEqualTo("application/json");
                 assertThat(received.header("Accept")).isEqualTo("application/json");
                 assertThat(received.header("Idempotency-Key")).isEqualTo("operation-key");
-                assertThat(received.header("Authorization")).isEqualTo(
-                        route.access() == RouteAccess.PUBLIC ? null : "Bearer " + token);
+                assertThat(received.header("Authorization"))
+                        .isEqualTo(route.access() == RouteAccess.PUBLIC ? null : "Bearer " + token);
                 assertThat(received.header("X-Forwarded-For")).isEqualTo("127.0.0.1");
                 assertThat(received.headers()).doesNotContainKeys("X-User-Id", "X-Roles", "Cookie", "Forwarded",
                         "X-Forwarded-Host", "X-Forwarded-Proto", "X-Extra");
@@ -318,8 +315,7 @@ class JwtValidationTest {
         assertThat(UPSTREAM.calls.get()).isEqualTo(5);
         assertThat(ACCOUNTS.calls.get()).isEqualTo(2);
         verify(sessions, Mockito.times(3)).isActive(ArgumentMatchers.any(), ArgumentMatchers.any(),
-                ArgumentMatchers.any(),
-                ArgumentMatchers.any());
+                ArgumentMatchers.any(), ArgumentMatchers.any());
     }
 
     @Test
@@ -339,8 +335,7 @@ class JwtValidationTest {
 
     @Test
     void preservesFormAndMultipartBodiesWithoutTurningThemIntoQueryParameters() throws Exception {
-        var bodies = Map.of(
-                "application/x-www-form-urlencoded", "name=a%20b&name=c+z&literal=%2f",
+        var bodies = Map.of("application/x-www-form-urlencoded", "name=a%20b&name=c+z&literal=%2f",
                 "multipart/form-data; boundary=sample",
                 "--sample\r\nContent-Disposition: form-data; name=\"x\"\r\n\r\nvalue\r\n--sample--\r\n");
         try (var client = HttpClient.newHttpClient()) {
@@ -379,11 +374,11 @@ class JwtValidationTest {
                         ArgumentMatchers.any(), ArgumentMatchers.any());
                 Mockito.doReturn(false)
                         .when(sessions)
-                        .isActive(ArgumentMatchers.any(), ArgumentMatchers.any(),
-                                ArgumentMatchers.any(), ArgumentMatchers.any());
+                        .isActive(ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any(),
+                                ArgumentMatchers.any());
                 assertThat(profileRequest(client, method, sign(claims())).statusCode()).isEqualTo(401);
-                when(sessions.isActive(ArgumentMatchers.any(), ArgumentMatchers.any(),
-                        ArgumentMatchers.any(), ArgumentMatchers.any()))
+                when(sessions.isActive(ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any(),
+                        ArgumentMatchers.any()))
                         .thenThrow(new SessionVerificationUnavailableException("private diagnostics"));
                 var failed = profileRequest(client, method, sign(claims()));
                 assertThat(failed.statusCode()).isEqualTo(503);

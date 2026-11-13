@@ -18,9 +18,8 @@ public class RefreshSessionService {
     public RefreshResponse refresh(String token) {
         var result = tokenService.refresh(token);
         if (result.code() != null) {
-            throw new AuthenticationFailureException("account_unavailable".equals(result.code())
-                    ? REFRESH_ACCOUNT_UNAVAILABLE
-                    : INVALID_REFRESH);
+            throw new AuthenticationFailureException(
+                    "account_unavailable".equals(result.code()) ? REFRESH_ACCOUNT_UNAVAILABLE : INVALID_REFRESH);
         }
         return new RefreshResponse(result.access(), result.refresh(), "Bearer",
                 (int) Math.min(900, result.sessionRemainingSeconds()), result.sessionRemainingSeconds());

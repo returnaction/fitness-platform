@@ -18,19 +18,17 @@ public final class SecurityErrorHandler implements AuthenticationEntryPoint, Acc
     private final GatewayErrorWriter errorWriter;
 
     @Override
-    public void commence(HttpServletRequest request,
-                         HttpServletResponse response,
-                         AuthenticationException exception) throws IOException {
-        errorWriter.write(response, HttpServletResponse.SC_UNAUTHORIZED,
-                GatewayErrorCode.INVALID_ACCESS_TOKEN, requestId(request));
+    public void commence(HttpServletRequest request, HttpServletResponse response,
+        AuthenticationException exception) throws IOException {
+        errorWriter.write(response, HttpServletResponse.SC_UNAUTHORIZED, GatewayErrorCode.INVALID_ACCESS_TOKEN,
+                requestId(request));
     }
 
     @Override
-    public void handle(HttpServletRequest request,
-                       HttpServletResponse response,
-                       AccessDeniedException exception) throws IOException {
-        errorWriter.write(response, HttpServletResponse.SC_FORBIDDEN,
-                GatewayErrorCode.ACCESS_DENIED, requestId(request));
+    public void handle(HttpServletRequest request, HttpServletResponse response,
+        AccessDeniedException exception) throws IOException {
+        errorWriter.write(response, HttpServletResponse.SC_FORBIDDEN, GatewayErrorCode.ACCESS_DENIED,
+                requestId(request));
     }
 
     private String requestId(HttpServletRequest request) {

@@ -13,8 +13,8 @@ class ProfileJsonNamingTest {
 
     @Test
     void responseUsesCamelCaseAndIncludesNullableFields() {
-        var response = new ProfileResponse("Player_1", "Anna", null, null,
-                LocalDate.of(2000, 1, 2), "UTC", ProfileVisibility.PRIVATE, 1L);
+        var response = new ProfileResponse("Player_1", "Anna", null, null, LocalDate.of(2000, 1, 2), "UTC",
+                ProfileVisibility.PRIVATE, 1L);
         var json = mapper.readTree(mapper.writeValueAsString(response));
         assertThat(json.size()).isEqualTo(8);
         assertThat(json.get("firstName").asString()).isEqualTo("Anna");

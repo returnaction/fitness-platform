@@ -25,14 +25,13 @@ public class RegistrationRecoveryController {
     @GetMapping("/{id}")
     public RegistrationRecoveryResponse getRegistrationRecovery(@PathVariable UUID id) {
         var state = recovery.read(id);
-        return new RegistrationRecoveryResponse(
-                state.operationId(), state.status(), state.version(), state.recoveryBlockedAt(), state.lastErrorCode());
+        return new RegistrationRecoveryResponse(state.operationId(), state.status(), state.version(),
+                state.recoveryBlockedAt(), state.lastErrorCode());
     }
 
     @PostMapping("/{id}/resume")
-    public ResumeRegistrationResponse resume(@PathVariable UUID id,
-                                             @AuthenticationPrincipal UUID actor,
-                                             @Valid @RequestBody ResumeRegistrationRequest request) {
+    public ResumeRegistrationResponse resume(@PathVariable UUID id, @AuthenticationPrincipal UUID actor,
+        @Valid @RequestBody ResumeRegistrationRequest request) {
         var state = recovery.resume(id, actor, request.expectedVersion(), request.reason());
         return new ResumeRegistrationResponse(state.operationId(), state.status(), state.version());
     }

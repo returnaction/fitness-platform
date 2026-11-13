@@ -30,10 +30,8 @@ public final class LoginService {
     private final String dummyHash;
     private final SessionTokenService tokenService;
 
-    public LoginService(LoginRepository loginRepository,
-                        PasswordEncoder passwordEncoder,
-                        CredentialsValidator validator,
-                        SessionTokenService tokenService) {
+    public LoginService(LoginRepository loginRepository, PasswordEncoder passwordEncoder,
+        CredentialsValidator validator, SessionTokenService tokenService) {
         this.loginRepository = loginRepository;
         this.passwordEncoder = passwordEncoder;
         this.validator = validator;

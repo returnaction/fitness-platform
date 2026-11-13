@@ -32,21 +32,20 @@ class LocalStepCaSmokeTest {
         File ca = new File(directory, "ca.crt");
         ProfileCreationService creation = mock(ProfileCreationService.class);
         Server server = NettyServerBuilder.forAddress(new InetSocketAddress("127.0.0.1", 0))
-                .sslContext(GrpcSslContexts.forServer(
-                        new File(directory, "accounts-server.crt"),
-                        new File(directory, "accounts-server-pkcs8.key"))
+                .sslContext(GrpcSslContexts
+                        .forServer(new File(directory, "accounts-server.crt"),
+                                new File(directory, "accounts-server-pkcs8.key"))
                         .trustManager(ca)
                         .clientAuth(ClientAuth.REQUIRE)
                         .build())
-                .addService(ServerInterceptors.intercept(
-                        new ProfileCreationGrpcService(creation), new IdentityAuthorizationInterceptor()))
+                .addService(ServerInterceptors.intercept(new ProfileCreationGrpcService(creation),
+                        new IdentityAuthorizationInterceptor()))
                 .build()
                 .start();
         ManagedChannel channel = NettyChannelBuilder.forAddress("localhost", server.getPort())
                 .sslContext(GrpcSslContexts.forClient()
                         .trustManager(ca)
-                        .keyManager(
-                                new File(directory, "identity-client.crt"),
+                        .keyManager(new File(directory, "identity-client.crt"),
                                 new File(directory, "identity-client-pkcs8.key"))
                         .build())
                 .build();
@@ -60,8 +59,7 @@ class LocalStepCaSmokeTest {
             assertThat(ProfileCreationServiceGrpc.newBlockingStub(channel)
                     .withDeadlineAfter(5, TimeUnit.SECONDS)
                     .createProfileIfAbsent(request)
-                    .getStatus())
-                    .isEqualTo(CreationStatus.CREATION_STATUS_READY);
+                    .getStatus()).isEqualTo(CreationStatus.CREATION_STATUS_READY);
             verify(creation).createIfAbsent(user);
         } finally {
             channel.shutdownNow();

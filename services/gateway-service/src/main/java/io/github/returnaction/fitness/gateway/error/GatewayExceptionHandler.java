@@ -27,9 +27,8 @@ public class GatewayExceptionHandler {
 
     @ExceptionHandler({ResourceAccessException.class, IOException.class, UncheckedIOException.class,
             CancellationException.class})
-    ResponseEntity<ApiErrorResponse> transportFailure(Exception failure,
-                                                      HttpServletRequest request,
-                                                      HttpServletResponse response) throws Exception {
+    ResponseEntity<ApiErrorResponse> transportFailure(Exception failure, HttpServletRequest request,
+        HttpServletResponse response) throws Exception {
         var scope = (HttpDeadlineScope) request.getAttribute(HttpDeadlineScope.ATTRIBUTE);
         boolean timeout = (scope != null && scope.timedOut()) || causedBy(failure, SocketTimeoutException.class);
         if (scope != null) {
@@ -45,7 +44,7 @@ public class GatewayExceptionHandler {
 
     @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
     ResponseEntity<ApiErrorResponse> methodNotAllowed(HttpRequestMethodNotSupportedException failure,
-                                                      HttpServletRequest request) {
+        HttpServletRequest request) {
         return ResponseEntity.status(failure.getStatusCode())
                 .headers(failure.getHeaders())
                 .header("X-Request-Id", RequestIdResolver.getOrCreate(request))
@@ -55,7 +54,7 @@ public class GatewayExceptionHandler {
 
     @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
     ResponseEntity<ApiErrorResponse> unsupportedMediaType(HttpMediaTypeNotSupportedException failure,
-                                                          HttpServletRequest request) {
+        HttpServletRequest request) {
         return ResponseEntity.status(failure.getStatusCode())
                 .headers(failure.getHeaders())
                 .header("X-Request-Id", RequestIdResolver.getOrCreate(request))
@@ -64,14 +63,13 @@ public class GatewayExceptionHandler {
     }
 
     @ExceptionHandler(Exception.class)
-    ResponseEntity<ApiErrorResponse> unexpected(Exception failure,
-                                                HttpServletRequest request,
-                                                HttpServletResponse response) throws Exception {
+    ResponseEntity<ApiErrorResponse> unexpected(Exception failure, HttpServletRequest request,
+        HttpServletResponse response) throws Exception {
         if (response.isCommitted()) {
             throw failure;
         }
-        log.error("Unhandled request failure, request_id={}, error_type={}",
-                RequestIdResolver.getOrCreate(request), failure.getClass().getName());
+        log.error("Unhandled request failure, request_id={}, error_type={}", RequestIdResolver.getOrCreate(request),
+                failure.getClass().getName());
         return error(500, GatewayErrorCode.INTERNAL_ERROR, request);
     }
 

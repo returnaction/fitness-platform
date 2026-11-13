@@ -23,10 +23,8 @@ public final class IdentityAuthorizationInterceptor implements ServerInterceptor
     private static final String IDENTITY = "spiffe://fitness.local/identity-service";
 
     @Override
-    public <ReqT, RespT> ServerCall.Listener<ReqT> interceptCall(
-                                                                 ServerCall<ReqT, RespT> call,
-                                                                 Metadata headers,
-                                                                 ServerCallHandler<ReqT, RespT> next) {
+    public <ReqT, RespT> ServerCall.Listener<ReqT> interceptCall(ServerCall<ReqT, RespT> call, Metadata headers,
+        ServerCallHandler<ReqT, RespT> next) {
         SSLSession session = call.getAttributes().get(Grpc.TRANSPORT_ATTR_SSL_SESSION);
         if (!authorized(session)) {
             call.close(Status.PERMISSION_DENIED.withDescription("Service identity is not authorized"), new Metadata());
@@ -46,11 +44,9 @@ public final class IdentityAuthorizationInterceptor implements ServerInterceptor
                 return false;
             }
             Collection<List<?>> names = certificate.getSubjectAlternativeNames();
-            return names != null
-                    && names.stream()
-                            .anyMatch(name -> name.size() >= 2
-                                    && Integer.valueOf(6).equals(name.get(0))
-                                    && IDENTITY.equals(name.get(1)));
+            return names != null && names.stream()
+                    .anyMatch(name -> name.size() >= 2 && Integer.valueOf(6).equals(name.get(0))
+                            && IDENTITY.equals(name.get(1)));
         } catch (SSLPeerUnverifiedException | CertificateParsingException exception) {
             return false;
         }

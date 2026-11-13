@@ -11,8 +11,8 @@ import java.net.URI;
 @Validated
 @ConfigurationProperties(prefix = "gateway.security.access-token")
 public record AccessTokenProperties(@NotNull URI jwksUri,
-        @NotBlank String issuer,
-        @NotBlank String audience) {
+                                    @NotBlank String issuer,
+                                    @NotBlank String audience) {
 
     @AssertTrue(message = "JWKS URI must be an absolute HTTP(S) address without user information or a fragment")
     public boolean isJwksUriValid() {
@@ -21,9 +21,7 @@ public record AccessTokenProperties(@NotNull URI jwksUri,
         }
         boolean supportedScheme = "https".equalsIgnoreCase(jwksUri.getScheme())
                 || "http".equalsIgnoreCase(jwksUri.getScheme());
-        return supportedScheme
-                && jwksUri.getHost() != null
-                && jwksUri.getUserInfo() == null
+        return supportedScheme && jwksUri.getHost() != null && jwksUri.getUserInfo() == null
                 && jwksUri.getFragment() == null;
     }
 }

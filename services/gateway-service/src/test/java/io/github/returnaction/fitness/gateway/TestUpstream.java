@@ -53,7 +53,10 @@ final class TestUpstream implements AutoCloseable {
         server.stop(0);
     }
 
-    record Received(String method, String path, Map<String, List<String>> headers, String body) {
+    record Received(String method,
+                    String path,
+                    Map<String, List<String>> headers,
+                    String body) {
 
         String header(String name) {
             var values = headers.get(name);

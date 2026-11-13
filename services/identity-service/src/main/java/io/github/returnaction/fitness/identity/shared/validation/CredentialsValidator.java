@@ -45,9 +45,7 @@ public class CredentialsValidator {
     private boolean hasValidEmailStructure(String email) {
 
         int separator = email.indexOf('@');
-        return separator > 0
-                && separator < email.length() - 1
-                && separator == email.lastIndexOf('@')
+        return separator > 0 && separator < email.length() - 1 && separator == email.lastIndexOf('@')
                 && email.chars().allMatch(character -> character >= '!' && character <= '~');
     }
 

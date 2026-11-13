@@ -18,10 +18,8 @@ public class AccessTokenVerifier {
     private final String audience;
     private final String keyId;
 
-    public AccessTokenVerifier(PublicJwtKeys keys,
-                               @Value("${identity.jwt.issuer}") String issuer,
-                               @Value("${identity.jwt.audience}") String audience,
-                               @Value("${identity.jwt.key-id}") String keyId) {
+    public AccessTokenVerifier(PublicJwtKeys keys, @Value("${identity.jwt.issuer}") String issuer,
+        @Value("${identity.jwt.audience}") String audience, @Value("${identity.jwt.key-id}") String keyId) {
         this.keys = keys;
         this.issuer = issuer;
         this.audience = audience;
@@ -47,18 +45,14 @@ public class AccessTokenVerifier {
                 throw invalid();
             var claims = jwt.getJWTClaimsSet();
             Instant now = Instant.now();
-            if (!issuer.equals(claims.getIssuer())
-                    || claims.getAudience() == null
-                    || !claims.getAudience().contains(audience)
-                    || claims.getIssueTime() == null
-                    || claims.getExpirationTime() == null
-                    || claims.getIssueTime().toInstant().isAfter(now)
+            if (!issuer.equals(claims.getIssuer()) || claims.getAudience() == null
+                    || !claims.getAudience().contains(audience) || claims.getIssueTime() == null
+                    || claims.getExpirationTime() == null || claims.getIssueTime().toInstant().isAfter(now)
                     || !claims.getExpirationTime().toInstant().isAfter(now)
                     || claims.getExpirationTime()
                             .toInstant()
                             .isAfter(claims.getIssueTime().toInstant().plusSeconds(900))
-                    || (claims.getNotBeforeTime() != null
-                            && claims.getNotBeforeTime().toInstant().isAfter(now)))
+                    || (claims.getNotBeforeTime() != null && claims.getNotBeforeTime().toInstant().isAfter(now)))
                 throw invalid();
             userId = canonical(claims.getSubject());
             sessionId = canonical(claims.getStringClaim("sid"));
@@ -83,6 +77,8 @@ public class AccessTokenVerifier {
         return new InvalidAccessTokenException();
     }
 
-    public record Identity(UUID userId, UUID sessionId, Instant expiresAt) {
+    public record Identity(UUID userId,
+                           UUID sessionId,
+                           Instant expiresAt) {
     }
 }
