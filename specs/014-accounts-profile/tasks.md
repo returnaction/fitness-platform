@@ -5,7 +5,7 @@
 - T001–T010 закрыты в согласованном серверном объёме. Дополнительные настройки
   таймаутов исключены пользователем; сохраняется @Transactional(timeout = 2).
 - Полный `./mvnw.cmd verify -Dmaven.repo.local=C:\Users\Oberg\.m2\repository`
-  — BUILD SUCCESS во всех 11 модулях, лог `.t010-verify.log`.
+  — BUILD SUCCESS во всех 11 модулях.
   464 теста: 461 успешно, failures=0, errors=0, skipped=3.
   Пропущены только opt-in тесты с локальными Step CA сертификатами:
   Identity ProfileCreationClientLocalTest и WalletCreationClientLocalTest,
@@ -18,8 +18,8 @@
   Проверены 97 вхождений примеров после разрешения ссылок, включая заголовки,
   и 19 отрицательных вариантов формы профиля. Использованы закреплённые
   openapi-spec-validator 0.7.2, PyYAML 6.0.3, jsonschema 4.26.0;
-  лог `.t010-contracts.log`. Проверка схем дополняет runtime-тесты Jackson.
-- Сквозной сценарий T009: exit 0, шесть групп OK, `.t009-e2e.log`.
+  Проверка схем дополняет runtime-тесты Jackson.
+- Сквозной сценарий T009: exit 0, шесть групп OK.
   После него production-код не изменялся; повторный запуск четырёх сервисов
   ради правок документации не выполнялся. Он подтверждает GET/PUT через Gateway,
   JWT/CheckSession, ошибки, no-store/requestId, сбой/восстановление Accounts DB,
@@ -66,7 +66,7 @@ T001–T010 выполняются только после отдельной к
 - [x] T009 — Сквозные серверные проверки через Gateway. Зависит от T008. Вход → GET → PUT → GET; ошибки security/DTO/DB проходят в согласованном формате, заголовки и identity auth без регрессии. Использовать разрешённую тестовую среду; запись в пользовательскую БД/миграции не выполнять без разрешения. Мобильный UI не требуется.
 
   Проверено 2026-11-13: `python -B services/gateway-service/src/test/python/verify_gateway_e2e.py`
-  завершился с exit 0; все шесть групп OK, лог `.t009-e2e.log`.
+  завершился с exit 0; все шесть групп OK.
   Запущены настоящие Gateway/Identity/Accounts/Coins, временные сертификаты и
   отдельные базы в одноразовом PostgreSQL 17. Проверены два владельца,
   вход → GET → PUT → GET, нормализация, null, изоляция владельцев,
@@ -80,7 +80,7 @@ T001–T010 выполняются только после отдельной к
   и уникального текста bio в логах четырёх сервисов нет.
 
   Подготовка: `./mvnw.cmd -pl services/identity-service,services/accounts-service,services/coins-service,services/gateway-service -am -DskipTests package -Dmaven.repo.local=C:\Users\Oberg\.m2\repository`
-  — BUILD SUCCESS (`.t009-package.log`). Тесты Maven при упаковке намеренно
+  — BUILD SUCCESS. Тесты Maven при упаковке намеренно
   пропущены; эта команда не объявляется новым полным verify.
   Первый сквозной прогон остановился на чрезмерно строгом сравнении всего
   Cache-Control у 415. Проверка исправлена на наличие директивы no-store,
@@ -404,7 +404,7 @@ T004 закрыта; T005 ожидает отдельной команды. Ра
   Accounts: 160 тестов, 159 выполнены успешно, 0 failures/errors, 1 skip —
   отдельный opt-in LocalStepCaSmokeTest. gRPC contracts: 3/3 успешно.
   PostgreSQL-тесты и MutualTlsIntegrationTest выполнены, не skipped.
-  Spotless check и SpotBugs — PASS, 0 замечаний. Итоговый лог: .t005-verify.log.
+  Spotless check и SpotBugs — PASS, 0 замечаний.
 - README и статусы Spec/Plan актуализированы. Пользовательская БД и миграции
   не затрагивались; коммит не выполнен. Сквозной Gateway → Accounts остаётся
   T009; PUT, валидация и запись остаются T006–T008. Остановка после T005 для ревью.
@@ -421,7 +421,7 @@ T004 закрыта; T005 ожидает отдельной команды. Ра
 - Maven Wrapper: `-pl services/accounts-service -am spotless:apply verify
   -Dtest=ProfileUpdateValidatorTest -Dsurefire.failIfNoSpecifiedTests=false`
   с локальным Maven-кэшем — BUILD SUCCESS; Spotless и SpotBugs — PASS.
-  Лог: .t006-validator-check.log. Полный набор тестов на этом шаге не запускался.
+  Полный набор тестов на этом шаге не запускался.
 - T006 остаётся открытой: ещё нужны проверки имён, даты рождения и timezone,
   остальные проверки нормализации/валидации и HTTP 422. PUT не подключён.
   Коммит не выполнялся.
@@ -452,7 +452,7 @@ T004 закрыта; T005 ожидает отдельной команды. Ра
   -Dmaven.repo.local=C:\Users\Oberg\.m2\repository` — BUILD SUCCESS.
   Accounts: 231 тест, 230 успешно, 0 failures/errors, один opt-in LocalStepCaSmokeTest
   пропущен. gRPC contracts: 3/3 успешно. PostgreSQL и gRPC mTLS выполнены.
-  Spotless и SpotBugs — PASS, 0 замечаний; лог .t006-verify.log.
+  Spotless и SpotBugs — PASS, 0 замечаний.
 - README, spec и plan актуализированы. T006 закрыта; production PUT/запись остаются
   T007, сквозная проверка через Gateway — T009. Пользовательская БД не использовалась,
   коммит не выполнялся. Работа остановлена для ревью.
@@ -481,7 +481,7 @@ T004 закрыта; T005 ожидает отдельной команды. Ра
 - `./mvnw.cmd -pl services/accounts-service -am verify
   -Dmaven.repo.local=C:\Users\Oberg\.m2\repository` — BUILD SUCCESS.
   Accounts: 242 теста, 241 успешно, один opt-in LocalStepCaSmokeTest skipped;
-  gRPC contracts: 3/3 успешно; SpotBugs — 0 замечаний. Лог .t007-services-verify.log.
+  gRPC contracts: 3/3 успешно; SpotBugs — 0 замечаний.
 - T007 остаётся открытой: ещё нет production PUT, перевода нарушения именно
   индекса ника в nickname_already_taken после rollback, SQL/lock-таймаутов и
   проверок их поведения. Текущий тест rollback ожидает техническое исключение
@@ -506,7 +506,7 @@ T004 закрыта; T005 ожидает отдельной команды. Ра
   -Dtest=ProfileUpdateIntegrationTest,ProfileServiceTest,ApiExceptionHandlerTest
   -Dsurefire.failIfNoSpecifiedTests=false -Dmaven.repo.local=C:\Users\Oberg\.m2\repository`
   — BUILD SUCCESS: 32 теста PASS, 0 failures/errors/skips; PostgreSQL выполнен.
-  SpotBugs — 0 замечаний; лог .t007-nickname-verify.log.
+  SpotBugs — 0 замечаний.
   Полный набор тестов в этом шаге не запускался. Форматирование и коммит не выполнялись.
 - README актуализирован. T007 открыта: остаются SQL/lock-таймауты и production PUT.
 
@@ -530,7 +530,7 @@ T004 закрыта; T005 ожидает отдельной команды. Ра
   -Dmaven.repo.local=C:\Users\Oberg\.m2\repository` — BUILD SUCCESS.
   Accounts: 254 теста, 253 успешно, 0 failures/errors, один opt-in LocalStepCaSmokeTest
   skipped. gRPC contracts: 3/3 успешно. PostgreSQL и gRPC mTLS выполнены.
-  SpotBugs — 0 замечаний; git diff --check — PASS. Лог .t007-http-verify.log.
+  SpotBugs — 0 замечаний; git diff --check — PASS.
 - README/spec/plan актуализированы. T007 закрыта только в текущем согласованном
   объёме. T008 (расширенные PostgreSQL-проверки/гонки)
   и T009 (сценарий через Gateway) не выполнялись этим шагом.
@@ -556,7 +556,7 @@ T004 закрыта; T005 ожидает отдельной команды. Ра
   -Dmaven.repo.local=C:\Users\Oberg\.m2\repository` — BUILD SUCCESS.
   Accounts: 258 тестов, 257 успешно, failures=0, errors=0; один opt-in
   LocalStepCaSmokeTest пропущен. gRPC contracts: 3/3 успешно. SpotBugs: 0 замечаний.
-  Лог: .t008-verify.log. Новый класс требует Docker и не пропускается при его отсутствии.
+  Новый класс требует Docker и не пропускается при его отсутствии.
 - T008 закрыта в согласованном объёме. Дополнительные таймауты в этом шаге
   не проверялись; T009 (Gateway) не начиналась.
   Production-код, пользовательская БД и чужие правки не изменены.
