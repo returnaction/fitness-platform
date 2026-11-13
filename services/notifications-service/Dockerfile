@@ -24,4 +24,5 @@ WORKDIR /app
 COPY --from=build /workspace/services/notifications-service/target/notifications-service-*.jar app.jar
 # EXPOSE документирует пример порта, но не задаёт SERVER_PORT.
 EXPOSE 8087
+USER 10001
 ENTRYPOINT ["java", "-jar", "/app/app.jar"]

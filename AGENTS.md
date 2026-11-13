@@ -4,33 +4,22 @@ This root file applies to the entire repository, including the
 [System Design documentation](system-design/README.md). More specific
 instructions in nested directories supplement the root instructions.
 
-## SDD Scope and Workflow
+## Active SDD Scope: 016-container-maintenance
 
-No specification is currently active. Completed specifications remain in `specs/`
-as historical requirements and verification records; they do not authorize new work.
-When the user selects the next specification, fill in the scope template below.
-Do not choose a feature or a system-design roadmap item on the user's behalf.
+- **Specification:** [016-container-maintenance](specs/016-container-maintenance/spec.md).
+- **Branch:** 42-maintenance, separate worktree created from main at the user's request.
+- **Status:** in-progress — T003 completed; T004 changes applied, full image verification pending in T005. Stop for user review.
+- **Authorized work:** the user authorized implementation of the agreed nine-service scope; stop after each task for review.
+- **Scope:** non-root runtime and exact Java versions for all nine Java microservices listed in Spec 016;
+  Gateway is included in verification and is the reference. No deployment, network, API or mobile changes.
+- **Plan and tasks:** [plan.md](specs/016-container-maintenance/plan.md),
+  [tasks.md](specs/016-container-maintenance/tasks.md).
+- **Decisions:** [questions.md](specs/016-container-maintenance/questions.md).
+- **Execution:** report after each authorized task and stop for review; no commits without permission.
+- Spec 015 is being worked on separately in branch 41. Do not modify that checkout.
 
-### Scope template for the next specification
-
-- **Specification:** not selected; directory format: `specs/<number>-<name>/`.
-- **Branch:** not selected; follow the Git Branches rules below.
-- **Status:** not started; use the specification's actual status once selected.
-- **Goal and acceptance criteria:** record in `spec.md`.
-- **Included scope:** record the agreed services, APIs, clients and deliverables.
-- **Excluded scope:** record explicit exclusions and agreed limitations.
-- **Authorized work:** record whether the user authorized preparation, specific
-  tasks or continued implementation. Approval of requirements alone does not
-  authorize implementation.
-- **Execution mode:** after each task, report evidence and stop for review unless
-  the user explicitly authorizes continued work.
-- **Questions and decisions:** record in `questions.md`, with affected tasks,
-  evidence, options, recommendation and any blocked scope.
-
-Replace these placeholders only with information established by the user or
-verified in the repository. Do not create a specification or branch merely to
-fill in the template. Once the selected specification is complete, clear its
-active scope here and keep its history in its own directory.
+When complete, clear this active scope and retain the history in its own directory.
+Do not select further work automatically.
 
 ### Before each authorized development step
 

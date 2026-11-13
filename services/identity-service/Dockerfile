@@ -1,4 +1,4 @@
-FROM eclipse-temurin:25-jdk AS build
+FROM eclipse-temurin:25.0.5_8-jdk AS build
 
 WORKDIR /workspace
 COPY .mvn .mvn
@@ -19,9 +19,10 @@ RUN bash ./mvnw --batch-mode --no-transfer-progress -pl services/identity-servic
 COPY services/identity-service services/identity-service
 RUN bash ./mvnw --batch-mode --no-transfer-progress -pl services/identity-service -am package -DskipTests
 
-FROM eclipse-temurin:25-jre
+FROM eclipse-temurin:25.0.5_8-jre
 
 WORKDIR /app
 COPY --from=build /workspace/services/identity-service/target/identity-service-*.jar app.jar
 EXPOSE 8080
+USER 10001
 ENTRYPOINT ["java", "-jar", "/app/app.jar"]
