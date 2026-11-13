@@ -1,6 +1,7 @@
 package io.github.returnaction.fitness.accounts.shared.web;
 
 import io.github.returnaction.fitness.accounts.profile.exception.ProfileUnavailableException;
+import io.github.returnaction.fitness.accounts.profile.exception.ProfileValidationException;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
@@ -83,6 +84,14 @@ public class ApiExceptionHandler {
             exception.getClass().getName());
         return response(HttpStatus.INTERNAL_SERVER_ERROR, "internal_error", "Unexpected server error.", List.of(),
             request);
+    }
+
+    @ExceptionHandler(ProfileValidationException.class)
+    ResponseEntity<ApiErrorResponse> handleProfileValidation(ProfileValidationException exception,
+                                                             HttpServletRequest request) {
+
+        return response(HttpStatus.UNPROCESSABLE_CONTENT, "validation_error", "Check the submitted data.",
+            exception.getDetails(), request);
     }
 
     @ExceptionHandler(ProfileUnavailableException.class)

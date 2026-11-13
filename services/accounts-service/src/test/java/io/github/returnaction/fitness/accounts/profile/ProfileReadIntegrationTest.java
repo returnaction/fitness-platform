@@ -1,6 +1,8 @@
 package io.github.returnaction.fitness.accounts.profile;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import org.springframework.dao.DataIntegrityViolationException;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -136,6 +138,25 @@ class ProfileReadIntegrationTest {
         Long count = jdbc.queryForObject("SELECT count(*) FROM user_profiles", Long.class);
         assertUnavailable(UUID.randomUUID());
         assertThat(jdbc.queryForObject("SELECT count(*) FROM user_profiles", Long.class)).isEqualTo(count);
+    }
+
+    @Test
+    @Order(4)
+    void unicodeLengthsAgreeWithActualPostgresVarcharColumns() {
+        UUID id = createProfile();
+        String name = "𐐀".repeat(100);
+        String bio = "😀".repeat(500);
+        jdbc.update("UPDATE user_profiles SET first_name=?, last_name=?, bio=? WHERE user_id=?", name, name, bio, id);
+        assertThat(jdbc.queryForObject("SELECT char_length(first_name) FROM user_profiles WHERE user_id=?",
+                Integer.class, id)).isEqualTo(100);
+        assertThat(jdbc.queryForObject("SELECT bio FROM user_profiles WHERE user_id=?", String.class, id))
+                .isEqualTo(bio);
+        assertThatThrownBy(() -> jdbc.update("UPDATE user_profiles SET first_name=? WHERE user_id=?", name + "a", id))
+                .isInstanceOf(DataIntegrityViolationException.class);
+        assertThatThrownBy(() -> jdbc.update("UPDATE user_profiles SET last_name=? WHERE user_id=?", name + "a", id))
+                .isInstanceOf(DataIntegrityViolationException.class);
+        assertThatThrownBy(() -> jdbc.update("UPDATE user_profiles SET bio=? WHERE user_id=?", bio + "a", id))
+                .isInstanceOf(DataIntegrityViolationException.class);
     }
 
     @Test

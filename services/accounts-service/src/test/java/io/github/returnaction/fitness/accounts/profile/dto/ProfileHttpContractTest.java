@@ -15,6 +15,9 @@ import io.github.returnaction.fitness.accounts.profile.entity.ProfileVisibility;
 import io.github.returnaction.fitness.accounts.profile.grpc.SecureGrpcServer;
 import io.github.returnaction.fitness.accounts.profile.service.ProfileCreationService;
 import java.time.LocalDate;
+import io.github.returnaction.fitness.accounts.profile.helpers.ProfileUpdateNormalizer;
+import io.github.returnaction.fitness.accounts.profile.helpers.ProfileUpdateValidator;
+import static org.mockito.Mockito.verifyNoInteractions;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -24,6 +27,7 @@ import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -226,6 +230,69 @@ class ProfileHttpContractTest {
                 .andExpect(jsonPath("$.error.code").value("unsupported_media_type"));
     }
 
+    @Test
+    void businessFailuresReturn422WithAllFieldsAndNoPrivateValues() throws Exception {
+        var values = fields();
+        values.put("nickname", "null");
+        values.put("firstName", "\"private-name-123\"");
+        values.put("lastName", "\"---\"");
+        values.put("bio", mapper.writeValueAsString("private-bio" + (char) 0));
+        values.put("dateOfBirth", "\"1800-01-01\"");
+        values.put("timezone", "\"Mars/Base\"");
+        values.put("visibility", "null");
+        values.put("version", "0");
+        var result = mvc.perform(
+                put(PATH).header("X-Request-Id", ID).contentType(MediaType.APPLICATION_JSON).content(json(values)))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(header().string("X-Request-Id", ID))
+                .andExpect(header().string("Cache-Control", "no-store"))
+                .andExpect(jsonPath("$.error.code").value("validation_error"))
+                .andExpect(jsonPath("$.error.requestId").value(ID))
+                .andExpect(jsonPath("$.error.details.length()").value(8))
+                .andReturn();
+        var details = mapper.readTree(result.getResponse().getContentAsString()).get("error").get("details");
+        var actual = new LinkedHashMap<String, String>();
+        for (var detail : details) {
+            assertThat(detail.propertyNames()).containsExactlyInAnyOrder("field", "code");
+            actual.put(detail.get("field").asString(), detail.get("code").asString());
+        }
+        assertThat(actual).containsExactlyInAnyOrderEntriesOf(Map.of("nickname", "required", "firstName",
+                "invalid_format", "lastName", "invalid_format", "bio", "invalid_format", "dateOfBirth", "out_of_range",
+                "timezone", "invalid_value", "visibility", "required", "version", "out_of_range"));
+        assertThat(result.getResponse().getContentAsString()).doesNotContain("private-name", "private-bio", "Mars/Base",
+                "Exception");
+        verifyNoInteractions(profileService, creationService);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"nickname", "firstName", "lastName", "bio", "timezone"})
+    void escapedNullCharacterIs422Not400(String field) throws Exception {
+        mvc.perform(put(PATH).contentType(MediaType.APPLICATION_JSON)
+                .content(with(field, mapper.writeValueAsString("private" + (char) 0))))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.error.details[0].field").value(field))
+                .andExpect(jsonPath("$.error.details[0].code").value("invalid_format"))
+                .andExpect(result -> jsonPath("$.error.requestId").value(result.getResponse().getHeader("X-Request-Id"))
+                        .match(result));
+        verifyNoInteractions(profileService, creationService);
+    }
+
+    @Test
+    void normalizesBeforeValidationInHttpAdapter() throws Exception {
+        var values = fields();
+        values.put("nickname", mapper.writeValueAsString("  " + "a".repeat(30) + "  "));
+        values.put("firstName", mapper.writeValueAsString("  " + "𐐀".repeat(100) + "  "));
+        values.put("lastName", "\"   \"");
+        values.put("bio", mapper.writeValueAsString("  " + "😀".repeat(500) + "  "));
+        mvc.perform(put(PATH).contentType(MediaType.APPLICATION_JSON).content(json(values)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.nickname").value("a".repeat(30)))
+                .andExpect(jsonPath("$.firstName").value("𐐀".repeat(100)))
+                .andExpect(jsonPath("$.lastName").value((Object) null))
+                .andExpect(jsonPath("$.bio").value("😀".repeat(500)));
+        verifyNoInteractions(profileService, creationService);
+    }
+
     @TestConfiguration
     static class ContractEndpoints {
 
@@ -239,8 +306,8 @@ class ProfileHttpContractTest {
         }
 
         @Bean
-        ContractController contractController() {
-            return new ContractController();
+        ContractController contractController(ProfileUpdateNormalizer normalizer, ProfileUpdateValidator validator) {
+            return new ContractController(normalizer, validator);
         }
     }
 
@@ -250,8 +317,18 @@ class ProfileHttpContractTest {
     @Profile("profile-contract-test")
     static class ContractController {
 
+        private final ProfileUpdateNormalizer normalizer;
+        private final ProfileUpdateValidator validator;
+
+        ContractController(ProfileUpdateNormalizer normalizer, ProfileUpdateValidator validator) {
+            this.normalizer = normalizer;
+            this.validator = validator;
+        }
+
         @PutMapping(value = PATH, consumes = "application/json", produces = "application/json")
         ProfileResponse putProfile(@RequestBody UpdateProfileRequest request) {
+            request = normalizer.normalize(request);
+            validator.validate(request);
             return new ProfileResponse(request.nickname(), request.firstName(), request.lastName(), request.bio(),
                     request.dateOfBirth(), request.timezone(), request.visibility(), request.version());
         }

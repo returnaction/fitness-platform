@@ -13,7 +13,7 @@ management того же listener с других компьютеров, не �
 Общие JSON-настройки находятся в `src/main/resources/application.yaml`, запреты
 преобразования числа/boolean в строку и пустых строк в число/enum — в
 `JacksonConfiguration`. Все восемь полей PUT должны присутствовать; явный null
-сохраняется для проверки правил значений будущим ProfileUpdateValidator (T006).
+сохраняется для проверки правил значений ProfileUpdateValidator (T006).
 Значения строк на этапе разбора не нормализуются.
 
 `ProfileDateDeserializer` принимает только строку YYYY-MM-DD с существующей
@@ -27,7 +27,7 @@ Jackson 3 допускает также массивы и другие пред�
 Security. Ошибки MVC и отказы Security используют ApiExceptionHandler;
 SecurityExceptionHandler передаёт исключения в HandlerExceptionResolver.
 
-GET реализован в ProfileController; PUT и сохранение профиля ожидают T006–T007.
+GET реализован в ProfileController; PUT и сохранение профиля ожидают T007.
 ProfileHttpContractTest использует тестовый PUT-контроллер, mock ProfileService
 для GET и тестовую цепочку Security, разрешённую только в его контексте.
 Проверки преобразования JSON и HTTP не доказывают сохранение профиля в БД.
@@ -70,3 +70,25 @@ ProfileReadIntegrationTest проверяет настоящий GET через 
 с отдельным PostgreSQL Testcontainers: поля, null, выбор владельца, отсутствие
 записей при чтении, отсутствующий профиль и остановку тестовой БД. Пользовательская
 БД для этих проверок не используется. Сквозная проверка через Gateway остаётся T009.
+
+
+## Нормализация и валидация — Spec 014 T006
+
+ProfileUpdateNormalizer применяет strip к nickname, firstName, lastName и bio;
+пустые необязательные строки становятся null. Остальные поля и внутренние
+пробелы сохраняются. Затем ProfileUpdateValidator проверяет все восемь полей
+без обращения к БД и собирает ошибки field/code в ProfileValidationException.
+ApiExceptionHandler возвращает их как 422 validation_error, не раскрывая значения.
+
+Длина строк считается в Unicode-кодовых точках, согласованно с VARCHAR PostgreSQL.
+Имена допускают буквы разных языков, связанные с ними знаки, пробелы, дефис и
+апострофы; хотя бы одна буква обязательна. U+0000 запрещён во всех текстовых полях.
+Дата рождения проверяется относительно UTC через внедрённый Clock; границы
+сегодня и сегодня минус 150 лет включены. ClockConfiguration задаёт Clock.systemUTC.
+Timezone должен входить в ZoneId.getAvailableZoneIds(); произвольные смещения
+и строки с пробелами по краям не нормализуются в допустимую зону.
+
+Unit-тесты используют фиксированные часы. ProfileHttpContractTest вызывает
+настоящие нормализатор и валидатор из тестового PUT-контроллера, проверяя 400/422,
+агрегацию ошибок, requestId/no-store и отсутствие вызовов сервиса сохранения.
+Это подготовка к T007: production PUT и транзакционная запись ещё не реализованы.

@@ -22,8 +22,6 @@ public class ProfileController {
     @GetMapping
     public ResponseEntity<ProfileResponse> getOwnProfile(@AuthenticationPrincipal UUID userId) {
 
-        return ResponseEntity.ok()
-            .cacheControl(CacheControl.noStore())
-            .body(profileService.getOwnProfile(userId));
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(profileService.getOwnProfile(userId));
     }
 }
