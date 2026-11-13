@@ -1,14 +1,5 @@
 package io.github.returnaction.fitness.accounts.bootstrap;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.util.UUID;
 import liquibase.Contexts;
 import liquibase.LabelExpression;
 import liquibase.Liquibase;
@@ -21,6 +12,16 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.UUID;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
 @Testcontainers(disabledWithoutDocker = true)
 class AccountsSchemaMigrationIntegrationTest {
 
@@ -32,7 +33,7 @@ class AccountsSchemaMigrationIntegrationTest {
         applyMigrations();
 
         try (Connection connection = DriverManager.getConnection(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(),
-                POSTGRES.getPassword())) {
+            POSTGRES.getPassword())) {
             assertThat(changeSetCount(connection)).isEqualTo(1);
             assertThat(applicationTableCount(connection)).isEqualTo(1);
         }
@@ -43,19 +44,20 @@ class AccountsSchemaMigrationIntegrationTest {
         applyMigrations();
 
         try (Connection connection = DriverManager.getConnection(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(),
-                POSTGRES.getPassword())) {
+            POSTGRES.getPassword())) {
             assertThatThrownBy(() -> insertProfile(connection, "AnotherNick", "INVALID"))
-                    .isInstanceOf(SQLException.class);
+                .isInstanceOf(SQLException.class);
         }
     }
 
     private void applyMigrations() throws Exception {
-        try (Connection connection = DriverManager.getConnection(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(),
-                POSTGRES.getPassword())) {
+        try (Connection connection = DriverManager.getConnection(POSTGRES.getJdbcUrl(),
+            POSTGRES.getUsername(),
+            POSTGRES.getPassword())) {
             Database database = DatabaseFactory.getInstance()
-                    .findCorrectDatabaseImplementation(new JdbcConnection(connection));
+                .findCorrectDatabaseImplementation(new JdbcConnection(connection));
             try (Liquibase liquibase = new Liquibase("db/changelog/db.changelog-master.yaml",
-                    new ClassLoaderResourceAccessor(), database)) {
+                new ClassLoaderResourceAccessor(), database)) {
                 liquibase.update(new Contexts(), new LabelExpression());
             }
         }
@@ -63,7 +65,7 @@ class AccountsSchemaMigrationIntegrationTest {
 
     private int changeSetCount(Connection connection) throws SQLException {
         try (PreparedStatement statement = connection.prepareStatement("SELECT count(*) FROM databasechangelog");
-                ResultSet result = statement.executeQuery()) {
+             ResultSet result = statement.executeQuery()) {
             result.next();
             return result.getInt(1);
         }
@@ -71,8 +73,8 @@ class AccountsSchemaMigrationIntegrationTest {
 
     private int applicationTableCount(Connection connection) throws SQLException {
         try (PreparedStatement statement = connection.prepareStatement("SELECT count(*) FROM information_schema.tables "
-                + "WHERE table_schema = 'public' AND table_name NOT LIKE 'databasechangelog%'");
-                ResultSet result = statement.executeQuery()) {
+            + "WHERE table_schema = 'public' AND table_name NOT LIKE 'databasechangelog%'");
+             ResultSet result = statement.executeQuery()) {
             result.next();
             return result.getInt(1);
         }
@@ -80,9 +82,9 @@ class AccountsSchemaMigrationIntegrationTest {
 
     private void insertProfile(Connection connection, String nickname, String visibility) throws SQLException {
         try (PreparedStatement statement = connection.prepareStatement("""
-                INSERT INTO user_profiles (user_id, public_profile_id, nickname, visibility)
-                VALUES (?, ?, ?, ?)
-                """)) {
+            INSERT INTO user_profiles (user_id, public_profile_id, nickname, visibility)
+            VALUES (?, ?, ?, ?)
+            """)) {
             statement.setObject(1, UUID.randomUUID());
             statement.setObject(2, UUID.randomUUID());
             statement.setString(3, nickname);
