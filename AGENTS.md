@@ -6,14 +6,33 @@ instructions in nested directories supplement the root instructions.
 
 ## SDD Scope and Workflow
 
-No specification is currently active. Spec 016 is complete; its requirements,
-plan and verification remain in [specs/016-container-maintenance](specs/016-container-maintenance/spec.md)
-as historical records. They do not authorize new work. Wait for the user to
-select the next specification and record its branch, status, scope, authorized
-tasks, execution mode and decisions here. Do not choose further work automatically.
-After each authorized task, report evidence and stop for review unless the user
-explicitly authorizes continued work. Spec 015 is being worked on separately;
-do not modify the other checkout.
+No specification is currently active. Completed specifications remain in `specs/`
+as historical requirements and verification records; they do not authorize new work.
+When the user selects the next specification, fill in the scope template below.
+Do not choose a feature or a system-design roadmap item on the user's behalf.
+
+### Scope template for the next specification
+
+- **Specification:** not selected; directory format: `specs/<number>-<name>/`.
+- **Branch:** not selected; follow the Git Branches rules below.
+- **Status:** not started; use the specification's actual status once selected.
+- **Goal and acceptance criteria:** record in `spec.md`.
+- **Included scope:** record the agreed services, APIs, clients and deliverables.
+- **Excluded scope:** record explicit exclusions and agreed limitations.
+- **Plan and tasks:** link to `plan.md` and `tasks.md` in the selected directory.
+- **Verification:** record required checks and evidence in `verification.md`.
+- **Authorized work:** record whether the user authorized preparation, specific
+  tasks or continued implementation. Approval of requirements alone does not
+  authorize implementation.
+- **Execution mode:** after each task, report evidence and stop for review unless
+  the user explicitly authorizes continued work.
+- **Questions and decisions:** record in `questions.md`, with affected tasks,
+  evidence, options, recommendation and any blocked scope.
+
+Replace these placeholders only with information established by the user or
+verified in the repository. Do not create a specification or branch merely to
+fill in the template. Once the selected specification is complete, clear its
+active scope here and keep its history in its own directory.
 
 ### Before each authorized development step
 
@@ -120,19 +139,3 @@ authorizations, fields, examples, errors, versions, idempotency, transactions,
 and failure handling. Update related documents when a contract changes.
 Check `.drawio` diagrams structurally; claim visual verification only when it
 has actually been performed.
-
-## Verification and Communication
-
-Test business rules and key errors, permissions, retries, and races. For
-important database operations, use PostgreSQL integration tests; verify
-migrations, contracts, and messaging with suitable integration tests. Run the
-project's existing build, static analysis, and tests as relevant to the task.
-Automatic formatting is disabled at the user's request; preserve manual code
-layout and do not reintroduce or run a formatter without an explicit request. When changing documentation only, check links and consistency; do
-not automatically run a build without a reason. Do not describe unverified
-work as working.
-
-Explain things to the user in Russian and in plain language. Do not repeat
-already made decisions as questions; propose solutions for technical details.
-Confirm material changes to business rules. In the result, state what changed,
-what was verified, and what limitations remain.

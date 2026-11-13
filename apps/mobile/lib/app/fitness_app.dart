@@ -1,17 +1,33 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../features/auth/account_screen.dart';
+import '../features/app_shell/app_shell_screen.dart';
 import '../features/auth/auth_controller.dart';
 import '../features/auth/auth_form_screen.dart';
 import '../features/auth/welcome_screen.dart';
 
-class FitnessApp extends ConsumerWidget {
+class FitnessApp extends ConsumerStatefulWidget {
   const FitnessApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<FitnessApp> createState() => _FitnessAppState();
+}
+
+class _FitnessAppState extends ConsumerState<FitnessApp> {
+  final _navigatorKey = GlobalKey<NavigatorState>();
+
+  @override
+  Widget build(BuildContext context) {
+    ref.listen(authControllerProvider, (previous, next) {
+      if (previous?.asData?.value == AuthStatus.authenticated &&
+          next.asData?.value != AuthStatus.authenticated) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _navigatorKey.currentState?.popUntil((route) => route.isFirst);
+        });
+      }
+    });
     return MaterialApp(
+      navigatorKey: _navigatorKey,
       title: 'Fitness App',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.indigo),
@@ -41,7 +57,7 @@ class AuthGate extends ConsumerWidget {
       AsyncError() => _RestoreFailure(
         onRetry: () => ref.read(authControllerProvider.notifier).restore(),
       ),
-      AsyncData(value: AuthStatus.authenticated) => const AccountScreen(),
+      AsyncData(value: AuthStatus.authenticated) => const AppShellScreen(),
       AsyncData(value: AuthStatus.temporarilyUnavailable) =>
         _TemporaryUnavailableScreen(
           onRetry: () => ref.read(authControllerProvider.notifier).restore(),

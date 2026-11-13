@@ -51,9 +51,9 @@ void main() {
   Future<void> openLogoutAll(WidgetTester tester) async {
     await tester.tap(find.byTooltip('Sign out'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Log out from all devices'));
+    await tester.tap(find.text('Sign out from all devices'));
     await tester.pumpAndSettle();
-    expect(find.text('Log out from all devices?'), findsOneWidget);
+    expect(find.text('Sign out from all devices?'), findsOneWidget);
   }
 
   testWidgets(
@@ -71,7 +71,7 @@ void main() {
       expect(store.value, isNotNull);
       await openLogoutAll(tester);
       await tester.tap(
-        find.widgetWithText(FilledButton, 'Log out from all devices'),
+        find.widgetWithText(FilledButton, 'Sign out from all devices'),
       );
       await tester.pumpAndSettle();
       expect(api.logoutCalls, 1);
@@ -147,7 +147,7 @@ void main() {
     store.failDelete = true;
     await tester.tap(find.byTooltip('Sign out'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Log out'));
+    await tester.tap(find.text('Sign out from this device'));
     await tester.pumpAndSettle();
     expect(find.text('Secure storage is unavailable.'), findsOneWidget);
     expect(find.text('Local sign out could not be confirmed.'), findsOneWidget);
@@ -172,7 +172,7 @@ void main() {
     await openApp(tester, api, store);
     await openLogoutAll(tester);
     await tester.tap(
-      find.widgetWithText(FilledButton, 'Log out from all devices'),
+      find.widgetWithText(FilledButton, 'Sign out from all devices'),
     );
     await tester.pumpAndSettle();
     expect(store.value, isNull);
