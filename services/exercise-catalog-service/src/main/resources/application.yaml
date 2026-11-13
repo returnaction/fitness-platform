@@ -5,6 +5,17 @@ spring:
     default: local
   autoconfigure:
     exclude: org.springframework.boot.security.autoconfigure.UserDetailsServiceAutoConfiguration
+  datasource:
+    url: ${DATABASE_URL}
+    username: ${DATABASE_USERNAME}
+    password: ${DATABASE_PASSWORD}
+    hikari:
+      data-source-properties:
+        logServerErrorDetail: false
+      minimum-idle: ${DATABASE_POOL_MIN_IDLE:2}
+      maximum-pool-size: ${DATABASE_POOL_MAX_SIZE:10}
+  liquibase:
+    change-log: classpath:db/changelog/db.changelog-master.yaml
 server:
   port: ${SERVER_PORT}
 management:
