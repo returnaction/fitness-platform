@@ -4,6 +4,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../core/network/identity_api_client.dart';
 import '../../core/security/token_storage.dart';
+import '../profile/profile_store.dart';
 import 'auth_repository.dart';
 import 'session_operation_coordinator.dart';
 
@@ -22,6 +23,8 @@ final authRepositoryProvider = Provider<AuthRepository>(
     ref.watch(identityApiClientProvider),
     ref.watch(tokenStorageProvider),
     ref.watch(sessionOperationCoordinatorProvider),
+    invalidateSessionData: ref.watch(profileStoreProvider).invalidate,
+    clearSessionData: ref.watch(profileStoreProvider).clear,
   ),
 );
 

@@ -53,6 +53,35 @@ class IdentityApiClient implements AuthApiClient {
     }
   }
 
+  Future<Map<String, dynamic>> get(
+    String path, {required Map<String, String> headers}
+  ) => _request('GET', path, headers: headers);
+
+  Future<Map<String, dynamic>> put(
+    String path, {required Object data, required Map<String, String> headers}
+  ) => _request('PUT', path, data: data, headers: headers);
+
+  Future<Map<String, dynamic>> _request(
+    String method, String path, {
+    Object? data,
+    required Map<String, String> headers,
+  }) async {
+    try {
+      final response = await _dio.request<dynamic>(
+        path,
+        data: data,
+        options: Options(
+          method: method,
+          headers: headers,
+          contentType: method == 'PUT' ? 'application/json' : null,
+        ),
+      );
+      return _asMap(response.data);
+    } on DioException catch (error) {
+      throw _toException(error);
+    }
+  }
+
   @override
   Future<void> postWithoutResponse(
     String path, {
@@ -72,7 +101,7 @@ class IdentityApiClient implements AuthApiClient {
 
   static Map<String, dynamic> _asMap(dynamic value) {
     if (value is! Map) {
-      throw const FormatException('Identity response must be an object.');
+      throw const FormatException('API response must be an object.');
     }
     return Map<String, dynamic>.from(value);
   }
@@ -93,6 +122,15 @@ class IdentityApiClient implements AuthApiClient {
       statusCode: response.statusCode,
       code: code is String ? code : null,
       message: message is String ? message : 'Request could not be completed.',
+      details: List.unmodifiable([
+        if (values?['details'] case final List details)
+          for (final detail in details)
+            if (detail case {'field': final String field, 'code': final String code})
+              ApiFieldError(field: field, code: code),
+      ]),
+      requestId: values?['requestId'] is String
+          ? values!['requestId'] as String
+          : response.headers.value('X-Request-Id'),
       retryAfterSeconds: _retryAfterSeconds(
         response.headers.value('Retry-After'),
       ),

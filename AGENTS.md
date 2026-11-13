@@ -6,14 +6,32 @@ instructions in nested directories supplement the root instructions.
 
 ## SDD Scope and Workflow
 
-No specification is currently active. Spec 016 is complete; its requirements,
-plan and verification remain in [specs/016-container-maintenance](specs/016-container-maintenance/spec.md)
-as historical records. They do not authorize new work. Wait for the user to
-select the next specification and record its branch, status, scope, authorized
-tasks, execution mode and decisions here. Do not choose further work automatically.
-After each authorized task, report evidence and stop for review unless the user
-explicitly authorizes continued work. Spec 015 is being worked on separately;
-do not modify the other checkout.
+- **Branch:** `41-mobile-profile`, created from current main; use the current
+  checkout without creating a worktree, as requested by the user.
+- **Status:** in-progress — set at the user's request on 2026-11-13. This status
+  change alone does not authorize implementation; wait for an explicit start command.
+- **Topic:** mobile frontend for viewing and updating the user's own profile,
+  using the existing Accounts GET/PUT endpoints from Spec 014.
+- **Authorized work:** specification preparation only; agreed behavior is recorded
+  in spec.md. Implementation requires an explicit start command. Scope is mobile
+  frontend only. If backend/API changes appear necessary, tell the user why and
+  discuss them before making any such changes; keep dependent tasks open.
+- **Goal, scope and acceptance criteria:** recorded in [spec.md](specs/015-mobile-profile/spec.md).
+- **Plan and tasks:** [plan.md](specs/015-mobile-profile/plan.md) and
+  [tasks.md](specs/015-mobile-profile/tasks.md); implementation tasks are defined but not authorized.
+- **Device verification:** a connected physical phone is required; record actual
+  evidence in [verification.md](specs/015-mobile-profile/verification.md). Do not
+  close this requirement based only on APK installation or automated tests.
+- **Execution mode:** after each authorized task, report evidence and stop for
+  review unless the user explicitly authorizes continued work.
+- **Questions and decisions:** record agreed preparation results in
+  [questions.md](specs/015-mobile-profile/questions.md), with affected tasks,
+  evidence, options, recommendation and any blocked scope when applicable.
+- Spec 014 is complete in its agreed server scope. Its records are historical;
+  its authorizations do not carry over to Spec 015.
+
+When this specification is complete, clear its active scope here and keep its
+history in its own directory. Do not select the next feature automatically.
 
 ### Before each authorized development step
 
