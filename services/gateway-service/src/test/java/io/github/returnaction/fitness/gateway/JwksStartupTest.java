@@ -186,7 +186,7 @@ class JwksStartupTest {
                 int management = context.getEnvironment().getRequiredProperty("local.management.port", Integer.class);
                 var blocked = get(client, api, "/api/v1/auth/login");
                 assertThat(blocked.statusCode()).isEqualTo(503);
-                assertThat(blocked.body()).contains("identity_unavailable", "request_id");
+                assertThat(blocked.body()).contains("identity_unavailable", "requestId");
                 assertThat(get(client, api, "/actuator/health/liveness").statusCode()).isEqualTo(503);
                 assertThat(get(client, management, "/actuator/health/liveness").statusCode()).isEqualTo(200);
                 assertThat(get(client, management, "/actuator/health/readiness").statusCode()).isEqualTo(503);

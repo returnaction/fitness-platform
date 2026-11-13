@@ -82,7 +82,7 @@ class GatewayErrorsTest {
                         .build();
                 var response = client.send(request, HttpResponse.BodyHandlers.ofString());
                 assertThat(response.statusCode()).isEqualTo(status);
-                assertThat(response.body()).contains("request_id").doesNotContain("private-token");
+                assertThat(response.body()).contains("requestId").doesNotContain("private-token");
                 if (status == 405) {
                     assertThat(response.headers().firstValue("Allow")).contains("GET");
                 }
@@ -155,7 +155,7 @@ class GatewayErrorsTest {
             String id = response.headers().firstValue("X-Request-Id").orElseThrow();
             assertThat(UUID.fromString(id)).isNotNull();
             var error = mapper.readTree(response.body()).get("error");
-            assertThat(error.get("request_id").asString()).isEqualTo(id);
+            assertThat(error.get("requestId").asString()).isEqualTo(id);
             assertThat(error.get("code").asString()).isEqualTo("invalid_access_token");
             assertThat(error.get("details").isArray()).isTrue();
             assertThat(response.headers().firstValue("WWW-Authenticate")).contains("Bearer");
@@ -171,7 +171,7 @@ class GatewayErrorsTest {
         String id = UUID.randomUUID().toString();
         writer.write(response, 400, GatewayErrorCode.INVALID_REQUEST, id);
         assertThat(response.getHeader("Content-Encoding")).isNull();
-        assertThat(mapper.readTree(response.getContentAsByteArray()).get("error").get("request_id").asString())
+        assertThat(mapper.readTree(response.getContentAsByteArray()).get("error").get("requestId").asString())
                 .isEqualTo(id);
         byte[] before = response.getContentAsByteArray();
         response.flushBuffer();

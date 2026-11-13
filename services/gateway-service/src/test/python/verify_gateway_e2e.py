@@ -52,7 +52,7 @@ def request(port, path, body=None, bearer=None, key=None, method="POST"):
             identifier = response.headers.get("X-Request-Id")
             require(str(uuid.UUID(identifier)) == identifier, "Gateway must generate a UUID")
             if "error" in value:
-                require(value["error"]["request_id"] == identifier, "HTTP/JSON request IDs differ")
+                require(value["error"]["requestId"] == identifier, "HTTP/JSON request IDs differ")
         collect_tokens(value)
         return response.status, value
 
@@ -60,7 +60,7 @@ def request(port, path, body=None, bearer=None, key=None, method="POST"):
 def collect_tokens(value):
     if isinstance(value, dict):
         for key, item in value.items():
-            if key in ("access_token", "refresh_token") and isinstance(item, str):
+            if key in ("accessToken", "refreshToken") and isinstance(item, str):
                 SECRETS.add(item)
             else:
                 collect_tokens(item)
@@ -203,35 +203,35 @@ def main():
                 return value
 
             active = login()
-            expired = expired_token(active["access_token"], directory)
+            expired = expired_token(active["accessToken"], directory)
             SECRETS.add(expired)
             require(request(port, "/api/v1/auth/logout-all", bearer=expired)[0] == 401, "Expired JWT was accepted")
-            for bearer in (None, active["access_token"], expired, "malformed"):
+            for bearer in (None, active["accessToken"], expired, "malformed"):
                 require(request(port, "/api/v1/auth/register", credentials, bearer, key)[0] == 201, "Public register rejected bearer")
                 require(request(port, "/api/v1/auth/login", credentials, bearer)[0] == 200, "Public login rejected bearer")
                 session = login()
-                status, rotated = request(port, "/api/v1/auth/refresh", {"refresh_token": session["refresh_token"]}, bearer)
+                status, rotated = request(port, "/api/v1/auth/refresh", {"refreshToken": session["refreshToken"]}, bearer)
                 require(status == 200, "Public refresh rejected bearer")
-                require(request(port, "/api/v1/auth/logout", {"refresh_token": rotated["refresh_token"]}, bearer)[0] == 204,
+                require(request(port, "/api/v1/auth/logout", {"refreshToken": rotated["refreshToken"]}, bearer)[0] == 204,
                         "Public logout rejected bearer")
-                require(request(port, "/api/v1/auth/logout-all", bearer=rotated["access_token"])[0] == 401,
+                require(request(port, "/api/v1/auth/logout-all", bearer=rotated["accessToken"])[0] == 401,
                         "Revoked session passed CheckSession")
             print("OK: all public operations bypass absent/valid/expired/malformed bearer; logout revokes session", flush=True)
 
             session = login()
-            _, rotated = request(port, "/api/v1/auth/refresh", {"refresh_token": session["refresh_token"]})
-            require(request(port, "/api/v1/auth/refresh", {"refresh_token": session["refresh_token"]})[0] == 401, "Refresh replay accepted")
-            require(request(port, "/api/v1/auth/logout-all", bearer=rotated["access_token"])[0] == 401, "Replay did not revoke session")
+            _, rotated = request(port, "/api/v1/auth/refresh", {"refreshToken": session["refreshToken"]})
+            require(request(port, "/api/v1/auth/refresh", {"refreshToken": session["refreshToken"]})[0] == 401, "Refresh replay accepted")
+            require(request(port, "/api/v1/auth/logout-all", bearer=rotated["accessToken"])[0] == 401, "Replay did not revoke session")
             session, second = login(), login()
             require(request(port, "/api/v1/auth/logout-all")[0] == 401, "Unprotected logout-all")
-            require(request(port, "/api/v1/auth/logout-all", bearer=session["access_token"])[0] == 204, "Valid logout-all failed")
-            require(request(port, "/api/v1/auth/logout-all", bearer=second["access_token"])[0] == 401, "logout-all left session active")
-            require(request(port, "/api/v1/auth/refresh", {"refresh_token": second["refresh_token"]})[0] == 401, "logout-all left refresh active")
+            require(request(port, "/api/v1/auth/logout-all", bearer=session["accessToken"])[0] == 204, "Valid logout-all failed")
+            require(request(port, "/api/v1/auth/logout-all", bearer=second["accessToken"])[0] == 401, "logout-all left session active")
+            require(request(port, "/api/v1/auth/refresh", {"refreshToken": second["refreshToken"]})[0] == 401, "logout-all left refresh active")
             print("OK: refresh rotation/replay and logout-all revoke real database sessions", flush=True)
 
             old = login()
             stop(identity_process)
-            require(request(port, "/api/v1/auth/logout-all", bearer=old["access_token"])[0] == 503, "Identity outage did not fail closed")
+            require(request(port, "/api/v1/auth/logout-all", bearer=old["accessToken"])[0] == 503, "Identity outage did not fail closed")
             require(request(ports["management"], "/actuator/health/readiness", method="GET")[0] == 200, "Outage cleared cached keys")
             support.openssl("genpkey", "-algorithm", "EC", "-pkeyopt", "ec_paramgen_curve:prime256v1", "-out", directory / "jwt.key")
             support.openssl("pkey", "-in", directory / "jwt.key", "-pubout", "-out", directory / "jwt.pub")
@@ -239,12 +239,12 @@ def main():
             identity_process = support.start("identity-service", identity, directory)
             support.await_health(ports["identity_management"], identity_process)
             new = login()
-            require(request(port, "/api/v1/auth/logout-all", bearer=new["access_token"])[0] == 401, "Gateway unexpectedly refreshed JWKS")
+            require(request(port, "/api/v1/auth/logout-all", bearer=new["accessToken"])[0] == 401, "Gateway unexpectedly refreshed JWKS")
             stop(gateway_process)
             gateway_process = support.start("gateway-service", gateway, directory)
             await_gateway(ports["management"], gateway_process)
-            require(request(port, "/api/v1/auth/logout-all", bearer=old["access_token"])[0] == 401, "Restart retained removed key")
-            require(request(port, "/api/v1/auth/logout-all", bearer=new["access_token"])[0] == 204, "Restart did not load new key")
+            require(request(port, "/api/v1/auth/logout-all", bearer=old["accessToken"])[0] == 401, "Restart retained removed key")
+            require(request(port, "/api/v1/auth/logout-all", bearer=new["accessToken"])[0] == 204, "Restart did not load new key")
             print("OK: Identity outage returns 503; JWKS changes only after Gateway restart", flush=True)
 
             for service in ("gateway", "identity", "accounts", "coins"):

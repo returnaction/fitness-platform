@@ -100,8 +100,8 @@ Accounts использует UUID из sub; владелец не задаёт�
 Пример ответа GET и полной формы PUT:
 
 ```json
-{"nickname":"Player_482731","first_name":null,"last_name":null,
- "date_of_birth":null,"timezone":"UTC","bio":null,"visibility":"PRIVATE",
+{"nickname":"Player_482731","firstName":null,"lastName":null,
+ "dateOfBirth":null,"timezone":"UTC","bio":null,"visibility":"PRIVATE",
  "version":1}
 ```
 
@@ -138,14 +138,14 @@ Idempotency-Key не требуется. Повтор после потерян�
 Для `PRIVATE` пример ответа `200`:
 
 ```json
-{"public_profile_id":"<public-uuid>","nickname":"Player_482731","visibility":"PRIVATE"}
+{"publicProfileId":"<public-uuid>","nickname":"Player_482731","visibility":"PRIVATE"}
 ```
 
 Для `PUBLIC` пример ответа `200`:
 
 ```json
-{"public_profile_id":"<public-uuid>","nickname":"Player_482731","visibility":"PUBLIC",
- "email":"anna@example.com","first_name":"Анна","last_name":"Иванова","bio":null}
+{"publicProfileId":"<public-uuid>","nickname":"Player_482731","visibility":"PUBLIC",
+ "email":"anna@example.com","firstName":"Анна","lastName":"Иванова","bio":null}
 ```
 
 ### DTO ошибок Accounts
@@ -160,14 +160,14 @@ Idempotency-Key не требуется. Повтор после потерян�
     "code": "validation_error",
     "message": "Проверьте введённые данные",
     "details": [{"field": "nickname", "code": "invalid_format"}],
-    "request_id": "<uuid>"
+    "requestId": "<uuid>"
   }
 }
 ```
 
 `code` — стабильный код для логики клиента; `message` — безопасный текст,
 который может меняться; `details` — массив деталей полей (для собственного профиля обязателен, без деталей — []);
-`request_id` — идентификатор для поиска ошибки в логах. Необязательные новые
+`requestId` — идентификатор для поиска ошибки в логах. Необязательные новые
 поля могут добавляться, клиент игнорирует неизвестные поля и коды обрабатывает
 общим сообщением. Пароли, токены, email, SQL и stack trace не включаются.
 
@@ -189,7 +189,7 @@ Idempotency-Key не требуется. Повтор после потерян�
 
 ```json
 {"error":{"code":"nickname_already_taken","message":"Этот никнейм уже занят",
- "details":[],"request_id":"<uuid>"}}
+ "details":[],"requestId":"<uuid>"}}
 ```
 
 Пример для устаревшей версии (`409`):
@@ -197,12 +197,12 @@ Idempotency-Key не требуется. Повтор после потерян�
 ```json
 {"error":{"code":"profile_version_conflict",
  "message":"Профиль изменился. Обновите данные и попробуйте снова",
- "details":[],"request_id":"<uuid>"}}
+ "details":[],"requestId":"<uuid>"}}
 ```
 
 ### Согласованная валидация PUT
 
-Сначала strip() для nickname, first_name, last_name и bio; внутренние пробелы
+Сначала strip() для nickname, firstName, lastName и bio; внутренние пробелы
 сохраняются, пустые необязательные строки становятся null. Затем собираются
 все нарушения значений, без запросов к БД. Правила полей — в Spec 014 и OpenAPI:
 имена допускают буквы разных языков и относящиеся к ним знаки, обычные внутренние

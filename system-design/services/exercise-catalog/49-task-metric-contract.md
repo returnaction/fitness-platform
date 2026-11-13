@@ -10,17 +10,17 @@
 
 ```json
 {
- "schema_version":1,
- "exercise_id":1,"variation_id":1,
- "exercise_name":"Push-up","variation_name":"Narrow grip",
+ "schemaVersion":1,
+ "exerciseId":1,"variationId":1,
+ "exerciseName":"Push-up","variationName":"Narrow grip",
  "description":"Выполнить отжимания узким хватом",
  "instructions":"Поставьте руки ближе ширины плеч и выполните отжимания.",
  "target":{"metric":"REPETITIONS","value":10,"unit":"REP"}
 }
 ```
 
-`schema_version`, ID, названия, описание, инструкция `instructions` и `target`
-обязательны. `exercise_id` и `variation_id` — целые числа `1`–`32767`; текстовые
+`schemaVersion`, ID, названия, описание, инструкция `instructions` и `target`
+обязательны. `exerciseId` и `variationId` — целые числа `1`–`32767`; текстовые
 поля не пустые. `value` для v1 — целое положительное число, не JSON float;
 единица однозначна и зависит от метрики. Снимок содержит только данные,
 нужные для оценки задания, без имени участника, ставки и названия challenge.

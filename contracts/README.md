@@ -27,9 +27,9 @@
 
 ```json
 {
-  "request_id": "da6add51-47f8-4603-a9ce-17e440a8da64",
-  "registration_operation_id": "674970d1-c87d-49c7-938b-cc0d3b044afb",
-  "user_id": "4652f81b-2b27-4e99-8c21-4336c716fc09"
+  "requestId": "da6add51-47f8-4603-a9ce-17e440a8da64",
+  "registrationOperationId": "674970d1-c87d-49c7-938b-cc0d3b044afb",
+  "userId": "4652f81b-2b27-4e99-8c21-4336c716fc09"
 }
 ```
 

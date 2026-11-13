@@ -148,14 +148,14 @@ escrow. Уникальность `challenge_id` / `result_id` и сверка д
 разрешением их обойти.
 
 `GET /api/v1/admin/coins/settlements/{settlement_id}` возвращает `200`
-`{"id":"<uuid>","phase":"BLOCKED","blocked_from_phase":"COLLECTING",
-"last_error_code":"STAKE_SET_MISMATCH","version":3}`; данные доступны только
+`{"id":"<uuid>","phase":"BLOCKED","blockedFromPhase":"COLLECTING",
+"lastErrorCode":"STAKE_SET_MISMATCH","version":3}`; данные доступны только
 при `coins.settlement.recover`, отсутствующий ID — `404 settlement_not_found`.
 Ответ не раскрывает токены и содержимое кошельков. Доступ к деталям отдельной
 сверки определяется её собственным контрактом и полномочиями.
 
 `POST /api/v1/admin/coins/settlements/{settlement_id}/resume` требует то же
-право, `Idempotency-Key` UUID v4 и тело `{"expected_version":3,
+право, `Idempotency-Key` UUID v4 и тело `{"expectedVersion":3,
 "reason":"Исправлена недоступность источника"}`; причина 1–500 символов,
 без секретов. В транзакции Coins по указанному ранее порядку блокируются stake
 set и settlement; проверяются `BLOCKED`, версия и наличие допустимой сохранённой
@@ -186,10 +186,10 @@ PostgreSQL-проверки должны включать одновременн
 топик и key определены в [каталоге](../../architecture/messaging/19-kafka-topology.md).
 
 ```json
-{"event_id":"<uuid>","event_type":"coins.settlement_completed","schema_version":1,
- "occurred_at":"2026-11-05T12:10:00Z","producer":"coins","correlation_id":"<uuid>",
- "data":{"settlement_id":"<uuid>","challenge_id":"<uuid>","result_id":"<uuid>",
- "set_version":1,"rule_version":"equal-pool-v1","completed_at":"2026-11-05T12:10:00Z"}}
+{"eventId":"<uuid>","eventType":"coins.settlement_completed","schemaVersion":1,
+ "occurredAt":"2026-11-05T12:10:00Z","producer":"coins","correlationId":"<uuid>",
+ "data":{"settlementId":"<uuid>","challengeId":"<uuid>","resultId":"<uuid>",
+ "setVersion":1,"ruleVersion":"equal-pool-v1","completedAt":"2026-11-05T12:10:00Z"}}
 ```
 
 Все поля обязательны; UUID, время и версия следуют общей оболочке. Событие
@@ -197,7 +197,7 @@ PostgreSQL-проверки должны включать одновременн
 уведомления об отдельных начислениях. Coins не публикует его при `BLOCKED` или
 частичных выплатах. Challenge проверяет соответствие своему окончательному
 результату и сохраняет inbox вместе с проекцией статуса расчёта. Дубликат с
-тем же событием безопасен; тот же бизнес-ключ с другим `settlement_id`, итогом
+тем же событием безопасен; тот же бизнес-ключ с другим `settlementId`, итогом
 или данными не перезаписывает состояние и направляется на разбор. При отсутствии
 результата событие хранится в ожидании, а не считается применённым.
 

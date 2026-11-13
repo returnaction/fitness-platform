@@ -12,7 +12,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   const old = SessionTokens(accessToken: 'a', refreshToken: 'r');
-  const rotated = {'access_token': 'new-a', 'refresh_token': 'new-r'};
+  const rotated = {'accessToken': 'new-a', 'refreshToken': 'new-r'};
   for (final failed in [false, true]) {
     test(
       'concurrent refreshes never reuse a token after ${failed ? 'failure' : 'rotation'}',
@@ -115,13 +115,13 @@ class _Api implements AuthApiClient {
     Map<String, String>? headers,
   }) async {
     if (path.endsWith('/refresh')) {
-      refreshTokens.add((data as Map)['refresh_token'] as String);
+      refreshTokens.add((data as Map)['refreshToken'] as String);
     }
     if (!started.isCompleted) {
       started.complete();
       return response.future;
     }
-    return {'access_token': 'last-a', 'refresh_token': 'last-r'};
+    return {'accessToken': 'last-a', 'refreshToken': 'last-r'};
   }
 
   @override
@@ -130,7 +130,7 @@ class _Api implements AuthApiClient {
     Object? data,
     Map<String, String>? headers,
   }) async {
-    logoutToken = (data as Map)['refresh_token'] as String;
+    logoutToken = (data as Map)['refreshToken'] as String;
     logoutStarted.complete();
     await logoutResponse.future;
   }

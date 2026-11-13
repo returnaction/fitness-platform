@@ -176,7 +176,7 @@ class RouteValidationTest {
         if (code != null) {
             var error = mapper.readTree(response.body()).get("error");
             assertThat(error.get("code").asString()).isEqualTo(code);
-            assertThat(error.get("request_id").asString()).isEqualTo(id);
+            assertThat(error.get("requestId").asString()).isEqualTo(id);
         }
     }
 }

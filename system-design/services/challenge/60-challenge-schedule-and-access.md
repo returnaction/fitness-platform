@@ -21,19 +21,19 @@
 
 ```json
 {"version":1,"title":"7 days","description":"Push-ups",
- "mode":"HEAD_TO_HEAD","stake_amount":10,"visibility":"PUBLIC",
+ "mode":"HEAD_TO_HEAD","stakeAmount":10,"visibility":"PUBLIC",
  "participants":{"min":2,"max":2},
- "start":{"mode":"WHEN_FULL","scheduled_at":null,
-          "extension":{"max_count":0,"interval_seconds":null}},
- "days":[{"day_number":1,"tasks":[{"position":1,"exercise_id":1,
- "variation_id":1,"target_value":10}]}]}
+ "start":{"mode":"WHEN_FULL","scheduledAt":null,
+          "extension":{"maxCount":0,"intervalSeconds":null}},
+ "days":[{"dayNumber":1,"tasks":[{"position":1,"exerciseId":1,
+ "variationId":1,"targetValue":10}]}]}
 ```
 
 Частичный PATCH меняет только переданные корневые поля; `days` при наличии
 полностью заменяет расписание черновика в одной локальной транзакции. Явный
 `null` очищает только nullable поле; неизвестное поле — `422 validation_error`.
 Отсутствие поля не меняет его. Собственные ID Challenge проверяются как UUID,
-а `exercise_id` и `variation_id` — как числа `1`–`32767`; они не считаются
+а `exerciseId` и `variationId` — как числа `1`–`32767`; они не считаются
 доказательством активности каталога. Полное расписание может состоять из
 нескольких дней; пример показывает только один элемент. При сохранении
 неполного черновика частичные условия допускаются, но при публикации они
@@ -97,7 +97,7 @@ NULL до фактического старта; доступ к видео пр
 
 `GET /api/v1/challenges?min_stake=1&max_stake=100&exercise_id=1&sort=start_at&limit=20&cursor=...`
 — проект поиска; min/max и exercise_id опциональны, sort: `start_at`, `stake`,
-`participants`; limit 1–100, default 20. `200 {"items":[{...}],"next_cursor":null}`.
+`participants`; limit 1–100, default 20. `200 {"items":[{...}],"nextCursor":null}`.
 Каждый sort имеет вторичный стабильный ключ ID; cursor привязан к фильтрам.
 При одинаковом времени/ставке ID определяет порядок. Формат cursor, полная
 схема карточки и поведение NULL scheduled_at ещё необходимо определить до
@@ -125,7 +125,7 @@ NULL до фактического старта; доступ к видео пр
  + canonical-lowercase-challenge-uuid)))` без padding. Ключ не менее 32
 случайных байт из секретного хранилища; `invite_key_id` выбирает версию.
 Авторизованный создатель вызывает `GET /api/v1/challenges/{id}/invitation` и
-получает `200 {"invitation_url":"https://<app-host>/challenge/<uuid>#invite=<token>"}`
+получает `200 {"invitationUrl":"https://<app-host>/challenge/<uuid>#invite=<token>"}`
 с `Cache-Control: no-store`. Ссылка формируется заново, токен не хранится в
 открытом виде. URL чувствителен: не логировать, не включать в аналитику или
 события. Клиент извлекает fragment и отправляет токен через TLS в теле POST;
@@ -141,7 +141,7 @@ challenge в обычном API; редактирование условий о�
 ### Проверка при вступлении
 
 `POST /api/v1/challenges/{id}/joins`, `Idempotency-Key`, для публичного тела
-`{}`, для приватного ровно один вариант: `{"invitation_token":"<token>"}`
+`{}`, для приватного ровно один вариант: `{"invitationToken":"<token>"}`
 или `{"password":"<password>"}`. Оба поля, неизвестные поля или неверная
 форма — `422 validation_error`. Сервер сравнивает HMAC токенов в constant time
 или проверяет Argon2id; неуспех — `403 private_access_denied` с общим текстом.

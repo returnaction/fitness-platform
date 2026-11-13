@@ -17,7 +17,7 @@
 
 Пример: `POST /api/v1/auth/login`, `Content-Type: application/json`,
 `{"email":"test@example.com","password":"<password>"}`. Для logout-all:
-`Authorization: Bearer <access_token>`, без тела. DTO и ответы Identity сохраняются.
+`Authorization: Bearer <accessToken>`, без тела. DTO и ответы Identity сохраняются.
 Query string не поддерживается (400). Неизвестный путь — 404, другой метод
 известного пути — 405 с Allow разрешённых методов (POST для auth; GET, PUT для /accounts/me после T002). Recovery, JWKS, actuator и gRPC наружу
 не маршрутизируются. Management Gateway доступен отдельно на loopback.
@@ -60,7 +60,7 @@ HTTP connect/read timeout 15000 мс: больше 12000 мс ожидания �
 
 HTTP transport failure — 502 upstream_unavailable, timeout — 504 upstream_timeout.
 Ошибки самого Gateway имеют `{"error":{"code":"…","message":"…",
-"details":[],"request_id":"<uuid>"}}`, Cache-Control: no-store и X-Request-Id.
+"details":[],"requestId":"<uuid>"}}`, Cache-Control: no-store и X-Request-Id.
 401 содержит WWW-Authenticate: Bearer. Непредвиденная ошибка — 500 internal_error
 без исходного исключения. Изменяющие запросы, включая refresh, не повторяются.
 Общие коды используют сообщения Identity без изменений:

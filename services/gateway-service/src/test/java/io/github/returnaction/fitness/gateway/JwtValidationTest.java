@@ -224,7 +224,7 @@ class JwtValidationTest {
         try (var client = HttpClient.newHttpClient()) {
             var invalid = request(client, "/api/v1/auth/logout-all", sign(claims(), KEY, "unknown"));
             assertThat(invalid.statusCode()).isEqualTo(401);
-            assertThat(invalid.body()).contains("invalid_access_token", "request_id");
+            assertThat(invalid.body()).contains("invalid_access_token", "requestId");
             assertThat(invalid.headers().firstValue("WWW-Authenticate")).contains("Bearer");
             Mockito.verifyNoInteractions(sessions);
             assertThat(UPSTREAM.calls.get()).isZero();

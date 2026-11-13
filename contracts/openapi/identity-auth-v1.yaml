@@ -56,11 +56,11 @@ paths:
                   email: anna@example.com
                   status: ACTIVE
                 session:
-                  access_token: example-access-token
-                  refresh_token: example-refresh-token
-                  token_type: Bearer
-                  expires_in: 900
-                  refresh_expires_in: 2592000
+                  accessToken: example-access-token
+                  refreshToken: example-refresh-token
+                  tokenType: Bearer
+                  expiresIn: 900
+                  refreshExpiresIn: 2592000
         '400':
           $ref: '#/components/responses/InvalidRequest'
         '406':
@@ -149,9 +149,9 @@ paths:
           application/json:
             schema:
               type: object
-              required: [refresh_token]
+              required: [refreshToken]
               properties:
-                refresh_token:
+                refreshToken:
                   type: string
                   format: password
                   writeOnly: true
@@ -218,7 +218,7 @@ paths:
             schema:
               $ref: '#/components/schemas/LogoutRequest'
             example:
-              refresh_token: example-refresh-token
+              refreshToken: example-refresh-token
       responses:
         '204':
           description: Запрос обработан; тело отсутствует. Ответ не раскрывает состояние токена.
@@ -291,9 +291,9 @@ components:
   schemas:
     LogoutRequest:
       type: object
-      required: [refresh_token]
+      required: [refreshToken]
       properties:
-        refresh_token:
+        refreshToken:
           type: string
           format: password
           writeOnly: true
@@ -347,38 +347,38 @@ components:
       type: object
       additionalProperties: false
       required:
-        [access_token, refresh_token, token_type, expires_in, refresh_expires_in]
+        [accessToken, refreshToken, tokenType, expiresIn, refreshExpiresIn]
       properties:
-        access_token:
+        accessToken:
           type: string
-        refresh_token:
+        refreshToken:
           type: string
-        token_type:
+        tokenType:
           type: string
           const: Bearer
-        expires_in:
+        expiresIn:
           type: integer
           const: 900
-        refresh_expires_in:
+        refreshExpiresIn:
           type: integer
           const: 2592000
     RefreshResponse:
       type: object
       additionalProperties: false
-      required: [access_token, refresh_token, token_type, expires_in, refresh_expires_in]
+      required: [accessToken, refreshToken, tokenType, expiresIn, refreshExpiresIn]
       properties:
-        access_token:
+        accessToken:
           type: string
-        refresh_token:
+        refreshToken:
           type: string
-        token_type:
+        tokenType:
           type: string
           const: Bearer
-        expires_in:
+        expiresIn:
           type: integer
           minimum: 0
           maximum: 900
-        refresh_expires_in:
+        refreshExpiresIn:
           type: integer
           minimum: 0
           maximum: 2592000
@@ -390,7 +390,7 @@ components:
         error:
           type: object
           additionalProperties: false
-          required: [code, message, request_id]
+          required: [code, message, requestId]
           properties:
             code:
               type: string
@@ -407,18 +407,18 @@ components:
                     type: string
                   code:
                     type: string
-            request_id:
+            requestId:
               type: string
               format: uuid
   responses:
     RefreshValidationError:
-      description: Поле refresh_token отсутствует, пусто или превышает 256 символов; код validation_error.
+      description: Поле refreshToken отсутствует, пусто или превышает 256 символов; код validation_error.
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
     LogoutValidationError:
-      description: Поле refresh_token отсутствует, пусто или превышает допустимую длину; код validation_error.
+      description: Поле refreshToken отсутствует, пусто или превышает допустимую длину; код validation_error.
       content:
         application/json:
           schema:
@@ -442,7 +442,7 @@ components:
               code: unsupported_media_type
               message: Content type is not supported.
               details: []
-              request_id: 2c160d4b-0f61-4702-99e1-99713d0c9326
+              requestId: 2c160d4b-0f61-4702-99e1-99713d0c9326
     InvalidRequest:
       description: Invalid JSON or a missing/invalid Idempotency-Key.
       content:
@@ -453,7 +453,7 @@ components:
             error:
               code: invalid_request
               message: Check the request format.
-              request_id: 2c160d4b-0f61-4702-99e1-99713d0c9326
+              requestId: 2c160d4b-0f61-4702-99e1-99713d0c9326
     ValidationError:
       description: The email or password violates v1 validation rules.
       content:
@@ -467,7 +467,7 @@ components:
               details:
                 - field: email
                   code: invalid_format
-              request_id: 2c160d4b-0f61-4702-99e1-99713d0c9326
+              requestId: 2c160d4b-0f61-4702-99e1-99713d0c9326
     Conflict:
       description: |
         `email_already_registered` means another operation owns the normalized

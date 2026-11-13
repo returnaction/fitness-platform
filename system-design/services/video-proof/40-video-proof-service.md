@@ -297,7 +297,7 @@ retention и интервалы ещё согласуются с Kafka.
 
 Все пути требуют проверенного access token и права на конкретную запись.
 Общий формат ошибки: [Identity](../identity/30-identity-registration.md), пример
-`{"error":{"code":"upload_expired","message":"Срок загрузки истёк","request_id":"..."}}`.
+`{"error":{"code":"upload_expired","message":"Срок загрузки истёк","requestId":"..."}}`.
 Для изменяющих запросов обязателен `Idempotency-Key`; повтор с тем же ключом и
 теми же данными возвращает сохранённый результат, с другими — `409
 idempotency_key_conflict`. Заголовки и ссылки не записываются в логи.
@@ -305,7 +305,7 @@ idempotency_key_conflict`. Заголовки и ссылки не записы�
 
 ### Подготовить попытку
 
-`POST /api/v1/video-capture-attempts` с `{"task_id":"...","installation_id":"..."}`
+`POST /api/v1/video-capture-attempts` с `{"taskId":"...","installationId":"..."}`
 и обязательным `Idempotency-Key`. Сервер берёт пользователя из токена,
 проверяет задание через Challenge и зарегистрированное устройство. `201`:
 `{"id":"...","state":"CREATED"}`. Это не начало загрузки. `409
@@ -315,13 +315,13 @@ capture_attempt_already_active`, `403 forbidden`, `404 task_not_found`,
 
 ### Начать загрузку
 
-`POST /api/v1/video-submissions` с `{"capture_attempt_id":"..."}`. Сервер
+`POST /api/v1/video-submissions` с `{"captureAttemptId":"..."}`. Сервер
 определяет пользователя из токена, проверяет собственную запечатанную попытку
 и сохраняет ID операции до вызова Challenge; описание упражнения и дедлайн
 из тела клиента не принимаются. Авторизация и фактическая запись должны пройти
 действующий TVP1-контракт до этого шага; детали не заменены показанным DTO.
 
-`201 Created`: `{"id":"...","state":"UPLOADING","upload_deadline_at":"2026-11-06T19:00:00Z"}`.
+`201 Created`: `{"id":"...","state":"UPLOADING","uploadDeadlineAt":"2026-11-06T19:00:00Z"}`.
 `409 upload_expired`, `409 submission_already_accepted`, `409 upload_in_progress`;
 `403 forbidden`, `404 task_not_found`, `503 dependency_unavailable`. Отказ B
 запрещает новую загрузку. Точка фиксации времени и атомарное согласование с
@@ -330,8 +330,8 @@ Challenge открыты; приведённые коды — проект, не
 ### Получить ссылку для части и подтвердить её
 
 `POST /api/v1/video-submissions/{id}/parts/{part_number}/upload-url`, тело
-`{"size_bytes":1048576,"sha256":"<64 hex chars>"}`. `200 OK` возвращает
-`{"url":"<signed-url>","expires_at":"...","required_headers":{}}`.
+`{"sizeBytes":1048576,"sha256":"<64 hex chars>"}`. `200 OK` возвращает
+`{"url":"<signed-url>","expiresAt":"...","requiredHeaders":{}}`.
 Ссылка действует только для назначенного объекта и ограниченного времени;
 её свойства зависят от выбранного S3 и должны проверяться. Повтор с тем же
 ключом сохраняет ту же операцию и назначение объекта, но при необходимости
@@ -339,7 +339,7 @@ Challenge открыты; приведённые коды — проект, не
 сохраняется как бессрочный результат идемпотентности.
 
 После передачи `POST /api/v1/video-submissions/{id}/parts/{part_number}/confirm`
-с `{"object_version":"..."}`. `200 OK` возвращает номер подтверждённой
+с `{"objectVersion":"..."}`. `200 OK` возвращает номер подтверждённой
 части. Сервер сверяет объект и версию; `409 part_conflict` — другая версия
 для уже подтверждённого номера; `409 upload_expired` — срок истёк;
 `422 invalid_part` — данные не соответствуют договорённости;
@@ -350,7 +350,7 @@ Challenge открыты; приведённые коды — проект, не
 ### Завершить и узнать состояние
 
 `POST /api/v1/video-submissions/{id}/complete`: запрос
-`{"part_count":3,"manifest_id":"..."}`; точная схема и доказательство
+`{"partCount":3,"manifestId":"..."}`; точная схема и доказательство
 манифеста ещё открыты. `202 Accepted` означает, что запрос обрабатывается,
 а не что видео принято; ответ `{"id":"...","state":"UPLOADING"}`.
 `GET /api/v1/video-submissions/{id}` возвращает `200` и статус, например
@@ -363,7 +363,7 @@ Challenge открыты; приведённые коды — проект, не
 
 `POST /api/v1/video-assets/{asset_id}/playback-url` выдаёт ссылку только
 после серверной проверки актуальных прав на запись и конкретную версию файла.
-`200`: `{"url":"<signed-url>","expires_at":"..."}`; `403 forbidden`,
+`200`: `{"url":"<signed-url>","expiresAt":"..."}`; `403 forbidden`,
 `404 asset_not_found`, `410 video_expired`, `503 storage_unavailable`.
 Автор, участник, модератор и технический специалист имеют разные права из
 [прав доступа](23-video-storage-access.md#важные-границы). Ссылка является

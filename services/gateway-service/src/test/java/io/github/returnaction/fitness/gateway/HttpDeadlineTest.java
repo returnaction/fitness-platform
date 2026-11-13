@@ -154,7 +154,7 @@ class HttpDeadlineTest {
                 long start = System.nanoTime();
                 var response = send(client);
                 assertThat(response.statusCode()).isEqualTo(504);
-                assertThat(response.body()).contains("upstream_timeout", "request_id");
+                assertThat(response.body()).contains("upstream_timeout", "requestId");
                 assertThat(Duration.ofNanos(System.nanoTime() - start)).isLessThan(Duration.ofMillis(1400));
                 assertThat(scheduler.getQueue()).isEmpty();
                 MODE.set(0);
@@ -197,7 +197,7 @@ class HttpDeadlineTest {
                     .write(("POST /api/v1/auth/login HTTP/1.1\r\nHost: localhost\r\n"
                             + "Content-Length: 0\r\nConnection: close\r\n\r\n").getBytes(StandardCharsets.US_ASCII));
             String response = new String(socket.getInputStream().readAllBytes(), StandardCharsets.ISO_8859_1);
-            assertThat(response).contains("200").doesNotContain("upstream_timeout", "<html", "request_id");
+            assertThat(response).contains("200").doesNotContain("upstream_timeout", "<html", "requestId");
             assertThat(response.length()).isLessThan(15000);
             assertThat(scheduler.getQueue()).isEmpty();
         }
@@ -311,7 +311,7 @@ class HttpDeadlineTest {
                             .POST(HttpRequest.BodyPublishers.noBody())
                             .build(), HttpResponse.BodyHandlers.ofString());
             assertThat(response.statusCode()).isEqualTo(400);
-            assertThat(response.body()).contains("invalid_request", "request_id");
+            assertThat(response.body()).contains("invalid_request", "requestId");
             assertThat(CALLS.get()).isEqualTo(before);
         }
     }

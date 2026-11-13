@@ -623,7 +623,7 @@ class RegistrationServiceIntegrationTest {
                 .content("{\"email\":\"" + email + "\",\"password\":\"a\"}"))
                 .andExpect(status().isServiceUnavailable())
                 .andExpect(jsonPath("$.error.code").value("registration_pending"))
-                .andExpect(jsonPath("$.access_token").doesNotExist());
+                .andExpect(jsonPath("$.accessToken").doesNotExist());
         assertThat(jdbcClient
                 .sql("SELECT next_retry_at <= clock_timestamp() FROM registration_operations WHERE id=:id")
                 .param("id", operation.operationId())
@@ -853,7 +853,7 @@ class RegistrationServiceIntegrationTest {
                 .andExpect(status().isServiceUnavailable())
                 .andExpect(header().exists("X-Request-Id"))
                 .andExpect(jsonPath("$.error.code").value("registration_unavailable"))
-                .andExpect(jsonPath("$.error.request_id").isNotEmpty());
+                .andExpect(jsonPath("$.error.requestId").isNotEmpty());
 
         mockMvc.perform(post("/api/v1/auth/register")
                 .header("Idempotency-Key", key)

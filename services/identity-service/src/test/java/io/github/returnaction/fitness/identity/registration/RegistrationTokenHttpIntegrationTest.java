@@ -321,7 +321,7 @@ class RegistrationTokenHttpIntegrationTest {
             var mapper = JsonMapper.builder().build();
             var login = mapper.readTree(mvc.perform(post("/api/v1/auth/login").contentType(APPLICATION_JSON)
                     .content(body)).andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
-            String access = login.get("access_token").asString();
+            String access = login.get("accessToken").asString();
             try (var connection = POSTGRES.createConnection("");
                     var executor = java.util.concurrent.Executors.newFixedThreadPool(2)) {
                 connection.setAutoCommit(false);
@@ -365,7 +365,7 @@ class RegistrationTokenHttpIntegrationTest {
             var mapper = JsonMapper.builder().build();
             var oldLogin = mapper.readTree(mvc.perform(post("/api/v1/auth/login").contentType(APPLICATION_JSON)
                     .content(body)).andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
-            String access = oldLogin.get("access_token").asString();
+            String access = oldLogin.get("accessToken").asString();
             try (var connection = POSTGRES.createConnection("");
                     var executor = java.util.concurrent.Executors.newFixedThreadPool(2)) {
                 connection.setAutoCommit(false);
@@ -391,7 +391,7 @@ class RegistrationTokenHttpIntegrationTest {
                 assertThat(logoutResult.getResponse().getStatus()).isEqualTo(204);
                 assertThat(loginResult.getResponse().getStatus()).isEqualTo(200);
                 String newAccess = mapper.readTree(loginResult.getResponse().getContentAsString())
-                        .get("access_token")
+                        .get("accessToken")
                         .asString();
                 UUID newSession = UUID.fromString(SignedJWT.parse(newAccess).getJWTClaimsSet().getStringClaim("sid"));
                 assertThat(jdbc.sql("SELECT revoked_at IS NULL FROM auth_sessions WHERE id=:id")
@@ -425,8 +425,8 @@ class RegistrationTokenHttpIntegrationTest {
         var mapper = JsonMapper.builder().build();
         var login = mapper.readTree(mvc.perform(post("/api/v1/auth/login").contentType(APPLICATION_JSON)
                 .content(body)).andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
-        String refresh = login.get("refresh_token").asString();
-        UUID session = UUID.fromString(SignedJWT.parse(login.get("access_token").asString())
+        String refresh = login.get("refreshToken").asString();
+        UUID session = UUID.fromString(SignedJWT.parse(login.get("accessToken").asString())
                 .getJWTClaimsSet()
                 .getStringClaim("sid"));
         var gate = new java.util.concurrent.CountDownLatch(1);
@@ -434,7 +434,7 @@ class RegistrationTokenHttpIntegrationTest {
             var logout = executor.submit(() -> {
                 gate.await();
                 return mvc.perform(post("/api/v1/auth/logout").contentType(APPLICATION_JSON)
-                        .content("{\"refresh_token\":\"" + refresh + "\"}"))
+                        .content("{\"refreshToken\":\"" + refresh + "\"}"))
                         .andReturn()
                         .getResponse()
                         .getStatus();
@@ -442,7 +442,7 @@ class RegistrationTokenHttpIntegrationTest {
             var rotate = executor.submit(() -> {
                 gate.await();
                 return mvc.perform(post("/api/v1/auth/refresh").contentType(APPLICATION_JSON)
-                        .content("{\"refresh_token\":\"" + refresh + "\"}"))
+                        .content("{\"refreshToken\":\"" + refresh + "\"}"))
                         .andReturn()
                         .getResponse()
                         .getStatus();
@@ -508,33 +508,33 @@ class RegistrationTokenHttpIntegrationTest {
                 .content(loginBody)).andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
         var second = mapper.readTree(mvc.perform(post("/api/v1/auth/login").contentType(APPLICATION_JSON)
                 .content(loginBody)).andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
-        String oldRefresh = first.get("refresh_token").asString();
-        String secondRefresh = second.get("refresh_token").asString();
+        String oldRefresh = first.get("refreshToken").asString();
+        String secondRefresh = second.get("refreshToken").asString();
         var rotated = mapper.readTree(mvc.perform(post("/api/v1/auth/refresh").contentType(APPLICATION_JSON)
-                .content("{\"refresh_token\":\"" + oldRefresh + "\"}"))
+                .content("{\"refreshToken\":\"" + oldRefresh + "\"}"))
                 .andExpect(status().isOk())
                 .andReturn()
                 .getResponse()
                 .getContentAsString());
-        String rotatedRefresh = rotated.get("refresh_token").asString();
+        String rotatedRefresh = rotated.get("refreshToken").asString();
         String wrong = oldRefresh.substring(0, 37) + "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
         mvc.perform(post("/api/v1/auth/logout").contentType(APPLICATION_JSON)
-                .content("{\"refresh_token\":\"" + wrong + "\"}")).andExpect(status().isNoContent());
+                .content("{\"refreshToken\":\"" + wrong + "\"}")).andExpect(status().isNoContent());
         assertThat(jdbc.sql("SELECT count(*) FROM auth_sessions WHERE user_id=:id AND revoked_at IS NULL")
                 .param("id", operation.userId())
                 .query(Integer.class)
                 .single()).isEqualTo(2);
         mvc.perform(post("/api/v1/auth/logout").contentType(APPLICATION_JSON)
-                .content("{\"refresh_token\":\"" + oldRefresh + "\"}")).andExpect(status().isNoContent());
+                .content("{\"refreshToken\":\"" + oldRefresh + "\"}")).andExpect(status().isNoContent());
         mvc.perform(post("/api/v1/auth/logout").contentType(APPLICATION_JSON)
-                .content("{\"refresh_token\":\"" + oldRefresh + "\"}")).andExpect(status().isNoContent());
+                .content("{\"refreshToken\":\"" + oldRefresh + "\"}")).andExpect(status().isNoContent());
         mvc.perform(post("/api/v1/auth/refresh").contentType(APPLICATION_JSON)
-                .content("{\"refresh_token\":\"" + rotatedRefresh + "\"}")).andExpect(status().isUnauthorized());
+                .content("{\"refreshToken\":\"" + rotatedRefresh + "\"}")).andExpect(status().isUnauthorized());
         assertThat(jdbc.sql("SELECT count(*) FROM auth_sessions WHERE user_id=:id AND revoked_at IS NULL")
                 .param("id", operation.userId())
                 .query(Integer.class)
                 .single()).isEqualTo(1);
-        String access = second.get("access_token").asString();
+        String access = second.get("accessToken").asString();
         var identity = accessVerifier.verify(access);
         assertThat(sessions.check(identity.userId(), identity.sessionId()).active()).isTrue();
         mvc.perform(post("/api/v1/auth/logout-all").header("Authorization", "Bearer " + access))
@@ -545,7 +545,7 @@ class RegistrationTokenHttpIntegrationTest {
         mvc.perform(post("/api/v1/auth/logout-all").header("Authorization", "Bearer " + access))
                 .andExpect(status().isNoContent());
         mvc.perform(post("/api/v1/auth/refresh").contentType(APPLICATION_JSON)
-                .content("{\"refresh_token\":\"" + secondRefresh + "\"}")).andExpect(status().isUnauthorized());
+                .content("{\"refreshToken\":\"" + secondRefresh + "\"}")).andExpect(status().isUnauthorized());
         mvc.perform(post("/api/v1/auth/logout").contentType(APPLICATION_JSON).content("{}"))
                 .andExpect(status().isUnprocessableEntity());
     }
@@ -576,7 +576,7 @@ class RegistrationTokenHttpIntegrationTest {
                 .content("{\"email\":\"  " + email.toUpperCase(java.util.Locale.ROOT)
                         + "  \",\"password\":\"a\"}"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.access_token").isNotEmpty());
+                .andExpect(jsonPath("$.accessToken").isNotEmpty());
         mvc.perform(post("/api/v1/auth/login").contentType(APPLICATION_JSON)
                 .content("{\"email\":\"a@@b\",\"password\":\"a\"}"))
                 .andExpect(status().isUnprocessableEntity())
@@ -594,15 +594,15 @@ class RegistrationTokenHttpIntegrationTest {
                 .andExpect(header().string("Cache-Control", "no-store"))
                 .andExpect(jsonPath("$.error.code").value("invalid_credentials"))
                 .andExpect(jsonPath("$.error.message").value("Invalid email or password."))
-                .andExpect(jsonPath("$.error.request_id").value(requestId));
+                .andExpect(jsonPath("$.error.requestId").value(requestId));
         mvc.perform(post("/api/v1/auth/refresh").header("X-Request-Id", requestId)
                 .contentType(APPLICATION_JSON)
-                .content("{\"refresh_token\":\"invalid\"}"))
+                .content("{\"refreshToken\":\"invalid\"}"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(header().string("Cache-Control", "no-store"))
                 .andExpect(jsonPath("$.error.code").value("invalid_refresh_token"))
                 .andExpect(jsonPath("$.error.message").value("Request could not be completed."))
-                .andExpect(jsonPath("$.error.request_id").value(requestId));
+                .andExpect(jsonPath("$.error.requestId").value(requestId));
     }
 
     @Test
@@ -616,7 +616,7 @@ class RegistrationTokenHttpIntegrationTest {
                 .andReturn()
                 .getResponse()
                 .getContentAsString();
-        String refresh = JsonMapper.builder().build().readTree(login).get("refresh_token").asString();
+        String refresh = JsonMapper.builder().build().readTree(login).get("refreshToken").asString();
         String requestId = UUID.randomUUID().toString();
         jdbc.sql("UPDATE users SET status='SUSPENDED' WHERE id=:id").param("id", operation.userId()).update();
 
@@ -627,15 +627,15 @@ class RegistrationTokenHttpIntegrationTest {
                 .andExpect(header().string("Cache-Control", "no-store"))
                 .andExpect(jsonPath("$.error.code").value("account_unavailable"))
                 .andExpect(jsonPath("$.error.message").value("Account is unavailable."))
-                .andExpect(jsonPath("$.error.request_id").value(requestId));
+                .andExpect(jsonPath("$.error.requestId").value(requestId));
         mvc.perform(post("/api/v1/auth/refresh").header("X-Request-Id", requestId)
                 .contentType(APPLICATION_JSON)
-                .content("{\"refresh_token\":\"" + refresh + "\"}"))
+                .content("{\"refreshToken\":\"" + refresh + "\"}"))
                 .andExpect(status().isForbidden())
                 .andExpect(header().string("Cache-Control", "no-store"))
                 .andExpect(jsonPath("$.error.code").value("account_unavailable"))
                 .andExpect(jsonPath("$.error.message").value("Request could not be completed."))
-                .andExpect(jsonPath("$.error.request_id").value(requestId));
+                .andExpect(jsonPath("$.error.requestId").value(requestId));
     }
 
     @Test
@@ -658,12 +658,12 @@ class RegistrationTokenHttpIntegrationTest {
                 .andExpect(header().string("Cache-Control", "no-store"))
                 .andExpect(jsonPath("$.error.code").value("registration_pending"))
                 .andExpect(jsonPath("$.error.message").value("Registration is being prepared. Try again later."))
-                .andExpect(jsonPath("$.error.request_id").isNotEmpty())
+                .andExpect(jsonPath("$.error.requestId").isNotEmpty())
                 .andReturn()
                 .getResponse()
                 .getContentAsString();
-        assertThat(registrationResponse).doesNotContain("access_token", "refresh_token");
-        assertThat(loginResponse).doesNotContain("access_token", "refresh_token");
+        assertThat(registrationResponse).doesNotContain("accessToken", "refreshToken");
+        assertThat(loginResponse).doesNotContain("accessToken", "refreshToken");
         assertThat(jdbc.sql("SELECT count(*) FROM auth_sessions WHERE user_id=:id")
                 .param("id", operation.userId())
                 .query(Integer.class)
@@ -682,19 +682,19 @@ class RegistrationTokenHttpIntegrationTest {
         String refresh = JsonMapper.builder()
                 .build()
                 .readTree(activeLogin)
-                .get("refresh_token")
+                .get("refreshToken")
                 .asString();
         jdbc.sql("UPDATE users SET status='PENDING' WHERE id=:id")
                 .param("id", operation.userId())
                 .update();
         String refreshResponse = mvc.perform(post("/api/v1/auth/refresh")
                 .contentType(APPLICATION_JSON)
-                .content("{\"refresh_token\":\"" + refresh + "\"}"))
+                .content("{\"refreshToken\":\"" + refresh + "\"}"))
                 .andExpect(status().isForbidden())
                 .andReturn()
                 .getResponse()
                 .getContentAsString();
-        assertThat(refreshResponse).doesNotContain("access_token", "refresh_token", refresh);
+        assertThat(refreshResponse).doesNotContain("accessToken", "refreshToken", refresh);
     }
 
     @Test
@@ -731,10 +731,10 @@ class RegistrationTokenHttpIntegrationTest {
         assertThat(response.get("user").get("status").asString()).isEqualTo("ACTIVE");
         var session = response.get("session");
         assertThat(session.size()).isEqualTo(5);
-        assertThat(session.get("token_type").asString()).isEqualTo("Bearer");
-        assertThat(session.get("expires_in").asInt()).isEqualTo(900);
-        assertThat(session.get("refresh_expires_in").asInt()).isEqualTo(2592000);
-        var jwt = SignedJWT.parse(session.get("access_token").asString());
+        assertThat(session.get("tokenType").asString()).isEqualTo("Bearer");
+        assertThat(session.get("expiresIn").asInt()).isEqualTo(900);
+        assertThat(session.get("refreshExpiresIn").asInt()).isEqualTo(2592000);
+        var jwt = SignedJWT.parse(session.get("accessToken").asString());
         String jwks = mvc.perform(get("/.well-known/jwks.json"))
                 .andExpect(status().isOk())
                 .andReturn()
@@ -745,7 +745,7 @@ class RegistrationTokenHttpIntegrationTest {
         assertThat(jwt.verify(new ECDSAVerifier(publicJwk))).isTrue();
         assertThat(jwt.getJWTClaimsSet().getIssuer()).isEqualTo("https://identity.test");
         assertThat(jwt.getJWTClaimsSet().getStringListClaim("roles")).containsExactly("USER");
-        assertThat(session.get("refresh_token").asString()).isNotBlank();
+        assertThat(session.get("refreshToken").asString()).isNotBlank();
         assertThat(response.get("user").get("id").asString())
                 .isEqualTo(jwt.getJWTClaimsSet().getSubject());
         assertThat(jdbc.sql("SELECT count(*) FROM auth_sessions WHERE revoked_at IS NULL AND id=:id")
@@ -809,7 +809,7 @@ class RegistrationTokenHttpIntegrationTest {
                 .andExpect(status().isForbidden());
         mvc.perform(post(path + "/resume").header("Authorization", "Bearer " + adminJwt)
                 .contentType(APPLICATION_JSON)
-                .content("{\"expected_version\":1,\"reason\":\"Fixed access\"}"))
+                .content("{\"expectedVersion\":1,\"reason\":\"Fixed access\"}"))
                 .andExpect(status().isForbidden());
         // HTTP recovery is closed, but its underlying authentication and audit remain
         // intact.
@@ -870,7 +870,7 @@ class RegistrationTokenHttpIntegrationTest {
                 .andReturn()
                 .getResponse()
                 .getContentAsString();
-        String refresh = mapper.readTree(login).get("refresh_token").asString();
+        String refresh = mapper.readTree(login).get("refreshToken").asString();
         try (var connection = POSTGRES.createConnection("");
                 var executor = java.util.concurrent.Executors.newSingleThreadExecutor()) {
             connection.setAutoCommit(false);
@@ -884,12 +884,12 @@ class RegistrationTokenHttpIntegrationTest {
                 assertThat(delete.executeUpdate()).isEqualTo(1);
             }
             var pending = executor.submit(() -> mvc.perform(post("/api/v1/auth/refresh").contentType(APPLICATION_JSON)
-                    .content("{\"refresh_token\":\"" + refresh + "\"}")).andReturn());
+                    .content("{\"refreshToken\":\"" + refresh + "\"}")).andReturn());
             awaitBlockedConnections(1);
             connection.commit();
             var response = pending.get(20, TimeUnit.SECONDS).getResponse();
             assertThat(response.getStatus()).isEqualTo(200);
-            String access = mapper.readTree(response.getContentAsString()).get("access_token").asString();
+            String access = mapper.readTree(response.getContentAsString()).get("accessToken").asString();
             assertThat(SignedJWT.parse(access).getJWTClaimsSet().getStringListClaim("roles")).containsExactly("USER");
         }
     }
@@ -909,7 +909,7 @@ class RegistrationTokenHttpIntegrationTest {
                 .andReturn()
                 .getResponse()
                 .getContentAsString();
-        String refresh = mapper.readTree(login).get("refresh_token").asString();
+        String refresh = mapper.readTree(login).get("refreshToken").asString();
         var signed = new java.util.concurrent.CountDownLatch(1);
         var finish = new java.util.concurrent.CountDownLatch(1);
         try (var executor = java.util.concurrent.Executors.newFixedThreadPool(2)) {
@@ -950,12 +950,12 @@ class RegistrationTokenHttpIntegrationTest {
                 assertThat(SignedJWT.parse(issued.access()).getJWTClaimsSet().getStringListClaim("roles"))
                         .containsExactlyInAnyOrder("USER", "ADMIN");
                 String later = mvc.perform(post("/api/v1/auth/refresh").contentType(APPLICATION_JSON)
-                        .content("{\"refresh_token\":\"" + issued.refresh() + "\"}"))
+                        .content("{\"refreshToken\":\"" + issued.refresh() + "\"}"))
                         .andExpect(status().isOk())
                         .andReturn()
                         .getResponse()
                         .getContentAsString();
-                assertThat(SignedJWT.parse(mapper.readTree(later).get("access_token").asString())
+                assertThat(SignedJWT.parse(mapper.readTree(later).get("accessToken").asString())
                         .getJWTClaimsSet()
                         .getStringListClaim("roles")).containsExactly("USER");
             } finally {
@@ -976,8 +976,8 @@ class RegistrationTokenHttpIntegrationTest {
                 .andReturn()
                 .getResponse()
                 .getContentAsString();
-        String refresh = mapper.readTree(login).get("refresh_token").asString();
-        String body = "{\"refresh_token\":\"" + refresh + "\"}";
+        String refresh = mapper.readTree(login).get("refreshToken").asString();
+        String body = "{\"refreshToken\":\"" + refresh + "\"}";
         org.mockito.Mockito
                 .doThrow(new org.springframework.dao.DataAccessResourceFailureException("simulated database failure"))
                 .when(userRoles)
@@ -997,7 +997,7 @@ class RegistrationTokenHttpIntegrationTest {
                     .andReturn()
                     .getResponse()
                     .getContentAsString();
-            assertThat(failure).doesNotContain(refresh, "access_token", "refresh_token");
+            assertThat(failure).doesNotContain(refresh, "accessToken", "refreshToken");
         } finally {
             org.mockito.Mockito.reset(userRoles);
         }
@@ -1018,9 +1018,9 @@ class RegistrationTokenHttpIntegrationTest {
                 .andReturn()
                 .getResponse()
                 .getContentAsString();
-        String refresh = mapper.readTree(login).get("refresh_token").asString();
+        String refresh = mapper.readTree(login).get("refreshToken").asString();
         jdbc.sql("DELETE FROM user_roles WHERE user_id=:id").param("id", operation.userId()).update();
-        String body = "{\"refresh_token\":\"" + refresh + "\"}";
+        String body = "{\"refreshToken\":\"" + refresh + "\"}";
         mvc.perform(post("/api/v1/auth/refresh").contentType(APPLICATION_JSON).content(body))
                 .andExpect(status().isInternalServerError())
                 .andExpect(jsonPath("$.error.code").value("internal_error"));
@@ -1042,13 +1042,13 @@ class RegistrationTokenHttpIntegrationTest {
                 .andReturn()
                 .getResponse()
                 .getContentAsString();
-        String token = JsonMapper.builder().build().readTree(login).get("refresh_token").asString();
+        String token = JsonMapper.builder().build().readTree(login).get("refreshToken").asString();
         UUID tokenId = UUID.fromString(token.substring(0, 36));
         jdbc.sql("UPDATE refresh_tokens SET created_at=clock_timestamp()-interval '2 days', "
                 + "expires_at=clock_timestamp()-interval '1 day' WHERE id=:id").param("id", tokenId).update();
 
         mvc.perform(post("/api/v1/auth/refresh").contentType(APPLICATION_JSON)
-                .content("{\"refresh_token\":\"" + token + "\"}"))
+                .content("{\"refreshToken\":\"" + token + "\"}"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(header().string("Cache-Control", "no-store"))
                 .andExpect(jsonPath("$.error.code").value("invalid_refresh_token"));
@@ -1079,20 +1079,20 @@ class RegistrationTokenHttpIntegrationTest {
                 .getResponse()
                 .getContentAsString();
         var original = mapper.readTree(login);
-        String oldToken = original.get("refresh_token").asString();
-        assertThat(SignedJWT.parse(original.get("access_token").asString())
+        String oldToken = original.get("refreshToken").asString();
+        assertThat(SignedJWT.parse(original.get("accessToken").asString())
                 .getJWTClaimsSet()
                 .getStringListClaim("roles")).containsExactly("USER");
         jdbc.sql("INSERT INTO user_roles (user_id, role_id) SELECT :user, id FROM roles WHERE code = 'ADMIN'")
                 .param("user", operation.userId())
                 .update();
-        UUID sessionId = UUID.fromString(SignedJWT.parse(original.get("access_token").asString())
+        UUID sessionId = UUID.fromString(SignedJWT.parse(original.get("accessToken").asString())
                 .getJWTClaimsSet()
                 .getStringClaim("sid"));
         String wrong = oldToken.substring(0, 37) + "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
         mvc.perform(post("/api/v1/auth/refresh")
                 .contentType(APPLICATION_JSON)
-                .content("{\"refresh_token\":\"" + wrong + "\"}"))
+                .content("{\"refreshToken\":\"" + wrong + "\"}"))
                 .andExpect(status().isUnauthorized());
         assertThat(jdbc.sql("SELECT revoked_at IS NULL FROM auth_sessions WHERE id=:id")
                 .param("id", sessionId)
@@ -1101,23 +1101,23 @@ class RegistrationTokenHttpIntegrationTest {
                 .isTrue();
         String rotated = mvc.perform(post("/api/v1/auth/refresh")
                 .contentType(APPLICATION_JSON)
-                .content("{\"refresh_token\":\"" + oldToken + "\"}"))
+                .content("{\"refreshToken\":\"" + oldToken + "\"}"))
                 .andExpect(status().isOk())
                 .andExpect(header().string("Cache-Control", "no-store"))
                 .andReturn()
                 .getResponse()
                 .getContentAsString();
         var fresh = mapper.readTree(rotated);
-        String newToken = fresh.get("refresh_token").asString();
-        assertThat(SignedJWT.parse(fresh.get("access_token").asString())
+        String newToken = fresh.get("refreshToken").asString();
+        assertThat(SignedJWT.parse(fresh.get("accessToken").asString())
                 .getJWTClaimsSet()
                 .getStringListClaim("roles")).containsExactlyInAnyOrder("USER", "ADMIN");
         assertThat(newToken).isNotEqualTo(oldToken);
-        assertThat(SignedJWT.parse(fresh.get("access_token").asString())
+        assertThat(SignedJWT.parse(fresh.get("accessToken").asString())
                 .getJWTClaimsSet()
                 .getStringClaim("sid"))
                 .isEqualTo(sessionId.toString());
-        assertThat(fresh.get("refresh_expires_in").asLong()).isBetween(1L, 2592000L);
+        assertThat(fresh.get("refreshExpiresIn").asLong()).isBetween(1L, 2592000L);
         assertThat(jdbc.sql(
                 "SELECT used_at IS NOT NULL AND replaced_by_token_id IS NOT NULL FROM refresh_tokens WHERE id=:id")
                 .param("id", UUID.fromString(oldToken.substring(0, 36)))
@@ -1126,7 +1126,7 @@ class RegistrationTokenHttpIntegrationTest {
                 .isTrue();
         mvc.perform(post("/api/v1/auth/refresh")
                 .contentType(APPLICATION_JSON)
-                .content("{\"refresh_token\":\"" + wrong + "\"}"))
+                .content("{\"refreshToken\":\"" + wrong + "\"}"))
                 .andExpect(status().isUnauthorized());
         assertThat(jdbc.sql("SELECT revoked_at IS NULL FROM auth_sessions WHERE id=:id")
                 .param("id", sessionId)
@@ -1135,12 +1135,12 @@ class RegistrationTokenHttpIntegrationTest {
                 .isTrue();
         mvc.perform(post("/api/v1/auth/refresh")
                 .contentType(APPLICATION_JSON)
-                .content("{\"refresh_token\":\"" + oldToken + "\"}"))
+                .content("{\"refreshToken\":\"" + oldToken + "\"}"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(header().string("Cache-Control", "no-store"))
                 .andExpect(jsonPath("$.error.code").value("invalid_refresh_token"))
                 .andExpect(jsonPath("$.error.message").value("Request could not be completed."))
-                .andExpect(jsonPath("$.error.request_id").isNotEmpty());
+                .andExpect(jsonPath("$.error.requestId").isNotEmpty());
         assertThat(jdbc.sql("SELECT revoked_at IS NOT NULL FROM auth_sessions WHERE id=:id")
                 .param("id", sessionId)
                 .query(Boolean.class)
@@ -1148,7 +1148,7 @@ class RegistrationTokenHttpIntegrationTest {
                 .isTrue();
         mvc.perform(post("/api/v1/auth/refresh")
                 .contentType(APPLICATION_JSON)
-                .content("{\"refresh_token\":\"" + newToken + "\"}"))
+                .content("{\"refreshToken\":\"" + newToken + "\"}"))
                 .andExpect(status().isUnauthorized());
     }
 
@@ -1168,8 +1168,8 @@ class RegistrationTokenHttpIntegrationTest {
                 .getResponse()
                 .getContentAsString();
         var response = mapper.readTree(login);
-        String token = response.get("refresh_token").asString();
-        UUID sessionId = UUID.fromString(SignedJWT.parse(response.get("access_token").asString())
+        String token = response.get("refreshToken").asString();
+        UUID sessionId = UUID.fromString(SignedJWT.parse(response.get("accessToken").asString())
                 .getJWTClaimsSet()
                 .getStringClaim("sid"));
         var gate = new java.util.concurrent.CountDownLatch(1);
@@ -1178,7 +1178,7 @@ class RegistrationTokenHttpIntegrationTest {
                 gate.await();
                 return mvc.perform(post("/api/v1/auth/refresh")
                         .contentType(APPLICATION_JSON)
-                        .content("{\"refresh_token\":\"" + token + "\"}"))
+                        .content("{\"refreshToken\":\"" + token + "\"}"))
                         .andReturn()
                         .getResponse()
                         .getStatus();
@@ -1244,9 +1244,9 @@ class RegistrationTokenHttpIntegrationTest {
             var mapper = JsonMapper.builder().build();
             var one = mapper.readTree(first.get());
             var two = mapper.readTree(second.get());
-            assertThat(one.get("refresh_token").asString())
-                    .isNotEqualTo(two.get("refresh_token").asString());
-            var jwt = SignedJWT.parse(one.get("access_token").asString());
+            assertThat(one.get("refreshToken").asString())
+                    .isNotEqualTo(two.get("refreshToken").asString());
+            var jwt = SignedJWT.parse(one.get("accessToken").asString());
             assertThat(jwt.getJWTClaimsSet().getSubject())
                     .isEqualTo(operation.userId().toString());
         }

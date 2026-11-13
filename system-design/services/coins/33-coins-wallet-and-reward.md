@@ -76,14 +76,14 @@ Identity, `challenge_id` — идентификатор Challenge, без меж
 Все запросы требуют действующую пользовательскую сессию; `user_id` владельца
 берётся из проверенного контекста. Запросить баланс другого пользователя нельзя.
 Согласованный формат ошибки — `error.code`, `error.message`, необязательный
-`error.details`, `error.request_id`; секреты и внутренние ошибки не раскрываются.
+`error.details`, `error.requestId`; секреты и внутренние ошибки не раскрываются.
 
 ### `GET /api/v1/coins/me`
 
 `200 OK`:
 
 ```json
-{"available_balance":10,"locked_balance":20}
+{"availableBalance":10,"lockedBalance":20}
 ```
 
 На первом этапе приложение запрашивает актуальный баланс при открытии экрана
@@ -106,11 +106,11 @@ Identity, `challenge_id` — идентификатор Challenge, без меж
 периоде — новый. `200 OK` при новом начислении:
 
 ```json
-{"claimed_amount":10,"available_balance":10,"claimed_for_date":"2026-11-05",
- "already_claimed":false,"next_claim_at":"2026-11-06T12:00:00Z"}
+{"claimedAmount":10,"availableBalance":10,"claimedForDate":"2026-11-05",
+ "alreadyClaimed":false,"nextClaimAt":"2026-11-06T12:00:00Z"}
 ```
 
-Дата и время примера условные; `next_claim_at` — более поздний из следующей
+Дата и время примера условные; `nextClaimAt` — более поздний из следующей
 полуночи UTC и момента через 24 часа после получения. Новое нажатие с новым
 ключом, когда получение ещё недоступно, возвращает `200` и
 `already_claimed: true` без начисления; ответ фиксируется для этого ключа.
@@ -133,9 +133,9 @@ Identity, `challenge_id` — идентификатор Challenge, без меж
 непрозрачный `cursor`, порядок `created_at DESC, id DESC`:
 
 ```json
-{"items":[{"id":"<uuid>","type":"DAILY_REWARD","available_delta":10,
- "locked_delta":0,"challenge_id":null,"created_at":"2026-11-05T12:00:00Z"}],
- "next_cursor":null}
+{"items":[{"id":"<uuid>","type":"DAILY_REWARD","availableDelta":10,
+ "lockedDelta":0,"challengeId":null,"createdAt":"2026-11-05T12:00:00Z"}],
+ "nextCursor":null}
 ```
 
 ID challenge — служебная связь; отображение его названия требует отдельной
@@ -154,7 +154,7 @@ ID challenge — служебная связь; отображение его н
 | 503 | `coins_unavailable` | Временная ошибка Coins или необходимой зависимости. |
 | 500 | `internal_error` | Непредвиденный сбой без деталей БД. |
 
-Пример: `{"error":{"code":"coins_unavailable","message":"Кошелёк временно недоступен","request_id":"<uuid>"}}`.
+Пример: `{"error":{"code":"coins_unavailable","message":"Кошелёк временно недоступен","requestId":"<uuid>"}}`.
 Отсутствие кошелька активного пользователя — нарушение инварианта и сигнал на
 разбор, не фиктивный нулевой баланс; точный внешний код необходимо согласовать.
 

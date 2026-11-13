@@ -76,6 +76,6 @@ public final class RecoveryAuthenticationFilter extends OncePerRequestFilter {
         response.setCharacterEncoding("UTF-8");
         response.getWriter()
                 .write("{\"error\":{\"code\":\"" + code + "\",\"message\":\"" + message
-                        + "\",\"details\":[],\"request_id\":\"" + id + "\"}}");
+                        + "\",\"details\":[],\"requestId\":\"" + id + "\"}}");
     }
 }

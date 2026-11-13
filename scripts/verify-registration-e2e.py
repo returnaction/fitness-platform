@@ -222,7 +222,7 @@ def login(port, email, password):
 def refresh_session(port, token):
     request = urllib.request.Request(
         f"http://127.0.0.1:{port}/api/v1/auth/refresh",
-        data=json.dumps({"refresh_token": token}).encode(),
+        data=json.dumps({"refreshToken": token}).encode(),
         headers={"Content-Type": "application/json"}, method="POST")
     with urllib.request.urlopen(request, timeout=25) as response:
         return response.status, json.load(response)
@@ -431,12 +431,12 @@ def main():
             status, body = register(ports["identity"], key, email)
             if status != 503 or body["error"]["code"] != "registration_unavailable":
                 raise AssertionError("При недоступных сервисах ожидался 503")
-            assert "session" not in body and "access_token" not in body
+            assert "session" not in body and "accessToken" not in body
             print("OK: unavailable services return 503 without tokens", flush=True)
             assert sql(container, "test_identity", f"SELECT status FROM users WHERE email_canonical='{email}'") == "PENDING"
             login_status, login_body = login(ports["identity"], email, TEST_PASSWORD)
             assert login_status == 503 and login_body["error"]["code"] == "registration_pending"
-            assert "access_token" not in login_body and "refresh_token" not in login_body
+            assert "accessToken" not in login_body and "refreshToken" not in login_body
             wrong_status, wrong_body = login(ports["identity"], email, "wrong-password")
             assert wrong_status == 401 and wrong_body["error"]["code"] == "invalid_credentials"
             for error_body in (body, login_body, wrong_body):
@@ -503,8 +503,8 @@ def main():
                     raise AssertionError("Повтор регистрации не завершился: HTTP " + str(status))
                 time.sleep(1)
             user = str(uuid.UUID(body["user"]["id"]))
-            assert body["user"]["status"] == "ACTIVE" and body["session"]["access_token"]
-            assert token_roles(body["session"]["access_token"]) == ["USER"]
+            assert body["user"]["status"] == "ACTIVE" and body["session"]["accessToken"]
+            assert token_roles(body["session"]["accessToken"]) == ["USER"]
             assert sql(container, "test_identity", f"SELECT count(*) FROM users WHERE id='{user}' AND status='ACTIVE'") == "1"
             assert sql(container, "test_accounts", f"SELECT count(*) FROM user_profiles WHERE user_id='{user}'") == "1"
             assert sql(container, "test_coins", f"SELECT count(*) FROM coin_wallets WHERE user_id='{user}' AND available_balance=0 AND locked_balance=0") == "1"
@@ -517,7 +517,7 @@ def main():
             direct_email = "e2e-" + uuid.uuid4().hex + "@example.com"
             direct_status, direct = register(ports["identity"], uuid.uuid4(), direct_email)
             assert direct_status == 201 and direct["user"]["status"] == "ACTIVE"
-            assert direct["session"]["access_token"] and direct["session"]["refresh_token"]
+            assert direct["session"]["accessToken"] and direct["session"]["refreshToken"]
 
             same_email = "e2e-same-" + uuid.uuid4().hex + "@example.com"
             same_key = uuid.uuid4()
@@ -555,39 +555,39 @@ def main():
                     assert private not in serialized, "Sensitive input or internal detail leaked in an error"
             fresh_status, fresh = login(ports["identity"], direct_email, TEST_PASSWORD)
             assert fresh_status == 200
-            assert token_roles(fresh["access_token"]) == ["USER"]
-            refresh_status, rotated = refresh_session(ports["identity"], fresh["refresh_token"])
-            assert refresh_status == 200 and token_roles(rotated["access_token"]) == ["USER"]
+            assert token_roles(fresh["accessToken"]) == ["USER"]
+            refresh_status, rotated = refresh_session(ports["identity"], fresh["refreshToken"])
+            assert refresh_status == 200 and token_roles(rotated["accessToken"]) == ["USER"]
             fresh = rotated
             # A received-but-discarded refresh response models a lost response at the client.
             _, lost_session = login(ports["identity"], direct_email, TEST_PASSWORD)
-            _, lost_rotation = refresh_session(ports["identity"], lost_session["refresh_token"])
-            assert post_auth(ports["identity"], "refresh", {"refresh_token": lost_session["refresh_token"]}) == 401
-            assert post_auth(ports["identity"], "logout-all", bearer=lost_rotation["access_token"]) == 401
+            _, lost_rotation = refresh_session(ports["identity"], lost_session["refreshToken"])
+            assert post_auth(ports["identity"], "refresh", {"refreshToken": lost_session["refreshToken"]}) == 401
+            assert post_auth(ports["identity"], "logout-all", bearer=lost_rotation["accessToken"]) == 401
             print("OK: replay after a discarded refresh response revokes the session", flush=True)
-            direct_refresh = direct["session"]["refresh_token"]
-            assert post_auth(ports["identity"], "logout", {"refresh_token": direct_refresh}) == 204
-            assert post_auth(ports["identity"], "refresh", {"refresh_token": direct_refresh}) == 401
-            logout_all_status = post_auth(ports["identity"], "logout-all", bearer=fresh["access_token"])
+            direct_refresh = direct["session"]["refreshToken"]
+            assert post_auth(ports["identity"], "logout", {"refreshToken": direct_refresh}) == 204
+            assert post_auth(ports["identity"], "refresh", {"refreshToken": direct_refresh}) == 401
+            logout_all_status = post_auth(ports["identity"], "logout-all", bearer=fresh["accessToken"])
             if options.gateway and logout_all_status != 204:
                 for line in (directory / "gateway-service.log").read_text(encoding="utf-8", errors="replace").splitlines():
                     if "Session verification unavailable:" in line:
                         print(line.split("Session verification unavailable:", 1)[1].strip(), flush=True)
             assert logout_all_status == 204, "logout-all expected 204, got " + str(logout_all_status)
-            assert post_auth(ports["identity"], "logout-all", bearer=fresh["access_token"]) == 401
-            assert post_auth(ports["identity"], "refresh", {"refresh_token": fresh["refresh_token"]}) == 401
+            assert post_auth(ports["identity"], "logout-all", bearer=fresh["accessToken"]) == 401
+            assert post_auth(ports["identity"], "refresh", {"refreshToken": fresh["refreshToken"]}) == 401
             print("OK: logout and logout-all revoke sessions and refresh tokens", flush=True)
             sensitive_values = {
                 "email": email,
                 "password": TEST_PASSWORD,
                 "idempotency key": str(key),
-                "access token": body["session"]["access_token"],
-                "refresh token": body["session"]["refresh_token"],
+                "access token": body["session"]["accessToken"],
+                "refresh token": body["session"]["refreshToken"],
                 "invalid email": invalid_email,
                 "incorrect password": wrong_password,
                 "logout refresh token": direct_refresh,
-                "logout-all access token": fresh["access_token"],
-                "logout-all refresh token": fresh["refresh_token"],
+                "logout-all access token": fresh["accessToken"],
+                "logout-all refresh token": fresh["refreshToken"],
             }
             if options.gateway:
                 if options.postman:
@@ -606,12 +606,12 @@ def main():
                 _, active = login(ports["identity"], direct_email, TEST_PASSWORD)
                 process.terminate()
                 process.wait(timeout=15)
-                assert post_auth(ports["identity"], "logout-all", bearer=active["access_token"]) == 503
+                assert post_auth(ports["identity"], "logout-all", bearer=active["accessToken"]) == 503
                 if options.postman:
                     postman_env = directory / "postman-outage.json"
                     postman_env.write_text(json.dumps({"values": [
                         {"key": "run_outage", "value": "true", "enabled": True},
-                        {"key": "outage_access_token", "value": active["access_token"], "enabled": True},
+                        {"key": "outage_access_token", "value": active["accessToken"], "enabled": True},
                         {"key": "base_url", "value": f"http://127.0.0.1:{ports['identity']}", "enabled": True},
                     ]}), encoding="utf-8")
                     result = subprocess.run([npx, "--yes", "newman@6.2.3", "run",
