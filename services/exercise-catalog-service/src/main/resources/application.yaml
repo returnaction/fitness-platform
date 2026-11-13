@@ -5,8 +5,28 @@ spring:
     default: local
   autoconfigure:
     exclude: org.springframework.boot.security.autoconfigure.UserDetailsServiceAutoConfiguration
+  datasource:
+    url: ${DATABASE_URL}
+    username: ${DATABASE_USERNAME}
+    password: ${DATABASE_PASSWORD}
+    hikari:
+      # Не включать значения строк из подробностей ошибок PostgreSQL в логи.
+      data-source-properties:
+        logServerErrorDetail: false
+      # Значения задаются явно в .env локальной среды или в переменных окружения
+      # сервера. У них нет скрытого значения по умолчанию.
+      minimum-idle: ${DATABASE_POOL_MIN_IDLE}
+      maximum-pool-size: ${DATABASE_POOL_MAX_SIZE}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  liquibase:
+    change-log: classpath:db/changelog/db.changelog-master.yaml
+
 server:
   port: ${SERVER_PORT}
+
 management:
   endpoints:
     web:
