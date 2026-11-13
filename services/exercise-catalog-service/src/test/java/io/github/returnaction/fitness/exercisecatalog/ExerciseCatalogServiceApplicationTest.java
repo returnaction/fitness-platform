@@ -12,10 +12,16 @@ import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 @ActiveProfiles("test")
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class ExerciseCatalogServiceApplicationTest {
+
+    // JPA-репозитории отключены в test-профиле, поэтому use case подменяется моком.
+    @MockitoBean
+    private io.github.returnaction.fitness.exercisecatalog.catalog.validation.ValidateChallengeTargetUseCase
+            validateChallengeTargetUseCase;
 
     @LocalServerPort
     private int port;

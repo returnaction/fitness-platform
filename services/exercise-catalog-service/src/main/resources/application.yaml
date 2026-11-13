@@ -16,6 +16,10 @@ spring:
       maximum-pool-size: ${DATABASE_POOL_MAX_SIZE:10}
   liquibase:
     change-log: classpath:db/changelog/db.changelog-master.yaml
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
 server:
   port: ${SERVER_PORT}
 management:
