@@ -4,38 +4,35 @@ This root file applies to the entire repository, including the
 [System Design documentation](system-design/README.md). More specific
 instructions in nested directories supplement the root instructions.
 
-## Active SDD Scope: 015-mobile-profile
+## SDD Scope and Workflow
 
-The active specification is [015-mobile-profile](specs/015-mobile-profile/spec.md).
-Continue only this scope when the user requests continued development; do not
-choose another feature or a system-design roadmap item on their behalf.
+No specification is currently active. Completed specifications remain in `specs/`
+as historical requirements and verification records; they do not authorize new work.
+When the user selects the next specification, fill in the scope template below.
+Do not choose a feature or a system-design roadmap item on the user's behalf.
 
-- **Branch:** `41-mobile-profile`, created from current main; use the current
-  checkout without creating a worktree, as requested by the user.
-- **Status:** in-progress — implementation started at the user's explicit request
-  on 2026-11-13; T002–T005 completed, next task T006 awaits review.
-- **Topic:** mobile frontend for viewing and updating the user's own profile,
-  using the existing Accounts GET/PUT endpoints from Spec 014.
-- **Authorized work:** the user explicitly authorized starting implementation on
-  2026-11-13. Stop after each task for review as agreed. Scope is mobile
-  frontend only. If backend/API changes appear necessary, tell the user why and
-  discuss them before making any such changes; keep dependent tasks open.
-- **Goal, scope and acceptance criteria:** recorded in [spec.md](specs/015-mobile-profile/spec.md).
-- **Plan and tasks:** [plan.md](specs/015-mobile-profile/plan.md) and
-  [tasks.md](specs/015-mobile-profile/tasks.md); T002–T005 are verified; remaining tasks stay open.
-- **Device verification:** a connected physical phone is required; record actual
-  evidence in [verification.md](specs/015-mobile-profile/verification.md). Do not
-  close this requirement based only on APK installation or automated tests.
-- **Execution mode:** after each authorized task, report evidence and stop for
-  review unless the user explicitly authorizes continued work.
-- **Questions and decisions:** record agreed preparation results in
-  [questions.md](specs/015-mobile-profile/questions.md), with affected tasks,
-  evidence, options, recommendation and any blocked scope when applicable.
-- Spec 014 is complete in its agreed server scope. Its records are historical;
-  its authorizations do not carry over to Spec 015.
+### Scope template for the next specification
 
-When this specification is complete, clear its active scope here and keep its
-history in its own directory. Do not select the next feature automatically.
+- **Specification:** not selected; directory format: `specs/<number>-<name>/`.
+- **Branch:** not selected; follow the Git Branches rules below.
+- **Status:** not started; use the specification's actual status once selected.
+- **Goal and acceptance criteria:** record in `spec.md`.
+- **Included scope:** record the agreed services, APIs, clients and deliverables.
+- **Excluded scope:** record explicit exclusions and agreed limitations.
+- **Plan and tasks:** link to `plan.md` and `tasks.md` in the selected directory.
+- **Verification:** record required checks and evidence in `verification.md`.
+- **Authorized work:** record whether the user authorized preparation, specific
+  tasks or continued implementation. Approval of requirements alone does not
+  authorize implementation.
+- **Execution mode:** after each task, report evidence and stop for review unless
+  the user explicitly authorizes continued work.
+- **Questions and decisions:** record in `questions.md`, with affected tasks,
+  evidence, options, recommendation and any blocked scope.
+
+Replace these placeholders only with information established by the user or
+verified in the repository. Do not create a specification or branch merely to
+fill in the template. Once the selected specification is complete, clear its
+active scope here and keep its history in its own directory.
 
 ### Before each authorized development step
 
@@ -142,19 +139,3 @@ authorizations, fields, examples, errors, versions, idempotency, transactions,
 and failure handling. Update related documents when a contract changes.
 Check `.drawio` diagrams structurally; claim visual verification only when it
 has actually been performed.
-
-## Verification and Communication
-
-Test business rules and key errors, permissions, retries, and races. For
-important database operations, use PostgreSQL integration tests; verify
-migrations, contracts, and messaging with suitable integration tests. Run the
-project's existing build, static analysis, and tests as relevant to the task.
-Automatic formatting is disabled at the user's request; preserve manual code
-layout and do not reintroduce or run a formatter without an explicit request. When changing documentation only, check links and consistency; do
-not automatically run a build without a reason. Do not describe unverified
-work as working.
-
-Explain things to the user in Russian and in plain language. Do not repeat
-already made decisions as questions; propose solutions for technical details.
-Confirm material changes to business rules. In the result, state what changed,
-what was verified, and what limitations remain.
