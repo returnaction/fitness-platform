@@ -42,8 +42,8 @@ void main() {
       postAction: (_, {data, headers}) async {
         expect(await storage.read(), isNull);
         return {
-          'access_token': 'rotated-access',
-          'refresh_token': 'rotated-refresh',
+          'accessToken': 'rotated-access',
+          'refreshToken': 'rotated-refresh',
         };
       },
     );
@@ -82,7 +82,7 @@ void main() {
     final api = _FakeAuthApiClient(
       postAction: (_, {data, headers}) async {
         store.failWrite = true;
-        return {'access_token': 'new-a', 'refresh_token': 'new-r'};
+        return {'accessToken': 'new-a', 'refreshToken': 'new-r'};
       },
     );
     final repository = AuthRepository(
@@ -174,7 +174,7 @@ void main() {
     () async {
       final api = _FakeAuthApiClient(
         postAction: (_, {data, headers}) => Future.value({
-          'session': {'access_token': 'access', 'refresh_token': 'refresh'},
+          'session': {'accessToken': 'access', 'refreshToken': 'refresh'},
         }),
       );
       final storage = TokenStorage(_MemorySecureValueStore());

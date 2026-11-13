@@ -14,7 +14,6 @@ class SecurityConfiguration {
                 .requestMatchers("/actuator/health", "/actuator/health/**", "/actuator/info", "/actuator/prometheus")
                 .permitAll()
                 .anyRequest()
-                .denyAll())
-                .build();
+                .denyAll()).build();
     }
 }

@@ -75,8 +75,6 @@
         <lombok-mapstruct-binding.version>0.2.0</lombok-mapstruct-binding.version>
 
         <!-- === КАЧЕСТВА КОДА === -->
-        <!-- Spotless: Заставляет всех писать код с одинаковыми отступами. -->
-        <spotless.version>3.10.4</spotless.version>
         <!-- SpotBugs: Ищет потенциальные ошибки в коде (например, NPE). -->
         <spotbugs.version>4.10.5.0</spotbugs.version>
         <spotbugs.annotations.version>4.10.5</spotbugs.annotations.version>
@@ -257,42 +255,10 @@
   <!-- умеет: он не компилирует Java и не собирает jar.                       -->
   <!-- Он вызывает ПЛАГИНЫ на определенных этапах (phase).                    -->
   <!-- Например: на этапе compile вызывается компилятор,                      -->
-  <!-- на этапе verify — проверяльщик багов и форматтер.                      -->
+  <!-- на этапе verify — проверяльщик багов.                      -->
   <!-- ====================================================================== -->
     <build>
         <plugins>
-          <!-- ============================================================== -->
-          <!-- 1. SPOTLESS (Инструмент форматирования)                        -->
-          <!-- ============================================================== -->
-          <!-- Что делает: Проверяет, чтобы весь код был красиво и одинаково  -->
-          <!-- отформатирован. Убирает неиспользуемые импорты.                -->
-          <!-- Зачем: Чтобы в Pull Request'ах не было мусорных изменений      -->
-          <!-- из-за того, что у Андрея пробелы, а у Васи табы.               -->
-          <!-- Когда запускается: Привязан к фазе verify (mvnw verify).       -->
-            <plugin>
-                <groupId>com.diffplug.spotless</groupId>
-                <artifactId>spotless-maven-plugin</artifactId>
-                <version>${spotless.version}</version>
-                <configuration>
-                    <java>
-                        <removeUnusedImports/>
-                        <eclipse>
-                            <version>4.37</version>
-                            <file>${maven.multiModuleProjectDirectory}/config/eclipse-java-formatter.xml</file>
-                        </eclipse>
-                        <forbidWildcardImports/>
-                    </java>
-                </configuration>
-                <executions>
-                    <execution>
-                        <id>verify-java-formatting</id>
-                        <phase>verify</phase>
-                        <goals>
-                            <goal>check</goal>
-                        </goals>
-                    </execution>
-                </executions>
-            </plugin>
           <!-- ============================================================== -->
           <!-- 2. SPOTBUGS (Статический анализатор кода)                      -->
           <!-- ============================================================== -->

@@ -28,10 +28,8 @@ public class JwtDecoderConfiguration {
     }
 
     @Bean
-    JwtDecoder jwtDecoder(JwksInitializer keys,
-                          AccessTokenProperties properties,
-                          AccessTokenClaimsValidator claimsValidator,
-                          Clock clock) {
+    JwtDecoder jwtDecoder(JwksInitializer keys, AccessTokenProperties properties,
+        AccessTokenClaimsValidator claimsValidator, Clock clock) {
         var processor = new DefaultJWTProcessor<SecurityContext>();
         processor.setJWSKeySelector((header, context) -> {
             if (!JWSAlgorithm.ES256.equals(header.getAlgorithm()) || header.getKeyID() == null) {
@@ -51,10 +49,8 @@ public class JwtDecoderConfiguration {
         // Check required raw claims before Spring's converter can supply defaults.
         // Time validation below uses the shared Clock, not Nimbus's system clock.
         processor.setJWTClaimsSetVerifier((claims, context) -> {
-            if (!(claims.getClaim("sub") instanceof String)
-                    || !(claims.getClaim("sid") instanceof String)
-                    || !(claims.getClaim("jti") instanceof String)
-                    || !(claims.getClaim("iat") instanceof Date)
+            if (!(claims.getClaim("sub") instanceof String) || !(claims.getClaim("sid") instanceof String)
+                    || !(claims.getClaim("jti") instanceof String) || !(claims.getClaim("iat") instanceof Date)
                     || !(claims.getClaim("exp") instanceof Date)) {
                 throw new BadJWTException("Missing or invalid required claims");
             }
@@ -62,9 +58,9 @@ public class JwtDecoderConfiguration {
         var decoder = new NimbusJwtDecoder(processor);
         var timestamps = new JwtTimestampValidator(Duration.ZERO);
         timestamps.setClock(clock);
-        decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(timestamps,
-                new JwtIssuerValidator(properties.issuer()), new JwtAudienceValidator(properties.audience()),
-                claimsValidator));
+        decoder.setJwtValidator(
+                new DelegatingOAuth2TokenValidator<>(timestamps, new JwtIssuerValidator(properties.issuer()),
+                        new JwtAudienceValidator(properties.audience()), claimsValidator));
         return decoder;
     }
 }

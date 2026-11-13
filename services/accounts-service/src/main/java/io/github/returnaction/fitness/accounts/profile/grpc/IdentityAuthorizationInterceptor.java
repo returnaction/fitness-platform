@@ -23,9 +23,8 @@ public final class IdentityAuthorizationInterceptor implements ServerInterceptor
             .withDescription("Service identity is not authorized");
 
     @Override
-    public <ReqT, RespT> ServerCall.Listener<ReqT> interceptCall(ServerCall<ReqT, RespT> call,
-                                                                 Metadata headers,
-                                                                 ServerCallHandler<ReqT, RespT> next) {
+    public <ReqT, RespT> ServerCall.Listener<ReqT> interceptCall(ServerCall<ReqT, RespT> call, Metadata headers,
+        ServerCallHandler<ReqT, RespT> next) {
 
         SSLSession session = call.getAttributes().get(Grpc.TRANSPORT_ATTR_SSL_SESSION);
 
@@ -53,8 +52,7 @@ public final class IdentityAuthorizationInterceptor implements ServerInterceptor
 
     private boolean hasIdentityUriSan(X509Certificate certificate) throws CertificateParsingException {
         Collection<List<?>> subjectAlternativeNames = certificate.getSubjectAlternativeNames();
-        return subjectAlternativeNames != null
-                && subjectAlternativeNames.stream().anyMatch(this::isIdentityUriSan);
+        return subjectAlternativeNames != null && subjectAlternativeNames.stream().anyMatch(this::isIdentityUriSan);
     }
 
     private boolean isIdentityUriSan(List<?> subjectAlternativeName) {

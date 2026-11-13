@@ -44,12 +44,9 @@ class SessionMutualTlsTest {
 
     @Test
     void missingCertificateFailsStartupEvenWithOldDisabledFlag(@TempDir Path dir) {
-        new ApplicationContextRunner()
-                .withUserConfiguration(SecureSessionGrpcServer.class)
+        new ApplicationContextRunner().withUserConfiguration(SecureSessionGrpcServer.class)
                 .withBean(SessionVerificationGrpcService.class, () -> mock(SessionVerificationGrpcService.class))
-                .withPropertyValues(
-                        "identity.session-grpc.enabled=false",
-                        "identity.session-grpc.address=127.0.0.1",
+                .withPropertyValues("identity.session-grpc.enabled=false", "identity.session-grpc.address=127.0.0.1",
                         "identity.session-grpc.port=19093",
                         "identity.session-grpc.certificate=" + dir.resolve("missing.crt"),
                         "identity.session-grpc.private-key=" + dir.resolve("missing.key"),
@@ -64,29 +61,14 @@ class SessionMutualTlsTest {
         var caName = new X500Name("CN=Test CA");
         var ca = cert(caName, caName, caKey, caKey, null, true);
         var serverKey = keyPair();
-        var serverCert = cert(
-                caName,
-                new X500Name("CN=localhost"),
-                serverKey,
-                caKey,
-                new GeneralName(GeneralName.dNSName, "localhost"),
-                false);
+        var serverCert = cert(caName, new X500Name("CN=localhost"), serverKey, caKey,
+                new GeneralName(GeneralName.dNSName, "localhost"), false);
         var callerKey = keyPair();
-        var callerCert = cert(
-                caName,
-                new X500Name("CN=gateway"),
-                callerKey,
-                caKey,
-                new GeneralName(GeneralName.uniformResourceIdentifier, "spiffe://fitness.local/test-gateway"),
-                false);
+        var callerCert = cert(caName, new X500Name("CN=gateway"), callerKey, caKey,
+                new GeneralName(GeneralName.uniformResourceIdentifier, "spiffe://fitness.local/test-gateway"), false);
         var otherKey = keyPair();
-        var otherCert = cert(
-                caName,
-                new X500Name("CN=other"),
-                otherKey,
-                caKey,
-                new GeneralName(GeneralName.uniformResourceIdentifier, "spiffe://fitness.local/coins-service"),
-                false);
+        var otherCert = cert(caName, new X500Name("CN=other"), otherKey, caKey,
+                new GeneralName(GeneralName.uniformResourceIdentifier, "spiffe://fitness.local/coins-service"), false);
         int port;
         try (var socket = new ServerSocket(0)) {
             port = socket.getLocalPort();
@@ -94,14 +76,10 @@ class SessionMutualTlsTest {
         var repo = mock(SessionVerificationRepository.class);
         when(repo.check(any(), any())).thenReturn(new SessionVerificationRepository.Result(true, Instant.now()));
         var service = new SessionVerificationGrpcService(repo);
-        var server = new SecureSessionGrpcServer(
-                service,
-                "127.0.0.1",
-                port,
+        var server = new SecureSessionGrpcServer(service, "127.0.0.1", port,
                 pem(dir.resolve("server.pem"), serverCert).toString(),
                 pem(dir.resolve("server.key"), serverKey.getPrivate()).toString(),
-                pem(dir.resolve("ca.pem"), ca).toString(),
-                "spiffe://fitness.local/test-gateway");
+                pem(dir.resolve("ca.pem"), ca).toString(), "spiffe://fitness.local/test-gateway");
         server.start();
         var trusted = channel(port, ca, callerKey, callerCert);
         var other = channel(port, ca, otherKey, otherCert);
@@ -115,8 +93,7 @@ class SessionMutualTlsTest {
             assertThat(IdentitySessionServiceGrpc.newBlockingStub(trusted)
                     .withDeadlineAfter(5, TimeUnit.SECONDS)
                     .checkSession(request)
-                    .getStatus())
-                    .isEqualTo(SessionStatus.SESSION_STATUS_ACTIVE);
+                    .getStatus()).isEqualTo(SessionStatus.SESSION_STATUS_ACTIVE);
             assertThatThrownBy(() -> IdentitySessionServiceGrpc.newBlockingStub(other)
                     .withDeadlineAfter(5, TimeUnit.SECONDS)
                     .checkSession(request))
@@ -134,16 +111,12 @@ class SessionMutualTlsTest {
         }
     }
 
-    private static ManagedChannel channel(int port,
-                                          X509Certificate ca,
-                                          KeyPair key,
-                                          X509Certificate cert) throws Exception {
+    private static ManagedChannel channel(int port, X509Certificate ca, KeyPair key,
+        X509Certificate cert) throws Exception {
         var ssl = GrpcSslContexts.forClient().trustManager(ca);
         if (key != null)
             ssl.keyManager(key.getPrivate(), cert);
-        return NettyChannelBuilder.forAddress("localhost", port)
-                .sslContext(ssl.build())
-                .build();
+        return NettyChannelBuilder.forAddress("localhost", port).sslContext(ssl.build()).build();
     }
 
     private static Path pem(Path path, Object object) throws Exception {
@@ -160,26 +133,15 @@ class SessionMutualTlsTest {
         return generator.generateKeyPair();
     }
 
-    private static X509Certificate cert(
-                                        X500Name issuer,
-                                        X500Name subject,
-                                        KeyPair subjectKey,
-                                        KeyPair issuerKey,
-                                        GeneralName san,
-                                        boolean isCa) throws Exception {
+    private static X509Certificate cert(X500Name issuer, X500Name subject, KeyPair subjectKey, KeyPair issuerKey,
+        GeneralName san, boolean isCa) throws Exception {
         Instant now = Instant.now();
-        var builder = new JcaX509v3CertificateBuilder(
-                issuer,
-                new BigInteger(128, new SecureRandom()).abs(),
-                Date.from(now.minusSeconds(60)),
-                Date.from(now.plusSeconds(3600)),
-                subject,
-                subjectKey.getPublic());
+        var builder = new JcaX509v3CertificateBuilder(issuer, new BigInteger(128, new SecureRandom()).abs(),
+                Date.from(now.minusSeconds(60)), Date.from(now.plusSeconds(3600)), subject, subjectKey.getPublic());
         builder.addExtension(Extension.basicConstraints, true, new BasicConstraints(isCa));
         if (san != null)
             builder.addExtension(Extension.subjectAlternativeName, false, new GeneralNames(san));
-        return new JcaX509CertificateConverter()
-                .getCertificate(
-                        builder.build(new JcaContentSignerBuilder("SHA256withRSA").build(issuerKey.getPrivate())));
+        return new JcaX509CertificateConverter().getCertificate(
+                builder.build(new JcaContentSignerBuilder("SHA256withRSA").build(issuerKey.getPrivate())));
     }
 }

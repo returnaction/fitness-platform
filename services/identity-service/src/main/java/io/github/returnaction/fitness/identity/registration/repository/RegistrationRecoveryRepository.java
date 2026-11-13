@@ -29,25 +29,21 @@ public class RegistrationRecoveryRepository {
     }
 
     public int resume(UUID operationId) {
-        return entityManager
-                .createNativeQuery("""
-                        UPDATE registration_operations
-                        SET recovery_blocked_at = NULL, last_error_code = NULL,
-                            next_retry_at = clock_timestamp(), lease_owner = NULL, lease_until = NULL,
-                            lease_version = lease_version + 1, version = version + 1, updated_at = clock_timestamp()
-                        WHERE id = :id AND (lease_until IS NULL OR lease_until <= clock_timestamp())
-                        """)
-                .setParameter("id", operationId)
-                .executeUpdate();
+        return entityManager.createNativeQuery("""
+                UPDATE registration_operations
+                SET recovery_blocked_at = NULL, last_error_code = NULL,
+                    next_retry_at = clock_timestamp(), lease_owner = NULL, lease_until = NULL,
+                    lease_version = lease_version + 1, version = version + 1, updated_at = clock_timestamp()
+                WHERE id = :id AND (lease_until IS NULL OR lease_until <= clock_timestamp())
+                """).setParameter("id", operationId).executeUpdate();
     }
 
     public void writeAudit(UUID operationId, UUID actorUserId, String reason, String previousErrorCode) {
-        entityManager
-                .createNativeQuery("""
-                        INSERT INTO registration_recovery_audit
-                            (id, operation_id, actor_user_id, reason, previous_error_code)
-                        VALUES (:id, :operationId, :actor, :reason, :error)
-                        """)
+        entityManager.createNativeQuery("""
+                INSERT INTO registration_recovery_audit
+                    (id, operation_id, actor_user_id, reason, previous_error_code)
+                VALUES (:id, :operationId, :actor, :reason, :error)
+                """)
                 .setParameter("id", UUID.randomUUID())
                 .setParameter("operationId", operationId)
                 .setParameter("actor", actorUserId)
@@ -56,6 +52,10 @@ public class RegistrationRecoveryRepository {
                 .executeUpdate();
     }
 
-    public record Row(UUID operationId, String status, long version, Instant recoveryBlockedAt, String lastErrorCode) {
+    public record Row(UUID operationId,
+                      String status,
+                      long version,
+                      Instant recoveryBlockedAt,
+                      String lastErrorCode) {
     }
 }

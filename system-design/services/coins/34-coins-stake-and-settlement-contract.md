@@ -65,7 +65,7 @@ gRPC-код, `message` — безопасный текст, `details` содер
 metadata игнорируются, неизвестный reason обрабатывается как общая ошибка;
 пароли, токены, данные кошелька и SQL в сообщениях не передаются. Наружный
 HTTP API не отдаёт protobuf ошибки напрямую: он переводит их в согласованный
-JSON `{"error":{"code":"...","message":"...","request_id":"..."}}`.
+JSON `{"error":{"code":"...","message":"...","requestId":"..."}}`.
 
 Пример gRPC rich error в JSON-представлении:
 
@@ -73,7 +73,7 @@ JSON `{"error":{"code":"...","message":"...","request_id":"..."}}`.
 {"code":6,"message":"Operation ID conflicts with previous request",
  "details":[{"@type":"type.googleapis.com/google.rpc.ErrorInfo",
  "reason":"OPERATION_ID_CONFLICT","domain":"coins.fitness.internal",
- "metadata":{"request_id":"<uuid>"}}]}
+ "metadata":{"requestId":"<uuid>"}}]}
 ```
 
 Это проект контракта зависимостей protobuf / gRPC; фактическая поддержка
@@ -104,14 +104,14 @@ JSON `{"error":{"code":"...","message":"...","request_id":"..."}}`.
 Резервирование:
 
 ```json
-{"join_operation_id":"<uuid>","user_id":"<uuid>","challenge_id":"<uuid>","amount":"10"}
+{"joinOperationId":"<uuid>","userId":"<uuid>","challengeId":"<uuid>","amount":"10"}
 ```
 
 Protobuf JSON показывает `int64` строкой; в Java поле имеет тип `long`.
 Ответ:
 
 ```json
-{"join_operation_id":"<uuid>","outcome":"RESERVED","hold_id":"<uuid>"}
+{"joinOperationId":"<uuid>","outcome":"RESERVED","holdId":"<uuid>"}
 ```
 
 При недостатке средств `outcome` = `INSUFFICIENT_FUNDS`, `hold_id` отсутствует;
@@ -121,26 +121,26 @@ Protobuf JSON показывает `int64` строкой; в Java поле им
 Возврат:
 
 ```json
-{"release_operation_id":"<uuid>","hold_id":"<uuid>","challenge_id":"<uuid>","reason":"JOIN_NOT_CONFIRMED"}
+{"releaseOperationId":"<uuid>","holdId":"<uuid>","challengeId":"<uuid>","reason":"JOIN_NOT_CONFIRMED"}
 ```
 
-Успех: `{"release_operation_id":"<uuid>","hold_id":"<uuid>","outcome":"RELEASED"}`.
+Успех: `{"releaseOperationId":"<uuid>","holdId":"<uuid>","outcome":"RELEASED"}`.
 Повтор с тем же ID и теми же данными возвращает исходный ответ, а не вторую
 проводку. Другой ID для уже возвращённого hold — `FAILED_PRECONDITION`.
 
-Получение исхода: `{"kind":"RESERVE","operation_id":"<uuid>"}`;
-успешный ответ — `{"reserve":{"join_operation_id":"<uuid>","outcome":"RESERVED","hold_id":"<uuid>"}}`.
+Получение исхода: `{"kind":"RESERVE","operationId":"<uuid>"}`;
+успешный ответ — `{"reserve":{"joinOperationId":"<uuid>","outcome":"RESERVED","holdId":"<uuid>"}}`.
 Для возврата передаётся `RELEASE`, ответ содержит `release`. `NOT_FOUND` не
 доказывает отсутствие запроса в пути.
 
 Исторический пример закрытия одним сообщением (не действующий API):
 
 ```json
-{"seal_operation_id":"<uuid>","challenge_id":"<uuid>","set_version":"1",
- "stakes":[{"hold_id":"<uuid>","user_id":"<uuid>","amount":"10"}]}
+{"sealOperationId":"<uuid>","challengeId":"<uuid>","setVersion":"1",
+ "stakes":[{"holdId":"<uuid>","userId":"<uuid>","amount":"10"}]}
 ```
 
-Успех: `{"seal_operation_id":"<uuid>","challenge_id":"<uuid>","set_version":"1","set_digest":"<sha256-hex>"}`.
+Успех: `{"sealOperationId":"<uuid>","challengeId":"<uuid>","setVersion":"1","setDigest":"<sha256-hex>"}`.
 Несовпадение списка — `FAILED_PRECONDITION` / `STAKE_SET_MISMATCH`; изменённый
 payload того же operation ID — `ALREADY_EXISTS` / `OPERATION_ID_CONFLICT`.
 Действующий проект: пакеты по 500 строк, как описано в разделе ниже.
@@ -318,30 +318,30 @@ UUID — PK, даты — `timestamptz`, суммы — положительны
 
 ### Событие окончательного результата v1: проект
 
-Kafka, key = `challenge_id`, через Challenge outbox; JSON ниже — логическая
+Kafka, key = `challengeId`, через Challenge outbox; JSON ниже — логическая
 схема, регистрация и совместимость формата сообщений ещё требуют выбора:
 
 ```json
 {
-  "event_id":"<uuid>", "event_type":"challenge.finished", "schema_version":1,
-  "occurred_at":"2026-11-05T12:00:00Z", "producer":"challenge",
-  "correlation_id":"<uuid>",
+  "eventId":"<uuid>", "eventType":"challenge.finished", "schemaVersion":1,
+  "occurredAt":"2026-11-05T12:00:00Z", "producer":"challenge",
+  "correlationId":"<uuid>",
   "data":{
-    "challenge_id":"<uuid>", "result_id":"<uuid>", "set_version":1,
-    "set_digest":"<sha256-hex>", "rule_version":"equal-pool-v1",
-    "outcome":"SINGLE_WINNER", "winner_count":1,
-    "winners_digest":"<sha256-hex>"
+    "challengeId":"<uuid>", "resultId":"<uuid>", "setVersion":1,
+    "setDigest":"<sha256-hex>", "ruleVersion":"equal-pool-v1",
+    "outcome":"SINGLE_WINNER", "winnerCount":1,
+    "winnersDigest":"<sha256-hex>"
   }
 }
 ```
 
 Список победителей не помещается в событие: Coins читает неизменяемый список
-страницами из Challenge по `result_id` и сверяет количество и digest. Список
+страницами из Challenge по `resultId` и сверяет количество и digest. Список
 непустой, ID уникальны и каждый победитель есть в сохранённом наборе.
 `outcome` и версии правил проверяются; незнакомое значение не приводит
 к выплате. Полный набор и суммы Coins получает из ранее закрытого снимка, не из
-клиента; `set_digest` связывает событие с набором. Дубли `event_id` обрабатывает
-inbox, дубли `result_id` и `challenge_id` — бизнес-уникальность. При наличии
+клиента; `setDigest` связывает событие с набором. Дубли `eventId` обрабатывает
+inbox, дубли `resultId` и `challengeId` — бизнес-уникальность. При наличии
 другого итога или отмены применяется карантин / разбор, а не повторная выплата.
 Допустимые исходы v1 и условия их проверки указаны в разделе «Исходы финального
 события v1»; протокол постраничного чтения — в разделе ниже.

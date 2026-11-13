@@ -55,15 +55,18 @@ import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 class JwtValidationTest {
 
     private static final TestUpstream UPSTREAM = new TestUpstream();
+    private static final TestUpstream ACCOUNTS = new TestUpstream();
 
     @DynamicPropertySource
     static void upstream(DynamicPropertyRegistry registry) {
         registry.add("gateway.upstreams.services.IDENTITY.base-url", UPSTREAM::baseUrl);
+        registry.add("gateway.upstreams.services.ACCOUNT.base-url", ACCOUNTS::baseUrl);
     }
 
     @AfterAll
     static void stopUpstream() {
         UPSTREAM.close();
+        ACCOUNTS.close();
     }
 
     @MockitoBean
@@ -91,9 +94,11 @@ class JwtValidationTest {
     @BeforeEach
     void configureTrustAndTime() {
         UPSTREAM.calls.set(0);
+        ACCOUNTS.calls.set(0);
+        ACCOUNTS.status.set(200);
         UPSTREAM.status.set(200);
-        when(sessions.isActive(ArgumentMatchers.any(), ArgumentMatchers.any(),
-                ArgumentMatchers.any(), ArgumentMatchers.any())).thenReturn(true);
+        when(sessions.isActive(ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any(),
+                ArgumentMatchers.any())).thenReturn(true);
         when(keys.ready()).thenReturn(true);
         when(keys.keys()).thenReturn(List.of(KEY.toPublicJWK()));
         when(clock.instant()).thenReturn(NOW);
@@ -166,12 +171,11 @@ class JwtValidationTest {
 
     @Test
     void rejectsInvalidTimeIssuerAudienceAndSignature() throws Exception {
-        for (var entry : Map.<String, Object>of(
-                "iat", NOW.plusSeconds(1).getEpochSecond(),
-                "exp", NOW.plusSeconds(901).getEpochSecond(),
-                "nbf", NOW.plusSeconds(1).getEpochSecond(),
-                "iss", "wrong",
-                "aud", List.of("wrong")).entrySet()) {
+        for (var entry : Map
+                .<String, Object>of("iat", NOW.plusSeconds(1).getEpochSecond(), "exp",
+                        NOW.plusSeconds(901).getEpochSecond(), "nbf", NOW.plusSeconds(1).getEpochSecond(), "iss",
+                        "wrong", "aud", List.of("wrong"))
+                .entrySet()) {
             var invalid = claims();
             invalid.put(entry.getKey(), entry.getValue());
             assertThatThrownBy(() -> decoder.decode(sign(invalid))).isInstanceOf(JwtException.class);
@@ -210,8 +214,8 @@ class JwtValidationTest {
             assertThat(UPSTREAM.calls.get()).isEqualTo(16);
         }
         verify(decoder, never()).decode(ArgumentMatchers.anyString());
-        verify(sessions, never()).isActive(ArgumentMatchers.any(), ArgumentMatchers.any(),
-                ArgumentMatchers.any(), ArgumentMatchers.any());
+        verify(sessions, never()).isActive(ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any(),
+                ArgumentMatchers.any());
     }
 
     @Test
@@ -219,7 +223,7 @@ class JwtValidationTest {
         try (var client = HttpClient.newHttpClient()) {
             var invalid = request(client, "/api/v1/auth/logout-all", sign(claims(), KEY, "unknown"));
             assertThat(invalid.statusCode()).isEqualTo(401);
-            assertThat(invalid.body()).contains("invalid_access_token", "request_id");
+            assertThat(invalid.body()).contains("invalid_access_token", "requestId");
             assertThat(invalid.headers().firstValue("WWW-Authenticate")).contains("Bearer");
             Mockito.verifyNoInteractions(sessions);
             assertThat(UPSTREAM.calls.get()).isZero();
@@ -237,8 +241,8 @@ class JwtValidationTest {
         var user = UUID.fromString((String) claims.get("sub"));
         var session = UUID.fromString((String) claims.get("sid"));
         var requestId = new AtomicReference<UUID>();
-        when(sessions.isActive(ArgumentMatchers.eq(user), ArgumentMatchers.eq(session),
-                ArgumentMatchers.any(), ArgumentMatchers.any())).thenAnswer(invocation -> {
+        when(sessions.isActive(ArgumentMatchers.eq(user), ArgumentMatchers.eq(session), ArgumentMatchers.any(),
+                ArgumentMatchers.any())).thenAnswer(invocation -> {
                     requestId.set(invocation.getArgument(2));
                     RequestDeadline deadline = invocation.getArgument(3);
                     assertThat(deadline.remainingNanos()).isPositive().isLessThanOrEqualTo(3_000_000_000L);
@@ -249,11 +253,9 @@ class JwtValidationTest {
             assertThat(invalid.statusCode()).isEqualTo(401);
             assertThat(invalid.headers().firstValue("X-Request-Id")).contains(requestId.get().toString());
             assertThat(invalid.body()).contains(requestId.get().toString(), "invalid_access_token");
-            when(sessions.isActive(ArgumentMatchers.any(), ArgumentMatchers.any(),
-                    ArgumentMatchers.any(), ArgumentMatchers.any()))
-                    .thenThrow(
-                            new SessionVerificationUnavailableException(
-                                    "private transport diagnostics"));
+            when(sessions.isActive(ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any(),
+                    ArgumentMatchers.any()))
+                    .thenThrow(new SessionVerificationUnavailableException("private transport diagnostics"));
             var failed = request(client, "/api/v1/auth/logout-all", sign(claims));
             assertThat(failed.statusCode()).isEqualTo(503);
             assertThat(failed.body()).contains("identity_unavailable").doesNotContain("private transport diagnostics");
@@ -262,11 +264,16 @@ class JwtValidationTest {
     }
 
     @Test
-    void forwardsFiveOperationsWithOnlyAllowedHeadersAndOriginalBody() throws Exception {
+    void forwardsCatalogOperationsToTheirOwnUpstreamWithOriginalHeadersAndBody() throws Exception {
         String token = sign(claims());
         String body = "{ \"value\" : \"исходное тело\" }";
         try (var client = HttpClient.newHttpClient()) {
             for (var route : GatewayRouteCatalog.routes()) {
+                boolean accountsRoute = route.path().equals("/api/v1/accounts/me");
+                var target = accountsRoute ? ACCOUNTS : UPSTREAM;
+                var other = accountsRoute ? UPSTREAM : ACCOUNTS;
+                int otherCalls = other.calls.get();
+                String requestBody = route.method().name().equals("GET") ? "" : body;
                 var outgoing = HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + route.path()))
                         .header("Authorization", "Bearer " + token)
                         .header("Content-Type", "application/json")
@@ -281,20 +288,22 @@ class JwtValidationTest {
                         .header("X-Forwarded-Host", "evil.example")
                         .header("X-Forwarded-Proto", "https")
                         .header("X-Extra", "remove")
-                        .POST(HttpRequest.BodyPublishers.ofString(body))
+                        .method(route.method().name(), HttpRequest.BodyPublishers.ofString(requestBody))
                         .build();
                 var response = client.send(outgoing, HttpResponse.BodyHandlers.ofString());
                 assertThat(response.statusCode()).isEqualTo(200);
                 assertThat(response.body()).isEqualTo("{\"result\":\"unchanged\"}");
-                var received = UPSTREAM.received.get();
-                assertThat(received.method()).isEqualTo("POST");
+                assertThat(other.calls.get()).isEqualTo(otherCalls);
+                assertThat(response.headers().firstValue("Cache-Control")).contains("no-store");
+                var received = target.received.get();
+                assertThat(received.method()).isEqualTo(route.method().name());
                 assertThat(received.path()).isEqualTo(route.path());
-                assertThat(received.body()).isEqualTo(body);
+                assertThat(received.body()).isEqualTo(requestBody);
                 assertThat(received.header("Content-Type")).isEqualTo("application/json");
                 assertThat(received.header("Accept")).isEqualTo("application/json");
                 assertThat(received.header("Idempotency-Key")).isEqualTo("operation-key");
-                assertThat(received.header("Authorization")).isEqualTo(
-                        route.access() == RouteAccess.PUBLIC ? null : "Bearer " + token);
+                assertThat(received.header("Authorization"))
+                        .isEqualTo(route.access() == RouteAccess.PUBLIC ? null : "Bearer " + token);
                 assertThat(received.header("X-Forwarded-For")).isEqualTo("127.0.0.1");
                 assertThat(received.headers()).doesNotContainKeys("X-User-Id", "X-Roles", "Cookie", "Forwarded",
                         "X-Forwarded-Host", "X-Forwarded-Proto", "X-Extra");
@@ -304,8 +313,9 @@ class JwtValidationTest {
             }
         }
         assertThat(UPSTREAM.calls.get()).isEqualTo(5);
-        verify(sessions).isActive(ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any(),
-                ArgumentMatchers.any());
+        assertThat(ACCOUNTS.calls.get()).isEqualTo(2);
+        verify(sessions, Mockito.times(3)).isActive(ArgumentMatchers.any(), ArgumentMatchers.any(),
+                ArgumentMatchers.any(), ArgumentMatchers.any());
     }
 
     @Test
@@ -325,8 +335,7 @@ class JwtValidationTest {
 
     @Test
     void preservesFormAndMultipartBodiesWithoutTurningThemIntoQueryParameters() throws Exception {
-        var bodies = Map.of(
-                "application/x-www-form-urlencoded", "name=a%20b&name=c+z&literal=%2f",
+        var bodies = Map.of("application/x-www-form-urlencoded", "name=a%20b&name=c+z&literal=%2f",
                 "multipart/form-data; boundary=sample",
                 "--sample\r\nContent-Disposition: form-data; name=\"x\"\r\n\r\nvalue\r\n--sample--\r\n");
         try (var client = HttpClient.newHttpClient()) {
@@ -354,6 +363,82 @@ class JwtValidationTest {
             assertThat(client.send(outgoing, HttpResponse.BodyHandlers.ofString()).statusCode()).isEqualTo(200);
             assertThat(UPSTREAM.received.get().body()).isEqualTo(body);
         }
+    }
+
+    @Test
+    void accountsRejectsInvalidJwtAndInactiveOrUnavailableSessionWithoutForwarding() throws Exception {
+        try (var client = HttpClient.newHttpClient()) {
+            for (String method : List.of("GET", "PUT")) {
+                assertThat(profileRequest(client, method, "bad").statusCode()).isEqualTo(401);
+                verify(sessions, never()).isActive(ArgumentMatchers.any(), ArgumentMatchers.any(),
+                        ArgumentMatchers.any(), ArgumentMatchers.any());
+                Mockito.doReturn(false)
+                        .when(sessions)
+                        .isActive(ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any(),
+                                ArgumentMatchers.any());
+                assertThat(profileRequest(client, method, sign(claims())).statusCode()).isEqualTo(401);
+                when(sessions.isActive(ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any(),
+                        ArgumentMatchers.any()))
+                        .thenThrow(new SessionVerificationUnavailableException("private diagnostics"));
+                var failed = profileRequest(client, method, sign(claims()));
+                assertThat(failed.statusCode()).isEqualTo(503);
+                assertThat(failed.body()).contains("identity_unavailable").doesNotContain("private diagnostics");
+                clearInvocations(sessions);
+            }
+        }
+        assertThat(ACCOUNTS.calls.get()).isZero();
+        assertThat(UPSTREAM.calls.get()).isZero();
+    }
+
+    @Test
+    void accountsPreservesResponseStatusAndGeneratedRequestId() throws Exception {
+        try (var client = HttpClient.newHttpClient()) {
+            for (String method : List.of("GET", "PUT")) {
+                for (int status : List.of(200, 400, 409, 422, 503)) {
+                    ACCOUNTS.status.set(status);
+                    var request = HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + "/api/v1/accounts/me"))
+                            .header("Authorization", "Bearer " + sign(claims()))
+                            .method(method, HttpRequest.BodyPublishers.noBody())
+                            .build();
+                    int before = ACCOUNTS.calls.get();
+                    var response = client.send(request, HttpResponse.BodyHandlers.ofString());
+                    assertThat(response.statusCode()).isEqualTo(status);
+                    assertThat(response.body()).isEqualTo("{\"result\":\"unchanged\"}");
+                    String id = response.headers().firstValue("X-Request-Id").orElseThrow();
+                    assertThat(UUID.fromString(id)).isNotNull();
+                    assertThat(ACCOUNTS.received.get().header("X-Request-Id")).isEqualTo(id);
+                    assertThat(response.headers().firstValue("Cache-Control")).contains("no-store");
+                    assertThat(ACCOUNTS.calls.get()).isEqualTo(before + 1);
+                }
+            }
+        }
+        assertThat(UPSTREAM.calls.get()).isZero();
+    }
+
+    @Test
+    void accountsReplacesValidClientRequestIdWithGatewayGeneratedId() throws Exception {
+        String id = UUID.randomUUID().toString();
+        try (var client = HttpClient.newHttpClient()) {
+            var request = HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + "/api/v1/accounts/me"))
+                    .header("Authorization", "Bearer " + sign(claims()))
+                    .header("X-Request-Id", id)
+                    .GET()
+                    .build();
+            var response = client.send(request, HttpResponse.BodyHandlers.ofString());
+            assertThat(response.statusCode()).isEqualTo(200);
+            String generated = response.headers().firstValue("X-Request-Id").orElseThrow();
+            assertThat(UUID.fromString(generated)).isNotNull();
+            assertThat(generated).isNotEqualTo(id);
+            assertThat(ACCOUNTS.received.get().header("X-Request-Id")).isEqualTo(generated);
+        }
+    }
+
+    private HttpResponse<String> profileRequest(HttpClient client, String method, String token) throws Exception {
+        var request = HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + "/api/v1/accounts/me"))
+                .header("Authorization", "Bearer " + token)
+                .method(method, HttpRequest.BodyPublishers.noBody())
+                .build();
+        return client.send(request, HttpResponse.BodyHandlers.ofString());
     }
 
     private HttpResponse<String> request(HttpClient client, String path, String token) throws Exception {

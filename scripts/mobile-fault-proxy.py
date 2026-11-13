@@ -68,7 +68,7 @@ class Handler(BaseHTTPRequestHandler):
             payload = json.dumps({"error": {
                 "code": "identity_unavailable",
                 "message": "Identity service is unavailable.",
-                "details": [], "request_id": "manual-fault-fixture",
+                "details": [], "requestId": "manual-fault-fixture",
             }}).encode()
             self.reply(503, payload, {
                 "Content-Type": "application/json", "Cache-Control": "no-store"})

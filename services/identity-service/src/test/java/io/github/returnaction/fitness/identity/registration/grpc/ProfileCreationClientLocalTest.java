@@ -31,25 +31,23 @@ class ProfileCreationClientLocalTest {
         File secrets = new File("../../secrets");
         var calls = new AtomicInteger();
         Server server = NettyServerBuilder.forAddress(new InetSocketAddress("127.0.0.1", 0))
-                .sslContext(GrpcSslContexts.forServer(
-                        new File(secrets, "accounts-server.crt"),
-                        new File(secrets, "accounts-server-pkcs8.key"))
+                .sslContext(GrpcSslContexts
+                        .forServer(new File(secrets, "accounts-server.crt"),
+                                new File(secrets, "accounts-server-pkcs8.key"))
                         .trustManager(new File(secrets, "ca.crt"))
                         .clientAuth(ClientAuth.REQUIRE)
                         .build())
                 .addService(new ProfileCreationServiceGrpc.ProfileCreationServiceImplBase() {
 
                     @Override
-                    public void createProfileIfAbsent(
-                                                      CreateProfileIfAbsentRequest request,
-                                                      StreamObserver<CreateProfileIfAbsentResponse> observer) {
+                    public void createProfileIfAbsent(CreateProfileIfAbsentRequest request,
+                        StreamObserver<CreateProfileIfAbsentResponse> observer) {
                         int call = calls.incrementAndGet();
                         observer.onNext(CreateProfileIfAbsentResponse.newBuilder()
                                 .setUserId(call == 2 ? UUID.randomUUID().toString() : request.getUserId())
-                                .setStatus(
-                                        call == 3
-                                                ? CreationStatus.CREATION_STATUS_UNSPECIFIED
-                                                : CreationStatus.CREATION_STATUS_READY)
+                                .setStatus(call == 3
+                                        ? CreationStatus.CREATION_STATUS_UNSPECIFIED
+                                        : CreationStatus.CREATION_STATUS_READY)
                                 .build());
                         observer.onCompleted();
                     }
@@ -57,12 +55,9 @@ class ProfileCreationClientLocalTest {
                 .build()
                 .start();
         try {
-            var client = new ProfileCreationClient(
-                    "localhost",
-                    server.getPort(),
+            var client = new ProfileCreationClient("localhost", server.getPort(),
                     new File(secrets, "identity-client.crt").getPath(),
-                    new File(secrets, "identity-client-pkcs8.key").getPath(),
-                    new File(secrets, "ca.crt").getPath());
+                    new File(secrets, "identity-client-pkcs8.key").getPath(), new File(secrets, "ca.crt").getPath());
             try {
                 client.createProfileIfAbsent(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID());
                 assertThatThrownBy(

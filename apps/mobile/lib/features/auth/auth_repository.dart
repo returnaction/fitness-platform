@@ -78,7 +78,7 @@ class AuthRepository {
     try {
       final response = await _api.post(
         '/api/v1/auth/refresh',
-        data: {'refresh_token': tokens.refreshToken},
+        data: {'refreshToken': tokens.refreshToken},
       );
       await _tokenStorage.write(SessionTokens.fromJson(response));
       return SessionRestoreResult.authenticated;
@@ -122,7 +122,7 @@ class AuthRepository {
       if (tokens != null) {
         await _api.postWithoutResponse(
           path,
-          data: useRefreshToken ? {'refresh_token': tokens.refreshToken} : null,
+          data: useRefreshToken ? {'refreshToken': tokens.refreshToken} : null,
           headers: useRefreshToken
               ? null
               : {'Authorization': 'Bearer ${tokens.accessToken}'},

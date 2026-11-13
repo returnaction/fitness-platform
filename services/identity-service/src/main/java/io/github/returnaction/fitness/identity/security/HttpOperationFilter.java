@@ -20,18 +20,10 @@ import java.util.Set;
  */
 public final class HttpOperationFilter extends OncePerRequestFilter {
 
-    private static final Set<String> AUTH_PATHS = Set.of(
-            "/api/v1/auth/register",
-            "/api/v1/auth/login",
-            "/api/v1/auth/refresh",
-            "/api/v1/auth/logout",
-            "/api/v1/auth/logout-all");
-    private static final Set<String> MANAGEMENT_PATHS = Set.of(
-            "/actuator/health",
-            "/actuator/health/liveness",
-            "/actuator/health/readiness",
-            "/actuator/info",
-            "/actuator/prometheus");
+    private static final Set<String> AUTH_PATHS = Set.of("/api/v1/auth/register", "/api/v1/auth/login",
+            "/api/v1/auth/refresh", "/api/v1/auth/logout", "/api/v1/auth/logout-all");
+    private static final Set<String> MANAGEMENT_PATHS = Set.of("/actuator/health", "/actuator/health/liveness",
+            "/actuator/health/readiness", "/actuator/info", "/actuator/prometheus");
     private final Environment environment;
     private final ObjectWriter errorWriter;
 
@@ -41,9 +33,8 @@ public final class HttpOperationFilter extends OncePerRequestFilter {
     }
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request,
-                                    HttpServletResponse response,
-                                    FilterChain chain) throws ServletException, IOException {
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
+        FilterChain chain) throws ServletException, IOException {
         String path = request.getRequestURI().substring(request.getContextPath().length());
         boolean allowed;
         if (isManagementPort(request)) {
@@ -56,9 +47,9 @@ public final class HttpOperationFilter extends OncePerRequestFilter {
         if (!allowed) {
             response.setStatus(HttpServletResponse.SC_FORBIDDEN);
             response.setContentType("application/json");
-            errorWriter.writeValue(response.getOutputStream(), new ApiErrorResponse(new ApiErrorResponse.Error(
-                    "forbidden", "Access denied.", List.of(),
-                    (String) request.getAttribute(RequestIdFilter.REQUEST_ID_ATTRIBUTE))));
+            errorWriter.writeValue(response.getOutputStream(),
+                    new ApiErrorResponse(new ApiErrorResponse.Error("forbidden", "Access denied.", List.of(),
+                            (String) request.getAttribute(RequestIdFilter.REQUEST_ID_ATTRIBUTE))));
             return;
         }
         chain.doFilter(request, response);

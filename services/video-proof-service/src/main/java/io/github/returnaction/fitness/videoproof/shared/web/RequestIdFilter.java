@@ -37,9 +37,8 @@ public class RequestIdFilter extends OncePerRequestFilter {
     private static final String REQUEST_ID_HEADER = "X-Request-Id";
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request,
-                                    HttpServletResponse response,
-                                    FilterChain filterChain) throws ServletException, IOException {
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
+        FilterChain filterChain) throws ServletException, IOException {
 
         String requestId = RequestIdResolver.parseOrGenerate(request.getHeader(REQUEST_ID_HEADER)).toString();
         request.setAttribute(REQUEST_ID_ATTRIBUTE, requestId);

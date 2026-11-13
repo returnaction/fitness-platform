@@ -28,6 +28,7 @@ final class TestUpstream implements AutoCloseable {
                 received.set(new Received(exchange.getRequestMethod(), exchange.getRequestURI().toString(), headers,
                         new String(body, StandardCharsets.UTF_8)));
                 exchange.getResponseHeaders().set("Content-Type", "application/json");
+                exchange.getResponseHeaders().set("Cache-Control", "no-store");
                 exchange.getResponseHeaders().set("X-Request-Id", "upstream-id");
                 exchange.getResponseHeaders().set("Set-Cookie", "upstream=private");
                 exchange.getResponseHeaders().set("Location", baseUrl() + "/redirect-target");
@@ -52,7 +53,10 @@ final class TestUpstream implements AutoCloseable {
         server.stop(0);
     }
 
-    record Received(String method, String path, Map<String, List<String>> headers, String body) {
+    record Received(String method,
+                    String path,
+                    Map<String, List<String>> headers,
+                    String body) {
 
         String header(String name) {
             var values = headers.get(name);

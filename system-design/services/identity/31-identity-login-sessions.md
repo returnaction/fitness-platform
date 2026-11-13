@@ -53,7 +53,7 @@ Identity нормализует email той же политикой, что п�
 пароль и состояние пользователя. `PENDING` не может войти; обычное ограничение
 новых вступлений не равнозначно полной блокировке входа. При успехе Identity
 создаёт сессию и возвращает access token на 15 минут и refresh token на 30 дней.
-Ответ содержит `token_type`, сроки действия в секундах и не кешируется;
+Ответ содержит `tokenType`, сроки действия в секундах и не кешируется;
 токены и пароль не записываются в журналы.
 
 При неверном email или пароле предлагается один безопасный ответ `401` с кодом
@@ -70,12 +70,12 @@ Identity нормализует email той же политикой, что п�
 | Запрос | Тело | Текущий результат |
 | --- | --- | --- |
 | `POST /api/v1/auth/login` | `email`, `password` | `200` и пара токенов; неверные данные `401 invalid_credentials`; недоступный аккаунт `403 account_unavailable`. |
-| `POST /api/v1/auth/refresh` | `refresh_token` | `200` и новая пара; старый refresh помечается использованным. Недействительный токен — `401 invalid_refresh_token`. |
-| `POST /api/v1/auth/logout` | `refresh_token` | `204`; отзывает связанную сессию. Некорректный или неизвестный токен тоже получает `204`. |
+| `POST /api/v1/auth/refresh` | `refreshToken` | `200` и новая пара; старый refresh помечается использованным. Недействительный токен — `401 invalid_refresh_token`. |
+| `POST /api/v1/auth/logout` | `refreshToken` | `204`; отзывает связанную сессию. Некорректный или неизвестный токен тоже получает `204`. |
 | `POST /api/v1/auth/logout-all` | Bearer access token | `204`; отзывает все активные сессии текущего пользователя. |
 
-Текущий ответ токенов содержит `access_token`, `refresh_token`, `token_type`,
-`expires_in`, `refresh_expires_in`; ответы с токенами имеют `Cache-Control:
+Текущий ответ токенов содержит `accessToken`, `refreshToken`, `tokenType`,
+`expiresIn`, `refreshExpiresIn`; ответы с токенами имеют `Cache-Control:
 no-store`. В текущей БД есть `auth_sessions` и отдельная `refresh_tokens`;
 секрет refresh хранится как хеш. При повторном использовании уже применённого
 refresh текущая реализация отзывает сессию. Это означает, что потерянный ответ
@@ -92,14 +92,14 @@ refresh текущая реализация отзывает сессию. Эт�
 ```
 
 Внешний ответ ошибки использует согласованный конверт `error.code`,
-`error.message`, опциональный `error.details`, `error.request_id`; старый
+`error.message`, опциональный `error.details`, `error.requestId`; старый
 FastAPI использует другой формат и автоматически не становится совместимым.
 Ошибки login: `400 invalid_request` для некорректного JSON,
 `422 validation_error` для недопустимого формата, `401 invalid_credentials`
 для неверной пары, `503 identity_unavailable` для
 временного сбоя и `500 internal_error` без внутренних подробностей.
 
-Refresh и logout принимают `{"refresh_token":"<token>"}`; logout-all требует
+Refresh и logout принимают `{"refreshToken":"<token>"}`; logout-all требует
 access token. При успехе logout / logout-all возвращают `204` без тела. Refresh
 вращает токен в той же сессии; TTL access — 15 минут, длительность сессии —
 30 дней. Потерянный ответ refresh требует нового входа при повторе старого
@@ -175,8 +175,8 @@ rotation должна сериализоваться для одного ток�
 | Запрос | Успех | Ошибки |
 | --- | --- | --- |
 | `POST /api/v1/auth/login` — email, password | `200` token response | `400 invalid_request`, `422 validation_error`, `401 invalid_credentials`, `403 account_unavailable`, `503 registration_pending`, `503 identity_unavailable`, `500 internal_error` |
-| `POST /api/v1/auth/refresh` — refresh_token | `200` новая token response | `400 invalid_request`, `422 validation_error`, `401 invalid_refresh_token`, `403 account_unavailable`, `503 identity_unavailable`, `500 internal_error` |
-| `POST /api/v1/auth/logout` — refresh_token | `204` без тела; повтор, неизвестный или уже отозванный токен тоже `204` | `400 invalid_request` для некорректного JSON, `503 identity_unavailable`, `500 internal_error` |
+| `POST /api/v1/auth/refresh` — refreshToken | `200` новая token response | `400 invalid_request`, `422 validation_error`, `401 invalid_refresh_token`, `403 account_unavailable`, `503 identity_unavailable`, `500 internal_error` |
+| `POST /api/v1/auth/logout` — refreshToken | `204` без тела; повтор, неизвестный или уже отозванный токен тоже `204` | `400 invalid_request` для некорректного JSON, `503 identity_unavailable`, `500 internal_error` |
 | `POST /api/v1/auth/logout-all` — Bearer access | `204` без тела, включая повтор уже допущенной команды | `401 invalid_access_token` в Identity при отсутствии/повреждении токена, некорректном sub или отсутствующем пользователе, `503 identity_unavailable`, `500 internal_error` |
 
 По Spec 013 JWT и активность сессии для logout-all проверяет Gateway. Identity
@@ -192,11 +192,11 @@ rotation должна сериализоваться для одного ток�
 аккаунта ещё нужно оценить. Ответ с токенами имеет `Cache-Control: no-store`:
 
 ```json
-{"access_token":"<token>","refresh_token":"<token>","token_type":"Bearer",
- "expires_in":900,"refresh_expires_in":2592000}
+{"accessToken":"<token>","refreshToken":"<token>","tokenType":"Bearer",
+ "expiresIn":900,"refreshExpiresIn":2592000}
 ```
 
-Значения — секунды; при refresh `refresh_expires_in` показывает оставшееся
+Значения — секунды; при refresh `refreshExpiresIn` показывает оставшееся
 время сессии, абсолютный 30-дневный срок не продлевается. Ограничения TTL JWT
 вблизи окончания сессии: access выдаётся не дольше оставшегося срока сессии.
 

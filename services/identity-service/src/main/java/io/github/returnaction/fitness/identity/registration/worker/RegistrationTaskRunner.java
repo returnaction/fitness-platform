@@ -27,9 +27,8 @@ public final class RegistrationTaskRunner implements AutoCloseable {
     private final ExecutorService executor;
     private final ReentrantLock passLock = new ReentrantLock();
 
-    public RegistrationTaskRunner(
-                                  @Value("${identity.registration.worker.batch-size}") int batchSize,
-                                  @Value("${identity.registration.worker.parallelism}") int parallelism) {
+    public RegistrationTaskRunner(@Value("${identity.registration.worker.batch-size}") int batchSize,
+        @Value("${identity.registration.worker.parallelism}") int parallelism) {
         if (batchSize < 1 || batchSize > 20 || parallelism < 1 || parallelism > 4) {
             throw new IllegalArgumentException("Invalid worker batch size or parallelism");
         }
@@ -38,9 +37,8 @@ public final class RegistrationTaskRunner implements AutoCloseable {
         this.executor = Executors.newFixedThreadPool(parallelism);
     }
 
-    public void runPass(
-                        Supplier<List<RegistrationLeaseRepository.Lease>> claim,
-                        Consumer<RegistrationLeaseRepository.Lease> process) {
+    public void runPass(Supplier<List<RegistrationLeaseRepository.Lease>> claim,
+        Consumer<RegistrationLeaseRepository.Lease> process) {
         if (!passLock.tryLock())
             return;
         try {
@@ -59,8 +57,7 @@ public final class RegistrationTaskRunner implements AutoCloseable {
                         Thread.currentThread().interrupt();
                         return;
                     } catch (ExecutionException exception) {
-                        LOGGER.error(
-                                "Creation worker failed; error_type={}",
+                        LOGGER.error("Creation worker failed; error_type={}",
                                 exception.getCause().getClass().getName());
                     }
                 }
@@ -72,18 +69,15 @@ public final class RegistrationTaskRunner implements AutoCloseable {
         }
     }
 
-    private boolean processOne(
-                               Supplier<List<RegistrationLeaseRepository.Lease>> claim,
-                               Consumer<RegistrationLeaseRepository.Lease> process) {
+    private boolean processOne(Supplier<List<RegistrationLeaseRepository.Lease>> claim,
+        Consumer<RegistrationLeaseRepository.Lease> process) {
         var leases = claim.get();
         if (leases.isEmpty())
             return false;
         try {
             process.accept(leases.getFirst());
         } catch (RuntimeException exception) {
-            LOGGER.error(
-                    "Creation failed; lease will expire, error_type={}",
-                    exception.getClass().getName());
+            LOGGER.error("Creation failed; lease will expire, error_type={}", exception.getClass().getName());
         }
         return true;
     }

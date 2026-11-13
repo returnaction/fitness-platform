@@ -5,13 +5,13 @@ class SessionTokens {
   final String refreshToken;
 
   Map<String, String> toJson() => {
-    'access_token': accessToken,
-    'refresh_token': refreshToken,
+    'accessToken': accessToken,
+    'refreshToken': refreshToken,
   };
 
   factory SessionTokens.fromJson(Map<String, dynamic> json) {
-    final accessToken = json['access_token'];
-    final refreshToken = json['refresh_token'];
+    final accessToken = json['accessToken'];
+    final refreshToken = json['refreshToken'];
     if (accessToken is! String ||
         accessToken.isEmpty ||
         refreshToken is! String ||

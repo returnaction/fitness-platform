@@ -28,17 +28,14 @@ public class RegistrationSessionRepository {
                 .getResultList();
         if (users.isEmpty())
             throw new IllegalArgumentException("Registration is unavailable");
-        var rows = entityManager
-                .createNativeQuery("""
-                        SELECT u.id, u.status AS user_status, o.status AS operation_status, c.password_hash
-                        FROM registration_operations o
-                        JOIN users u ON u.id = o.user_id
-                        JOIN user_credentials c ON c.user_id = u.id
-                        WHERE o.id = :operationId
-                        FOR UPDATE OF o
-                        """)
-                .setParameter("operationId", operationId)
-                .getResultList();
+        var rows = entityManager.createNativeQuery("""
+                SELECT u.id, u.status AS user_status, o.status AS operation_status, c.password_hash
+                FROM registration_operations o
+                JOIN users u ON u.id = o.user_id
+                JOIN user_credentials c ON c.user_id = u.id
+                WHERE o.id = :operationId
+                FOR UPDATE OF o
+                """).setParameter("operationId", operationId).getResultList();
         if (rows.isEmpty())
             throw new IllegalArgumentException("Registration is unavailable");
         Object[] row = (Object[]) rows.getFirst();
@@ -46,13 +43,10 @@ public class RegistrationSessionRepository {
     }
 
     public void revokeRegistrationSessions(UUID operationId) {
-        entityManager
-                .createNativeQuery("""
-                        UPDATE auth_sessions SET revoked_at = clock_timestamp()
-                        WHERE registration_operation_id = :operationId AND revoked_at IS NULL
-                        """)
-                .setParameter("operationId", operationId)
-                .executeUpdate();
+        entityManager.createNativeQuery("""
+                UPDATE auth_sessions SET revoked_at = clock_timestamp()
+                WHERE registration_operation_id = :operationId AND revoked_at IS NULL
+                """).setParameter("operationId", operationId).executeUpdate();
     }
 
     public boolean lockActiveUser(UUID userId) {
@@ -70,21 +64,19 @@ public class RegistrationSessionRepository {
     }
 
     public void updatePasswordHash(UUID userId, String hash) {
-        entityManager
-                .createNativeQuery(
-                        "UPDATE user_credentials SET password_hash=:hash, updated_at=clock_timestamp() WHERE user_id=:id")
+        entityManager.createNativeQuery(
+                "UPDATE user_credentials SET password_hash=:hash, updated_at=clock_timestamp() WHERE user_id=:id")
                 .setParameter("id", userId)
                 .setParameter("hash", hash)
                 .executeUpdate();
     }
 
     public Instant insertSession(UUID sessionId, UUID userId, UUID operationId) {
-        return (Instant) entityManager
-                .createNativeQuery("""
-                        INSERT INTO auth_sessions (id, user_id, registration_operation_id, expires_at)
-                        VALUES (:id, :userId, :operationId, CURRENT_TIMESTAMP + INTERVAL '30 days')
-                        RETURNING expires_at
-                        """)
+        return (Instant) entityManager.createNativeQuery("""
+                INSERT INTO auth_sessions (id, user_id, registration_operation_id, expires_at)
+                VALUES (:id, :userId, :operationId, CURRENT_TIMESTAMP + INTERVAL '30 days')
+                RETURNING expires_at
+                """)
                 .setParameter("id", sessionId)
                 .setParameter("userId", userId)
                 .setParameter("operationId", operationId)
@@ -92,18 +84,20 @@ public class RegistrationSessionRepository {
     }
 
     public void insertRefresh(UUID tokenId, UUID sessionId, byte[] hash) {
-        entityManager
-                .createNativeQuery("""
-                        INSERT INTO refresh_tokens (id, session_id, secret_hash, expires_at)
-                        SELECT :id, id, :hash, expires_at FROM auth_sessions WHERE id = :sessionId
-                        """)
+        entityManager.createNativeQuery("""
+                INSERT INTO refresh_tokens (id, session_id, secret_hash, expires_at)
+                SELECT :id, id, :hash, expires_at FROM auth_sessions WHERE id = :sessionId
+                """)
                 .setParameter("id", tokenId)
                 .setParameter("hash", hash)
                 .setParameter("sessionId", sessionId)
                 .executeUpdate();
     }
 
-    public record Credentials(UUID userId, String userStatus, String operationStatus, String passwordHash) {
+    public record Credentials(UUID userId,
+                              String userStatus,
+                              String operationStatus,
+                              String passwordHash) {
 
         @Override
         public String toString() {

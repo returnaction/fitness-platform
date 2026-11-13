@@ -65,12 +65,11 @@ class HttpsDeadlineTest {
         when(keys.ready()).thenReturn(true);
         try (var client = HttpClient.newHttpClient()) {
             long started = System.nanoTime();
-            var pending = client.sendAsync(
-                    HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + "/api/v1/auth/login"))
+            var pending = client
+                    .sendAsync(HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + "/api/v1/auth/login"))
                             .timeout(Duration.ofSeconds(3))
                             .POST(HttpRequest.BodyPublishers.noBody())
-                            .build(),
-                    HttpResponse.BodyHandlers.ofString());
+                            .build(), HttpResponse.BodyHandlers.ofString());
             LISTENER.setSoTimeout(3000);
             try (var accepted = LISTENER.accept()) {
                 accepted.setSoTimeout(2000);

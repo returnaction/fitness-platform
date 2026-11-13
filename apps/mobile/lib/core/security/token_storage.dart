@@ -49,7 +49,14 @@ class TokenStorage {
       if (decodedSession is! Map) {
         throw const FormatException('Stored session must be an object.');
       }
-      return SessionTokens.fromJson(Map<String, dynamic>.from(decodedSession));
+      final session = Map<String, dynamic>.from(decodedSession);
+      // Compatibility for sessions stored locally before the camelCase API migration.
+      if (!session.containsKey('accessToken') &&
+          !session.containsKey('refreshToken')) {
+        session['accessToken'] = session.remove('access_token');
+        session['refreshToken'] = session.remove('refresh_token');
+      }
+      return SessionTokens.fromJson(session);
     } catch (_) {
       throw const TokenStorageException();
     }

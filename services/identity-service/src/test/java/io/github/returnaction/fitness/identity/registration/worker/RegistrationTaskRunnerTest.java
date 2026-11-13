@@ -26,12 +26,10 @@ class RegistrationTaskRunnerTest {
         logger.addAppender(appender);
         var lease = new RegistrationLeaseRepository.Lease(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), 1);
         try (var runner = new RegistrationTaskRunner(1, 1)) {
-            runner.runPass(
-                    () -> {
-                        throw new IllegalStateException("private@example.com");
-                    },
-                    ignored -> {
-                    });
+            runner.runPass(() -> {
+                throw new IllegalStateException("private@example.com");
+            }, ignored -> {
+            });
             runner.runPass(() -> List.of(lease), ignored -> {
                 throw new IllegalStateException("secret-password");
             });
@@ -54,38 +52,33 @@ class RegistrationTaskRunnerTest {
         var started = new CountDownLatch(4);
         var release = new CountDownLatch(1);
         var lease = new RegistrationLeaseRepository.Lease(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), 1);
-        try (var runner = new RegistrationTaskRunner(20, 4);
-                var coordinator = Executors.newSingleThreadExecutor()) {
-            var pass = coordinator.submit(() -> runner.runPass(
-                    () -> {
-                        claims.incrementAndGet();
-                        return List.of(lease);
-                    },
-                    ignored -> {
-                        int current = active.incrementAndGet();
-                        peak.accumulateAndGet(current, Math::max);
-                        started.countDown();
-                        try {
-                            if (!release.await(10, TimeUnit.SECONDS))
-                                throw new AssertionError("Timed out");
-                        } catch (InterruptedException exception) {
-                            Thread.currentThread().interrupt();
-                            throw new IllegalStateException(exception);
-                        } finally {
-                            active.decrementAndGet();
-                        }
-                    }));
+        try (var runner = new RegistrationTaskRunner(20, 4); var coordinator = Executors.newSingleThreadExecutor()) {
+            var pass = coordinator.submit(() -> runner.runPass(() -> {
+                claims.incrementAndGet();
+                return List.of(lease);
+            }, ignored -> {
+                int current = active.incrementAndGet();
+                peak.accumulateAndGet(current, Math::max);
+                started.countDown();
+                try {
+                    if (!release.await(10, TimeUnit.SECONDS))
+                        throw new AssertionError("Timed out");
+                } catch (InterruptedException exception) {
+                    Thread.currentThread().interrupt();
+                    throw new IllegalStateException(exception);
+                } finally {
+                    active.decrementAndGet();
+                }
+            }));
             try {
                 assertThat(started.await(10, TimeUnit.SECONDS)).isTrue();
                 assertThat(claims.get()).isEqualTo(4);
                 var otherClaims = new AtomicInteger();
-                runner.runPass(
-                        () -> {
-                            otherClaims.incrementAndGet();
-                            return List.of();
-                        },
-                        ignored -> {
-                        });
+                runner.runPass(() -> {
+                    otherClaims.incrementAndGet();
+                    return List.of();
+                }, ignored -> {
+                });
                 assertThat(otherClaims.get()).isZero();
             } finally {
                 release.countDown();

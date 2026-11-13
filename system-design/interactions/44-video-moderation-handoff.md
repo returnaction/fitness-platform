@@ -36,69 +36,69 @@ Challenge отвечает за допуск задания; Video Proof — з�
    видео заново не нужно.
 5. Модератор открывает карточку. После проверки роли и назначения Video Proof
    выдаёт ссылку максимум на пять минут на **точную версию** playback. Ссылка и файл не
-   публикуются в Kafka, а наличие `asset_id` само по себе права не даёт.
+   публикуются в Kafka, а наличие `assetId` само по себе права не даёт.
 6. После выбора решения Moderation сохраняет его и событие через outbox.
    Challenge через inbox проверяет актуальность допуска и применяет решение
    к заданию. Сами видео, задание, допуск и решение — разные сущности.
 
 ## Событие `video.ready.v1` — предлагаемый контракт
 
-Отправитель Video Proof, получатель Challenge. Ключ Kafka — `submission_id`;
+Отправитель Video Proof, получатель Challenge. Ключ Kafka — `submissionId`;
 топик и формат сериализации приведены в [каталоге](../architecture/messaging/19-kafka-topology.md).
 Оболочка соответствует
 [общему проекту событий](../architecture/messaging/12-kafka-event-contract-draft.md).
 
 ```json
 {
-  "event_id": "<uuid>",
-  "event_type": "video.ready",
-  "schema_version": 1,
-  "occurred_at": "2026-11-05T12:00:00Z",
+  "eventId": "<uuid>",
+  "eventType": "video.ready",
+  "schemaVersion": 1,
+  "occurredAt": "2026-11-05T12:00:00Z",
   "producer": "video-proof",
-  "correlation_id": "<uuid>",
+  "correlationId": "<uuid>",
   "data": {
-    "submission_id": "<uuid>",
-    "authorization_id": "<uuid>",
-    "task_id": "<uuid>",
-    "asset_id": "<uuid>",
-    "asset_generation": 1
+    "submissionId": "<uuid>",
+    "authorizationId": "<uuid>",
+    "taskId": "<uuid>",
+    "assetId": "<uuid>",
+    "assetGeneration": 1
   }
 }
 ```
 
 Событие означает техническую готовность конкретного playback; оно не означает,
 что упражнение, личность или действие перед камерой проверены. Challenge
-проверяет, что `submission_id`, `authorization_id` и `task_id` относятся к
+проверяет, что `submissionId`, `authorizationId` и `taskId` относятся к
 его разрешению. Выбор второй генерации playback не должен молча заменить файл
 уже проверенной карточки; политика корректирующей генерации ещё открыта.
 
 ## Событие `proof.review_admitted.v1` — предлагаемый контракт
 
-Отправитель Challenge, получатель Moderation. Ключ Kafka — `submission_id`.
+Отправитель Challenge, получатель Moderation. Ключ Kafka — `submissionId`.
 Сервисная авторизация и формат определены в [каталоге](../architecture/messaging/19-kafka-topology.md);
 их ещё нужно реализовать и испытать.
 
 ```json
 {
-  "event_id": "<uuid>",
-  "event_type": "proof.review_admitted",
-  "schema_version": 1,
-  "occurred_at": "2026-11-05T12:00:03Z",
+  "eventId": "<uuid>",
+  "eventType": "proof.review_admitted",
+  "schemaVersion": 1,
+  "occurredAt": "2026-11-05T12:00:03Z",
   "producer": "challenge",
-  "correlation_id": "<uuid>",
+  "correlationId": "<uuid>",
   "data": {
-    "admission_id": "<uuid>",
-    "admission_version": 1,
-    "submission_id": "<uuid>",
-    "asset_id": "<uuid>",
-    "asset_generation": 1,
-    "task_id": "<uuid>",
-    "task_snapshot": {
-      "schema_version": 1,
-      "exercise_id": 1,
-      "variation_id": 1,
-      "exercise_name": "Push-up",
-      "variation_name": "Narrow grip",
+    "admissionId": "<uuid>",
+    "admissionVersion": 1,
+    "submissionId": "<uuid>",
+    "assetId": "<uuid>",
+    "assetGeneration": 1,
+    "taskId": "<uuid>",
+    "taskSnapshot": {
+      "schemaVersion": 1,
+      "exerciseId": 1,
+      "variationId": 1,
+      "exerciseName": "Push-up",
+      "variationName": "Narrow grip",
       "description": "Выполнить отжимания узким хватом",
       "instructions": "Поставьте руки ближе ширины плеч и выполните отжимания.",
       "target": {"metric": "REPETITIONS", "value": 10, "unit": "REP"}
@@ -120,9 +120,9 @@ Challenge отвечает за допуск задания; Video Proof — з�
 
 - Kafka доставляет сообщения как минимум один раз; outbox отправителя и inbox
   получателя фиксируются каждый в своей локальной транзакции. Повтор того же
-  `event_id` и тех же данных — no-op; тот же ID с другим payload — карантин.
+  `eventId` и тех же данных — no-op; тот же ID с другим payload — карантин.
 - Уникальность карточки обеспечивается бизнес-ключом допуска; повтор события
-  с новым `event_id` не создаёт вторую карточку. Точная DDL-ограничения ещё
+  с новым `eventId` не создаёт вторую карточку. Точная DDL-ограничения ещё
   определяются в канонической модели Moderation.
 - События одного submission в одном топике ключуются одинаково, но порядок
   между разными топиками не гарантирован. Moderation хранит версию допуска и

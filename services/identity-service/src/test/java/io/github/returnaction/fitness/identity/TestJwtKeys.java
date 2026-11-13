@@ -34,8 +34,7 @@ public final class TestJwtKeys {
     }
 
     private static String pem(String type, byte[] bytes) {
-        return "-----BEGIN " + type + "-----\n"
-                + Base64.getMimeEncoder(64, new byte[]{'\n'}).encodeToString(bytes)
+        return "-----BEGIN " + type + "-----\n" + Base64.getMimeEncoder(64, new byte[]{'\n'}).encodeToString(bytes)
                 + "\n-----END " + type + "-----\n";
     }
 }

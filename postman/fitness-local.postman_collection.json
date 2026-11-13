@@ -67,8 +67,8 @@
             "exec": [
               "if (pm.response.code === 201) {",
               "  const session = pm.response.json().session;",
-              "  pm.collectionVariables.set('access_token', session.access_token);",
-              "  pm.collectionVariables.set('refresh_token', session.refresh_token);",
+              "  pm.collectionVariables.set('access_token', session.accessToken);",
+              "  pm.collectionVariables.set('refresh_token', session.refreshToken);",
               "}"
             ]
           }
@@ -119,8 +119,8 @@
             "exec": [
               "if (pm.response.code === 200) {",
               "  const session = pm.response.json();",
-              "  pm.collectionVariables.set('access_token', session.access_token);",
-              "  pm.collectionVariables.set('refresh_token', session.refresh_token);",
+              "  pm.collectionVariables.set('access_token', session.accessToken);",
+              "  pm.collectionVariables.set('refresh_token', session.refreshToken);",
               "}"
             ]
           }
@@ -170,7 +170,7 @@
         "url": "{{base_url}}/api/v1/auth/refresh",
         "body": {
           "mode": "raw",
-          "raw": "{\"refresh_token\":\"{{refresh_token}}\"}"
+          "raw": "{\"refreshToken\":\"{{refresh_token}}\"}"
         }
       },
       "event": [
@@ -189,7 +189,7 @@
           "script": {
             "type": "text/javascript",
             "exec": [
-              "if (pm.response.code === 200) { const data = pm.response.json(); pm.collectionVariables.set('access_token', data.access_token); pm.collectionVariables.set('refresh_token', data.refresh_token); }"
+              "if (pm.response.code === 200) { const data = pm.response.json(); pm.collectionVariables.set('access_token', data.accessToken); pm.collectionVariables.set('refresh_token', data.refreshToken); }"
             ]
           }
         }
@@ -240,7 +240,7 @@
         ],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"refresh_token\": \"{{refresh_token}}\"\n}",
+          "raw": "{\n  \"refreshToken\": \"{{refresh_token}}\"\n}",
           "options": {
             "raw": {
               "language": "json"
@@ -290,8 +290,8 @@
             "exec": [
               "if (pm.response.code === 200) {",
               "  const session = pm.response.json();",
-              "  pm.collectionVariables.set('access_token', session.access_token);",
-              "  pm.collectionVariables.set('refresh_token', session.refresh_token);",
+              "  pm.collectionVariables.set('access_token', session.accessToken);",
+              "  pm.collectionVariables.set('refresh_token', session.refreshToken);",
               "}"
             ]
           }

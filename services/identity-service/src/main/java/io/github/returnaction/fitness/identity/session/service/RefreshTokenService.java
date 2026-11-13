@@ -50,8 +50,7 @@ public class RefreshTokenService {
             repository.revokeSession(location.sessionId());
             return Result.invalid();
         }
-        if (session.revokedAt() != null
-                || token.revokedAt() != null
+        if (session.revokedAt() != null || token.revokedAt() != null
                 || !session.expiresAt().isAfter(session.checkedAt())
                 || !token.expiresAt().isAfter(session.checkedAt())) {
             return Result.invalid();
@@ -71,8 +70,7 @@ public class RefreshTokenService {
         repository.insertToken(newId, location.sessionId(), sha256(secret), session.expiresAt());
         repository.markUsed(parsed.id(), newId);
         String refresh = newId + "." + Base64.getUrlEncoder().withoutPadding().encodeToString(secret);
-        long remaining = java.time.Duration.between(session.checkedAt(), session.expiresAt())
-                .getSeconds();
+        long remaining = java.time.Duration.between(session.checkedAt(), session.expiresAt()).getSeconds();
         return Result.success(access, refresh, Math.max(0, remaining));
     }
 
@@ -86,11 +84,7 @@ public class RefreshTokenService {
                 return null;
             String encoded = value.substring(37);
             byte[] bytes = Base64.getUrlDecoder().decode(encoded);
-            if (bytes.length != 32
-                    || !Base64.getUrlEncoder()
-                            .withoutPadding()
-                            .encodeToString(bytes)
-                            .equals(encoded))
+            if (bytes.length != 32 || !Base64.getUrlEncoder().withoutPadding().encodeToString(bytes).equals(encoded))
                 return null;
             return new Parsed(id, bytes);
         } catch (IllegalArgumentException exception) {
@@ -106,7 +100,8 @@ public class RefreshTokenService {
         }
     }
 
-    private record Parsed(UUID id, byte[] secret) {
+    private record Parsed(UUID id,
+                          byte[] secret) {
     }
 
     public static final class Result {

@@ -17,8 +17,7 @@ class GrpcContractsGenerationTest {
 
     @Test
     void generatesIdentitySessionContract() {
-        assertEquals(
-                "fitness.identity.session.v1.IdentitySessionService/CheckSession",
+        assertEquals("fitness.identity.session.v1.IdentitySessionService/CheckSession",
                 IdentitySessionServiceGrpc.getCheckSessionMethod().getFullMethodName());
     }
 
@@ -31,8 +30,7 @@ class GrpcContractsGenerationTest {
                 .build();
 
         assertEquals("00000000-0000-4000-8000-000000000003", request.getUserId());
-        assertEquals(
-                "fitness.accounts.profile.creation.v1.ProfileCreationService/CreateProfileIfAbsent",
+        assertEquals("fitness.accounts.profile.creation.v1.ProfileCreationService/CreateProfileIfAbsent",
                 ProfileCreationServiceGrpc.getCreateProfileIfAbsentMethod().getFullMethodName());
     }
 
@@ -45,8 +43,7 @@ class GrpcContractsGenerationTest {
                 .build();
 
         assertEquals("00000000-0000-4000-8000-000000000003", request.getUserId());
-        assertEquals(
-                "fitness.coins.wallet.creation.v1.WalletCreationService/CreateWalletIfAbsent",
+        assertEquals("fitness.coins.wallet.creation.v1.WalletCreationService/CreateWalletIfAbsent",
                 WalletCreationServiceGrpc.getCreateWalletIfAbsentMethod().getFullMethodName());
     }
 }

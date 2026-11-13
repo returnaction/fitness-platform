@@ -225,8 +225,8 @@ timestamptz NULL`; индекс неопубликованных записей.
 
 Чтение доступно авторизованному пользователю; админ-методы требуют актуальной
 сессии и разрешения `catalog.manage`. Даты UTC; ID категорий, упражнений и
-вариаций — числа `1`–`32767`, а технический `request_id` — UUID. Ошибка:
-`{"error":{"code":"validation_error","message":"Проверьте данные","request_id":"<uuid>"}}`.
+вариаций — числа `1`–`32767`, а технический `requestId` — UUID. Ошибка:
+`{"error":{"code":"validation_error","message":"Проверьте данные","requestId":"<uuid>"}}`.
 Общие `400 invalid_request`, `401 unauthenticated`, `403 forbidden`,
 `404 not_found`, `422 validation_error`, `429 rate_limited`,
 `503 catalog_unavailable`, `500 internal_error`; секреты не выдаются.
@@ -234,7 +234,7 @@ timestamptz NULL`; индекс неопубликованных записей.
 | Метод | Назначение | Ответ |
 | --- | --- | --- |
 | `GET /api/v1/exercise-categories` | Активные категории. | `200 {"items":[{"id":1,"code":"BODYWEIGHT","name":"Bodyweight"}]}` |
-| `GET /api/v1/exercises?category_id=1&limit=20&cursor=...` | Активные упражнения с активным STANDARD; категория опциональна, limit 1–100. | `200 {"items":[{"id":1,"code":"PUSH_UP","name":"Push-up","primary_metric":"REPETITIONS"}],"next_cursor":null}` |
+| `GET /api/v1/exercises?category_id=1&limit=20&cursor=...` | Активные упражнения с активным STANDARD; категория опциональна, limit 1–100. | `200 {"items":[{"id":1,"code":"PUSH_UP","name":"Push-up","primaryMetric":"REPETITIONS"}],"nextCursor":null}` |
 | `GET /api/v1/exercises/{exercise_id}` | Упражнение и активные вариации. | `200` DTO ниже; неактивное — `404`. |
 
 Пример деталей:
@@ -242,9 +242,9 @@ timestamptz NULL`; индекс неопубликованных записей.
 ```json
 {"id":1,"code":"PUSH_UP","name":"Push-up","description":"...",
  "category":{"id":1,"code":"BODYWEIGHT","name":"Bodyweight"},
- "primary_metric":"REPETITIONS","unit":"REP",
+ "primaryMetric":"REPETITIONS","unit":"REP",
  "variations":[{"id":1,"code":"STANDARD","name":"Standard",
- "description":"...","instructions":"...","min_target":1,"max_target":1000,"target_step":1}],
+ "description":"...","instructions":"...","minTarget":1,"maxTarget":1000,"targetStep":1}],
  "version":1}
 ```
 
@@ -267,19 +267,19 @@ POST/PATCH требуют `Idempotency-Key` UUID; повтор того же к�
 Доступ проверяется и при повторе. PATCH содержит `version`: при устаревшей
 версии `409 version_conflict`. Успешный commit включает изменение, результат
 повтора и audit; outbox — если требуется событие.
-В запросах создания вариации или STANDARD можно передать `target_step`; по
-умолчанию он равен 1. При PATCH вариации можно изменить `min_target`,
-`max_target` и `target_step` вместе или по отдельности: сервер проверяет итоговое
+В запросах создания вариации или STANDARD можно передать `targetStep`; по
+умолчанию он равен 1. При PATCH вариации можно изменить `minTarget`,
+`maxTarget` и `targetStep` вместе или по отдельности: сервер проверяет итоговое
 сочетание и отвечает `422 validation_error`, если допустимых значений нет.
 
 | Метод | Тело | Успешный ответ |
 | --- | --- | --- |
-| `POST /api/v1/admin/exercise-categories` | `{"code":"BODYWEIGHT","name":"Bodyweight","sort_order":0}` | `201 {"id":"...","version":1}` |
-| `PATCH /api/v1/admin/exercise-categories/{id}` | `{"version":1,"name":"Bodyweight exercises","is_active":true}` | `200 {"id":"...","version":2}` |
-| `POST /api/v1/admin/exercises` | `{"category_id":"...","code":"PUSH_UP","name":"Push-up","description":"...","primary_metric":"REPETITIONS","standard":{"name":"Standard","description":"...","instructions":"...","min_target":1,"max_target":1000}}` | `201 {"id":"...","standard_variation_id":"...","version":1}` |
-| `PATCH /api/v1/admin/exercises/{id}` | `{"version":1,"name":"Push-up","description":"...","is_active":false}` | `200 {"id":"...","version":2}` |
-| `POST /api/v1/admin/exercises/{id}/variations` | `{"code":"NARROW","name":"Narrow grip","description":"...","instructions":"...","min_target":1,"max_target":1000}` | `201 {"id":"...","version":1}` |
-| `PATCH /api/v1/admin/exercises/{id}/variations/{variation_id}` | `{"version":1,"is_active":false}` | `200 {"id":"...","version":2}` |
+| `POST /api/v1/admin/exercise-categories` | `{"code":"BODYWEIGHT","name":"Bodyweight","sortOrder":0}` | `201 {"id":"...","version":1}` |
+| `PATCH /api/v1/admin/exercise-categories/{id}` | `{"version":1,"name":"Bodyweight exercises","isActive":true}` | `200 {"id":"...","version":2}` |
+| `POST /api/v1/admin/exercises` | `{"categoryId":"...","code":"PUSH_UP","name":"Push-up","description":"...","primaryMetric":"REPETITIONS","standard":{"name":"Standard","description":"...","instructions":"...","minTarget":1,"maxTarget":1000}}` | `201 {"id":"...","standardVariationId":"...","version":1}` |
+| `PATCH /api/v1/admin/exercises/{id}` | `{"version":1,"name":"Push-up","description":"...","isActive":false}` | `200 {"id":"...","version":2}` |
+| `POST /api/v1/admin/exercises/{id}/variations` | `{"code":"NARROW","name":"Narrow grip","description":"...","instructions":"...","minTarget":1,"maxTarget":1000}` | `201 {"id":"...","version":1}` |
+| `PATCH /api/v1/admin/exercises/{id}/variations/{variation_id}` | `{"version":1,"isActive":false}` | `200 {"id":"...","version":2}` |
 
 `409 code_conflict` для занятого кода; `409 standard_required`, если операция
 оставляет активное упражнение без STANDARD; `409 metric_immutable` при попытке
@@ -291,11 +291,11 @@ POST/PATCH требуют `Idempotency-Key` UUID; повтор того же к�
 `catalog.manage`; `active` — `all`, `true`, `false`, default `all`;
 limit 1–100, сортировка `(sort_order,id)`, cursor привязан к фильтрам.
 `200 {"items":[{"id":"...","code":"PUSH_UP","name":"Push-up",
-"is_active":true,"version":1}],"next_cursor":null}`.
+"isActive":true,"version":1}],"nextCursor":null}`.
 `GET /api/v1/admin/exercises/{id}` возвращает `200` с полным DTO публичных
-деталей и дополнительными `is_active`, `version` у упражнения и каждого
+деталей и дополнительными `isActive`, `version` у упражнения и каждого
 варианта, включая неактивные. Неизвестный ID — `404 not_found`. Аналогично
-`GET /api/v1/admin/exercise-categories` возвращает все категории с `is_active`
+`GET /api/v1/admin/exercise-categories` возвращает все категории с `isActive`
 и `version`. Объекты вариаций редактируются через родительский exercise ID;
 чужая пара exercise/variation возвращает `404`.
 

@@ -134,7 +134,7 @@ void main() {
         } else if (operation == 'logout-all') {
           expect(request.data, isNull);
         } else {
-          expect(request.data, {'refresh_token': 'refresh'});
+          expect(request.data, {'refreshToken': 'refresh'});
         }
       },
     );

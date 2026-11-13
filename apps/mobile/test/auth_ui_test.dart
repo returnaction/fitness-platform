@@ -61,7 +61,7 @@ void main() {
     (tester) async {
       final api = _Api()..succeed = true;
       final store = _Store()
-        ..value = jsonEncode({'access_token': 'a', 'refresh_token': 'r'});
+        ..value = jsonEncode({'accessToken': 'a', 'refreshToken': 'r'});
       await openApp(tester, api, store);
       await openLogoutAll(tester);
       await tester.tap(find.text('Cancel'));
@@ -87,7 +87,7 @@ void main() {
       (tester) async {
         final api = _Api()..code = 'identity_unavailable';
         final store = _Store()
-          ..value = jsonEncode({'access_token': 'a', 'refresh_token': 'r'});
+          ..value = jsonEncode({'accessToken': 'a', 'refreshToken': 'r'});
         final original = store.value;
         await openApp(tester, api, store);
         expect(
@@ -142,7 +142,7 @@ void main() {
   ) async {
     final api = _Api()..succeed = true;
     final store = _Store()
-      ..value = jsonEncode({'access_token': 'a', 'refresh_token': 'r'});
+      ..value = jsonEncode({'accessToken': 'a', 'refreshToken': 'r'});
     await openApp(tester, api, store);
     store.failDelete = true;
     await tester.tap(find.byTooltip('Sign out'));
@@ -168,7 +168,7 @@ void main() {
       ..succeed = true
       ..failLogout = true;
     final store = _Store()
-      ..value = jsonEncode({'access_token': 'a', 'refresh_token': 'r'});
+      ..value = jsonEncode({'accessToken': 'a', 'refreshToken': 'r'});
     await openApp(tester, api, store);
     await openLogoutAll(tester);
     await tester.tap(
@@ -281,7 +281,7 @@ class _Api implements AuthApiClient {
   }) async {
     calls++;
     keys.add(headers?['Idempotency-Key']);
-    if (succeed) return {'access_token': 'new-a', 'refresh_token': 'new-r'};
+    if (succeed) return {'accessToken': 'new-a', 'refreshToken': 'new-r'};
     throw IdentityApiException(statusCode: 503, code: code, message: 'Failure');
   }
 

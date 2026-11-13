@@ -9,12 +9,12 @@
 
 - Пути начинаются с `/api/v1/challenges`; JSON передаётся в UTF-8, время —
   RFC 3339 с указанием UTC. Собственные ID Challenge — UUID в строковом
-  представлении; `exercise_id` и `variation_id` Catalog — числа `1`–`32767`.
+  представлении; `exerciseId` и `variationId` Catalog — числа `1`–`32767`.
 - Все методы ниже требуют действующий access token. Challenge проверяет права
   и состояние пользователя; ID участника и размер ставки из запроса клиента
   не считаются доказательством полномочий или суммы.
 - Формат ошибок общий с [Identity](../identity/30-identity-registration.md):
-  `{"error":{"code":"challenge_not_found","message":"Challenge не найден","request_id":"<uuid>"}}`.
+  `{"error":{"code":"challenge_not_found","message":"Challenge не найден","requestId":"<uuid>"}}`.
   Необязательный `details` содержит элементы `{ "field": "...", "code": "..." }`.
   Клиент обрабатывает неизвестный код как общую ошибку и не зависит от текста.
 - Изменяющие запросы в этом проекте используют обязательный `Idempotency-Key`:
@@ -80,8 +80,8 @@
 долговечную операцию резервирования через Coins. При подтверждении участия
 создателя challenge становится `OPEN`.
 
-- `200 OK`: `{"id":"...","status":"OPEN","participation_status":"JOINED"}`.
-- `202 Accepted`: `{"operation_id":"...","status":"PENDING","status_url":"/api/v1/challenge-operations/..."}`.
+- `200 OK`: `{"id":"...","status":"OPEN","participationStatus":"JOINED"}`.
+- `202 Accepted`: `{"operationId":"...","status":"PENDING","statusUrl":"/api/v1/challenge-operations/..."}`.
 - `409 insufficient_coins` — недостаточно доступных монет; черновик остаётся.
 - `409 version_conflict` или `409 challenge_not_publishable` — условия или
   состояние изменились; резерв не должен остаться без разрешения операции.
@@ -101,8 +101,8 @@
 подтверждает участие. Если места уже нет, резерв освобождается через Coins.
 Место на время проверки баланса не блокируется.
 
-- `200 OK`: `{"challenge_id":"...","participation_status":"JOINED"}`.
-- `202 Accepted`: `{"operation_id":"...","status":"PENDING","status_url":"/api/v1/challenge-operations/..."}`.
+- `200 OK`: `{"challengeId":"...","participationStatus":"JOINED"}`.
+- `202 Accepted`: `{"operationId":"...","status":"PENDING","statusUrl":"/api/v1/challenge-operations/..."}`.
 - `409 insufficient_coins`, `409 challenge_full`, `409 challenge_started`,
   `409 challenge_cancelled`, `409 already_joined` — окончательные бизнес-исходы.
   Если резерв нужно вернуть, результат операции не считается окончательным до
@@ -120,7 +120,7 @@
 Предлагаемый ответ `200 OK`:
 
 ```json
-{"operation_id":"...","kind":"JOIN","status":"PENDING","challenge_id":"...","result":null}
+{"operationId":"...","kind":"JOIN","status":"PENDING","challengeId":"...","result":null}
 ```
 
 `status`: `PENDING`, `SUCCEEDED`, `FAILED`; успешный `result` содержит
@@ -150,17 +150,17 @@
 ```json
 {"id":"550e8400-e29b-41d4-a716-446655440000","title":"Неделя отжиманий",
  "description":"Тренируемся вместе","status":"OPEN","mode":"HEAD_TO_HEAD",
- "visibility":"PRIVATE","has_password":true,"stake_amount":10,
+ "visibility":"PRIVATE","hasPassword":true,"stakeAmount":10,
  "participants":{"min":2,"max":2,"joined":1},
- "start":{"mode":"AT_SCHEDULE","scheduled_at":"2026-11-10T18:00:00Z",
- "started_at":null,"extension":{"max_count":1,"used_count":0,"interval_seconds":86400}},
- "duration_days":7,"viewer":{"is_participant":false,"is_creator":false,
- "participation_status":null},"version":2}
+ "start":{"mode":"AT_SCHEDULE","scheduledAt":"2026-11-10T18:00:00Z",
+ "startedAt":null,"extension":{"maxCount":1,"usedCount":0,"intervalSeconds":86400}},
+ "durationDays":7,"viewer":{"isParticipant":false,"isCreator":false,
+ "participationStatus":null},"version":2}
 ```
 
-`max`, `scheduled_at`, `started_at`, `interval_seconds` и `duration_days` могут
+`max`, `scheduledAt`, `startedAt`, `intervalSeconds` и `durationDays` могут
 быть NULL согласно состоянию и правилам [расписания](60-challenge-schedule-and-access.md).
-`has_password` не является паролем и не раскрывает ссылку. `viewer` вычисляется
+`hasPassword` не является паролем и не раскрывает ссылку. `viewer` вычисляется
 для аутентифицированного пользователя; чужие приватные данные не возвращаются.
 Поля незаполненного собственного черновика допускают NULL. Для чужого draft —
 404; недействительный токен — `401 unauthenticated`; отказ БД — `503
@@ -169,22 +169,22 @@ service_unavailable`. Знание ID или просмотр деталей н�
 ### Расписание по дням
 
 `GET /api/v1/challenges/{challenge_id}/days` возвращает все дни опубликованного
-challenge в порядке `day_number`, задания — по `position`. Максимум по
+challenge в порядке `dayNumber`, задания — по `position`. Максимум по
 согласованным правилам: 30 дней и 10 заданий в день. GET доступен тем же
 пользователям, что и детали; чужой черновик — 404. `200 OK`:
 
 ```json
-{"items":[{"day_number":1,"opens_at":"2026-11-10T18:00:00Z",
- "deadline_at":"2026-11-11T18:00:00Z","tasks":[{"task_id":"<uuid>",
- "position":1,"task_snapshot":{"schema_version":1,"exercise_id":1,
- "variation_id":1,"exercise_name":"Push-up","variation_name":"Narrow grip",
+{"items":[{"dayNumber":1,"opensAt":"2026-11-10T18:00:00Z",
+ "deadlineAt":"2026-11-11T18:00:00Z","tasks":[{"taskId":"<uuid>",
+ "position":1,"taskSnapshot":{"schemaVersion":1,"exerciseId":1,
+ "variationId":1,"exerciseName":"Push-up","variationName":"Narrow grip",
  "description":"Выполнить отжимания узким хватом",
  "instructions":"Поставьте руки ближе ширины плеч и выполните отжимания.",
  "target":{"metric":"REPETITIONS","value":10,"unit":"REP"}}}]}]}
 ```
 
-`opens_at` и `deadline_at` — RFC 3339 UTC либо оба NULL, пока точное время не
-зафиксировано. У черновика `task_snapshot` может быть NULL, а сохранённые
+`opensAt` и `deadlineAt` — RFC 3339 UTC либо оба NULL, пока точное время не
+зафиксировано. У черновика `taskSnapshot` может быть NULL, а сохранённые
 поля редактирования возвращаются по контракту черновика; клиент не считает
 незаполненное задание опубликованным. Состояния участника и ссылки на видео не
 включаются: этот ответ показывает одинаковые для всех условия. Формат снимка
@@ -201,12 +201,12 @@ challenge в порядке `day_number`, задания — по `position`. М
 для limit. `200 OK`:
 
 ```json
-{"items":[{"public_profile_id":"<uuid>","nickname":"Player_123456",
- "is_creator":true,"status":"ACTIVE","joined_at":"2026-11-01T12:00:00Z"}],
- "next_cursor":null}
+{"items":[{"publicProfileId":"<uuid>","nickname":"Player_123456",
+ "isCreator":true,"status":"ACTIVE","joinedAt":"2026-11-01T12:00:00Z"}],
+ "nextCursor":null}
 ```
 
-`public_profile_id` и `nickname` — только публичные сведения Accounts; внутренний
+`publicProfileId` и `nickname` — только публичные сведения Accounts; внутренний
 `user_id`, email, дата рождения, баланс и токены не возвращаются. При переходе
 в профиль используется [контракт Accounts](../accounts/32-accounts-profile.md).
 Если достоверный актуальный nickname недоступен, сервер возвращает `503
@@ -221,9 +221,9 @@ profile_unavailable`, а не подставляет чужие или уста�
 `v1.<kid>.<payload64>.<signature64>`, каждая двоичная часть — base64url без
 padding. `kid` — идентификатор серверного ключа `[A-Za-z0-9_-]{1,32}`.
 `payload64` — UTF-8 JSON без пробелов с полями в фиксированном порядке:
-`{"challenge_id":"<uuid>","viewer_tag":"<tag>","last_seq":1,"max_seq":20,"limit":20,"issued_at":1793577600}`.
-UUID канонический lowercase, числа целые; `issued_at` — Unix-секунды UTC.
-`viewer_tag` — base64url HMAC-SHA256 ключом `kid` над UTF-8 строкой
+`{"challengeId":"<uuid>","viewerTag":"<tag>","lastSeq":1,"maxSeq":20,"limit":20,"issuedAt":1793577600}`.
+UUID канонический lowercase, числа целые; `issuedAt` — Unix-секунды UTC.
+`viewerTag` — base64url HMAC-SHA256 ключом `kid` над UTF-8 строкой
 `challenge.participants.viewer.v1|<viewer_user_uuid>`; сам внутренний ID в
 cursor не помещается, поскольку base64 не скрывает содержимое. `signature64` —
 HMAC-SHA256 тем же ключом над UTF-8 `challenge.participants.cursor.v1|<kid>|<payload64>`.
@@ -245,23 +245,23 @@ Cursor не является разрешением: доступ дополни
 Пока результат ещё не зафиксирован: `200 OK`:
 
 ```json
-{"challenge_id":"<uuid>","status":"PENDING","result":null}
+{"challengeId":"<uuid>","status":"PENDING","result":null}
 ```
 
 После фиксации результата Challenge: `200 OK`:
 
 ```json
-{"challenge_id":"<uuid>","status":"FINAL","result":{"result_id":"<uuid>",
- "outcome":"DRAW","finalized_at":"2026-11-17T18:15:00Z",
- "viewer_outcome":"DRAW","winners_count":2}}
+{"challengeId":"<uuid>","status":"FINAL","result":{"resultId":"<uuid>",
+ "outcome":"DRAW","finalizedAt":"2026-11-17T18:15:00Z",
+ "viewerOutcome":"DRAW","winnersCount":2}}
 ```
 
-`viewer_outcome` — исход для текущего участника либо NULL для неучастника;
+`viewerOutcome` — исход для текущего участника либо NULL для неучастника;
 допустимые итоговые значения v1 — `WON`, `LOST`, `DRAW`. `outcome` — тип
 окончательного исхода challenge: `SINGLE_WINNER`, `MULTIPLE_WINNERS` или `DRAW`
 по [контракту расчёта](../coins/34-coins-stake-and-settlement-contract.md#исходы-финального-события-v1).
 При `DRAW` у обоих участников персональный итог ничья; оба входят в набор
-получателей долей, поэтому `winners_count=2` не означает две победы в статистике.
+получателей долей, поэтому `winnersCount=2` не означает две победы в статистике.
 Возвраты и выплаты принадлежат Coins: это API не
 выводит размер начисления и не объявляет расчёт Coins завершённым. Для
 `CANCELLED` используется `status:CANCELLED`, `result:null`; возврат ставки
@@ -279,7 +279,7 @@ Cursor не является разрешением: доступ дополни
 когда ещё никто другой не вступил. Система также может отменить challenge по
 правилам недостаточного набора; это внутренний процесс, не этот публичный метод.
 
-`200 OK`: `{"challenge_id":"...","status":"CANCELLED","refund_status":"PENDING"}`.
+`200 OK`: `{"challengeId":"...","status":"CANCELLED","refundStatus":"PENDING"}`.
 `PENDING` означает, что возврат ещё обрабатывается; `COMPLETED` — что Coins
 подтвердил освобождение всех нужных резервов. `409 cancellation_not_allowed`
 — право отмены утрачено. При конкуренции со вступлением и стартом Challenge
@@ -292,7 +292,7 @@ Cursor не является разрешением: доступ дополни
 Право на подачу и срок принадлежат Challenge. Согласованные правила, в том
 числе доступность только для отклонения по технике и прекращение при другом
 окончательно проваленном задании дня: [апелляция](../moderation/25-moderation-decisions.md#апелляция-согласованная-модель).
-Здесь `task_id` идентифицирует задание, а участник определяется исключительно
+Здесь `taskId` идентифицирует задание, а участник определяется исключительно
 проверенной сессией; идентификаторы участника или вердикт из тела не принимаются.
 
 `POST /api/v1/challenges/{challenge_id}/tasks/{task_id}/appeals` требует
@@ -301,12 +301,12 @@ Cursor не является разрешением: доступ дополни
 апелляции и `appeal.submitted` в outbox одной транзакцией — `201 Created`:
 
 ```json
-{"appeal_id":"<uuid>","challenge_id":"<uuid>","task_id":"<uuid>",
- "status":"UNDER_REVIEW","submitted_at":"2026-11-05T12:00:00Z",
- "review_due_at":"2026-11-06T12:00:00Z","version":1}
+{"appealId":"<uuid>","challengeId":"<uuid>","taskId":"<uuid>",
+ "status":"UNDER_REVIEW","submittedAt":"2026-11-05T12:00:00Z",
+ "reviewDueAt":"2026-11-06T12:00:00Z","version":1}
 ```
 
-`review_due_at` — целевой срок рассмотрения, а не момент автоматического
+`reviewDueAt` — целевой срок рассмотрения, а не момент автоматического
 вердикта. Заголовок `Location` указывает на
 `/api/v1/challenges/{challenge_id}/tasks/{task_id}/appeal`. Сервис не ждёт
 доставки Kafka или назначения модератора для 201. После проверки прав повтор
@@ -315,7 +315,7 @@ Cursor не является разрешением: доступ дополни
 поданной апелляции — `409 appeal_already_submitted`; вторая запись не создаётся.
 
 Дедлайн исключительный: сервер после блокировки права получает время БД и
-принимает только строго до `deadline_at`; проверка выполняется в одной
+принимает только строго до `deadlineAt`; проверка выполняется в одной
 транзакции с созданием. Точный порядок: [граница подачи](../moderation/25-moderation-decisions.md#подача-у-границы-срока-проект-контракта).
 После срока — `409 appeal_expired`; отсутствие права или его отмена —
 `409 appeal_not_available`; чужой challenge/задание или отсутствие участия —
@@ -327,9 +327,9 @@ service_unavailable`; при неизвестном результате кли�
 участнику-владельцу и читает primary Challenge. Пока поданной записи нет —
 `404 appeal_not_found`, даже если право существует; возможность подачи и срок
 показываются отдельным состоянием права задания, не выдуманной апелляцией.
-При наличии — `200` с `appeal_id`, `challenge_id`, `task_id`, `status`
-(`UNDER_REVIEW`, `UPHELD`, `REJECTED`, `CANCELLED`), `submitted_at`,
-`review_due_at`, `version` и `cancel_reason` (NULL кроме отмены). Содержание
+При наличии — `200` с `appealId`, `challengeId`, `taskId`, `status`
+(`UNDER_REVIEW`, `UPHELD`, `REJECTED`, `CANCELLED`), `submittedAt`,
+`reviewDueAt`, `version` и `cancel_reason` (NULL кроме отмены). Содержание
 решения и его причина выводятся только после проверки владения; формат
 отображения причины должен быть определён вместе с моделью хранения результата.
 Список задач и права доступа других участников не раскрывают этот ответ.

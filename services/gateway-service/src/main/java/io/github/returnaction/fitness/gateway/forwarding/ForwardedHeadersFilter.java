@@ -19,11 +19,8 @@ public final class ForwardedHeadersFilter implements RequestHttpHeadersFilter {
     private final RouteAccessPolicy accessPolicy;
 
     private static final String REQUEST_ID_HEADER = "X-Request-Id";
-    private static final List<String> ALLOWED_HEADERS = List.of(
-            HttpHeaders.AUTHORIZATION,
-            HttpHeaders.CONTENT_TYPE,
-            HttpHeaders.ACCEPT,
-            "Idempotency-Key");
+    private static final List<String> ALLOWED_HEADERS = List.of(HttpHeaders.AUTHORIZATION, HttpHeaders.CONTENT_TYPE,
+            HttpHeaders.ACCEPT, "Idempotency-Key");
 
     @Override
     public HttpHeaders apply(HttpHeaders headers, ServerRequest request) {
@@ -43,11 +40,9 @@ public final class ForwardedHeadersFilter implements RequestHttpHeadersFilter {
     }
 
     private static String requireRequestId(ServerRequest request) {
-        Object value = request.servletRequest()
-                .getAttribute(RequestIdFilter.REQUEST_ID_ATTRIBUTE);
+        Object value = request.servletRequest().getAttribute(RequestIdFilter.REQUEST_ID_ATTRIBUTE);
         if (!(value instanceof String requestId) || requestId.isBlank()) {
-            throw new IllegalStateException(
-                    "RequestIdFilter must provide request_id before proxying");
+            throw new IllegalStateException("RequestIdFilter must provide request_id before proxying");
         }
         return requestId;
     }

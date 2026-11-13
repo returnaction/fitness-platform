@@ -79,8 +79,9 @@ class GrpcSessionVerificationClientTest {
                 }
             }
         };
-        var ssl = GrpcSslContexts.forServer(pem(dir.resolve("server.pem"), serverCert).toFile(),
-                pem(dir.resolve("server.key"), serverKey.getPrivate()).toFile())
+        var ssl = GrpcSslContexts
+                .forServer(pem(dir.resolve("server.pem"), serverCert).toFile(),
+                        pem(dir.resolve("server.key"), serverKey.getPrivate()).toFile())
                 .trustManager(ca)
                 .clientAuth(ClientAuth.REQUIRE)
                 .build();
@@ -92,8 +93,8 @@ class GrpcSessionVerificationClientTest {
         var caFile = pem(dir.resolve("ca.pem"), ca);
         var certFile = pem(dir.resolve("client.pem"), callerCert);
         var keyFile = pem(dir.resolve("client.key"), callerKey.getPrivate());
-        var settings = new SessionVerificationProperties("localhost", server.getPort(), caFile,
-                certFile, keyFile, Duration.ofMillis(200));
+        var settings = new SessionVerificationProperties("localhost", server.getPort(), caFile, certFile, keyFile,
+                Duration.ofMillis(200));
         var client = new GrpcSessionVerificationClient(settings);
         var user = UUID.randomUUID();
         var session = UUID.randomUUID();
@@ -109,27 +110,27 @@ class GrpcSessionVerificationClientTest {
                     .isFalse();
             for (int invalid : new int[]{0, 99, -1}) {
                 status.set(invalid);
-                assertThatThrownBy(() -> client.isActive(user, session, requestId,
-                        RequestDeadline.start(Duration.ofSeconds(3))))
+                assertThatThrownBy(
+                        () -> client.isActive(user, session, requestId, RequestDeadline.start(Duration.ofSeconds(3))))
                         .isInstanceOf(SessionVerificationUnavailableException.class);
             }
             int before = calls.get();
-            assertThatThrownBy(() -> client.isActive(user, session, requestId,
-                    RequestDeadline.start(Duration.ofSeconds(-1))))
+            assertThatThrownBy(
+                    () -> client.isActive(user, session, requestId, RequestDeadline.start(Duration.ofSeconds(-1))))
                     .isInstanceOf(SessionVerificationUnavailableException.class);
             assertThat(calls.get()).isEqualTo(before);
             status.set(-2);
             long started = System.nanoTime();
-            assertThatThrownBy(() -> client.isActive(user, session, requestId,
-                    RequestDeadline.start(Duration.ofMillis(300))))
+            assertThatThrownBy(
+                    () -> client.isActive(user, session, requestId, RequestDeadline.start(Duration.ofMillis(300))))
                     .isInstanceOf(SessionVerificationUnavailableException.class);
             assertThat(Duration.ofNanos(System.nanoTime() - started)).isLessThan(Duration.ofSeconds(2));
             assertThat(remaining.get()).isPositive().isLessThan(TimeUnit.MILLISECONDS.toNanos(350));
             assertThat(calls.get()).isEqualTo(before + 1);
 
             // A certificate with the wrong DNS name must not pass server authentication.
-            var wrongHost = new GrpcSessionVerificationClient(new SessionVerificationProperties(
-                    "127.0.0.1", server.getPort(), caFile, certFile, keyFile, Duration.ofMillis(200)));
+            var wrongHost = new GrpcSessionVerificationClient(new SessionVerificationProperties("127.0.0.1",
+                    server.getPort(), caFile, certFile, keyFile, Duration.ofMillis(200)));
             try {
                 assertThatThrownBy(() -> wrongHost.isActive(user, session, requestId,
                         RequestDeadline.start(Duration.ofSeconds(2))))
@@ -139,8 +140,8 @@ class GrpcSessionVerificationClientTest {
             }
             assertThat(calls.get()).isEqualTo(before + 1);
             client.close();
-            assertThatThrownBy(() -> client.isActive(user, session, requestId,
-                    RequestDeadline.start(Duration.ofSeconds(1))))
+            assertThatThrownBy(
+                    () -> client.isActive(user, session, requestId, RequestDeadline.start(Duration.ofSeconds(1))))
                     .isInstanceOf(SessionVerificationUnavailableException.class);
         } finally {
             client.close();
@@ -169,26 +170,15 @@ class GrpcSessionVerificationClientTest {
         return generator.generateKeyPair();
     }
 
-    private static X509Certificate cert(
-                                        X500Name issuer,
-                                        X500Name subject,
-                                        KeyPair subjectKey,
-                                        KeyPair issuerKey,
-                                        GeneralName san,
-                                        boolean isCa) throws Exception {
+    private static X509Certificate cert(X500Name issuer, X500Name subject, KeyPair subjectKey, KeyPair issuerKey,
+        GeneralName san, boolean isCa) throws Exception {
         Instant now = Instant.now();
-        var builder = new JcaX509v3CertificateBuilder(
-                issuer,
-                new BigInteger(128, new SecureRandom()).abs(),
-                Date.from(now.minusSeconds(60)),
-                Date.from(now.plusSeconds(3600)),
-                subject,
-                subjectKey.getPublic());
+        var builder = new JcaX509v3CertificateBuilder(issuer, new BigInteger(128, new SecureRandom()).abs(),
+                Date.from(now.minusSeconds(60)), Date.from(now.plusSeconds(3600)), subject, subjectKey.getPublic());
         builder.addExtension(Extension.basicConstraints, true, new BasicConstraints(isCa));
         if (san != null)
             builder.addExtension(Extension.subjectAlternativeName, false, new GeneralNames(san));
-        return new JcaX509CertificateConverter()
-                .getCertificate(
-                        builder.build(new JcaContentSignerBuilder("SHA256withRSA").build(issuerKey.getPrivate())));
+        return new JcaX509CertificateConverter().getCertificate(
+                builder.build(new JcaContentSignerBuilder("SHA256withRSA").build(issuerKey.getPrivate())));
     }
 }

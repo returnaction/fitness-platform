@@ -152,18 +152,18 @@ timestamptz NULL`. В v1 исходящие бизнес-события Notifica
 
 Все пути требуют действующую сессию. `user_id` берётся из проверенного токена;
 чужую историю и токены устройства читать нельзя. Ошибка:
-`{"error":{"code":"validation_error","message":"Проверьте данные","request_id":"<uuid>"}}`.
+`{"error":{"code":"validation_error","message":"Проверьте данные","requestId":"<uuid>"}}`.
 Общие ответы: `400 invalid_request`, `401 unauthenticated`, `403 forbidden`,
 `404 not_found` для чужого или отсутствующего объекта, `422 validation_error`,
 `429 rate_limited`, `503 notifications_unavailable`, `500 internal_error`.
 
 | Метод | Запрос | Ответ |
 | --- | --- | --- |
-| `GET /api/v1/notifications?limit=20&cursor=...` | limit 1–100, порядок `(created_at DESC,id DESC)`. | `200 {"items":[{"id":"...","category":"REVIEW","title":"Видео проверено","body":"Откройте challenge","data":{"challenge_id":"..."},"created_at":"...","read_at":null}],"next_cursor":null}` |
-| `GET /api/v1/notifications/preferences` | — | `200 {"items":[{"category":"CHALLENGE","push_enabled":true,"version":1}]}`; возвращаются все поддерживаемые категории, включая значения по умолчанию. |
-| `PATCH /api/v1/notifications/preferences/{category}` | `{"push_enabled":false,"version":1}` | `200 {"category":"CHALLENGE","push_enabled":false,"version":2}`; устаревшая версия — `409 version_conflict`. |
-| `POST /api/v1/notifications/{id}/read` | `{}` | `200 {"id":"...","read_at":"2026-11-05T12:00:00Z"}`; повтор не меняет первоначальный read_at. |
-| `PUT /api/v1/notification-devices/{installation_id}` | `{"platform":"ANDROID","push_token":"<token>"}` | `200 {"installation_id":"...","state":"ACTIVE"}`; токен в ответ не возвращается. |
+| `GET /api/v1/notifications?limit=20&cursor=...` | limit 1–100, порядок `(created_at DESC,id DESC)`. | `200 {"items":[{"id":"...","category":"REVIEW","title":"Видео проверено","body":"Откройте challenge","data":{"challengeId":"..."},"createdAt":"...","readAt":null}],"nextCursor":null}` |
+| `GET /api/v1/notifications/preferences` | — | `200 {"items":[{"category":"CHALLENGE","pushEnabled":true,"version":1}]}`; возвращаются все поддерживаемые категории, включая значения по умолчанию. |
+| `PATCH /api/v1/notifications/preferences/{category}` | `{"pushEnabled":false,"version":1}` | `200 {"category":"CHALLENGE","pushEnabled":false,"version":2}`; устаревшая версия — `409 version_conflict`. |
+| `POST /api/v1/notifications/{id}/read` | `{}` | `200 {"id":"...","readAt":"2026-11-05T12:00:00Z"}`; повтор не меняет первоначальный read_at. |
+| `PUT /api/v1/notification-devices/{installation_id}` | `{"platform":"ANDROID","pushToken":"<token>"}` | `200 {"installationId":"...","state":"ACTIVE"}`; токен в ответ не возвращается. |
 | `DELETE /api/v1/notification-devices/{installation_id}` | — | `204`; повтор владельца безопасен. |
 
 PATCH и PUT требуют проверки версии/владельца, read — естественно идемпотентен.

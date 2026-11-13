@@ -25,14 +25,13 @@ class AccessTokenSignerTest {
         generator.initialize(new ECGenParameterSpec("secp256r1"));
         var pair = generator.generateKeyPair();
         Instant now = Instant.parse("2026-01-01T00:00:00Z");
-        var signer = new AccessTokenSigner(
-                (ECPrivateKey) pair.getPrivate(), "key-1", "issuer", "gateway", Clock.fixed(now, ZoneOffset.UTC));
+        var signer = new AccessTokenSigner((ECPrivateKey) pair.getPrivate(), "key-1", "issuer", "gateway",
+                Clock.fixed(now, ZoneOffset.UTC));
         UUID userId = UUID.randomUUID();
         UUID sessionId = UUID.randomUUID();
         var jwt = SignedJWT
                 .parse(signer.sign(userId, sessionId, now.plusSeconds(300), java.util.List.of(RoleCode.USER)));
-        assertThat(jwt.verify(new ECDSAVerifier((ECPublicKey) pair.getPublic())))
-                .isTrue();
+        assertThat(jwt.verify(new ECDSAVerifier((ECPublicKey) pair.getPublic()))).isTrue();
         assertThat(jwt.getHeader().getAlgorithm()).isEqualTo(JWSAlgorithm.ES256);
         assertThat(jwt.getHeader().getKeyID()).isEqualTo("key-1");
         var claims = jwt.getJWTClaimsSet();
@@ -54,8 +53,7 @@ class AccessTokenSignerTest {
                 .isInstanceOf(IllegalStateException.class);
         var longSession = SignedJWT
                 .parse(signer.sign(userId, sessionId, now.plusSeconds(3600), java.util.List.of(RoleCode.USER)));
-        assertThat(longSession.getJWTClaimsSet().getExpirationTime().toInstant())
-                .isEqualTo(now.plusSeconds(900));
+        assertThat(longSession.getJWTClaimsSet().getExpirationTime().toInstant()).isEqualTo(now.plusSeconds(900));
         assertThatThrownBy(() -> signer.sign(userId, sessionId, now, java.util.List.of(RoleCode.USER)))
                 .isInstanceOf(IllegalArgumentException.class);
     }

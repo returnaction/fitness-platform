@@ -33,12 +33,10 @@ public final class SessionVerificationFilter extends OncePerRequestFilter {
     }
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request,
-                                    HttpServletResponse response,
-                                    FilterChain chain) throws ServletException, IOException {
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
+        FilterChain chain) throws ServletException, IOException {
         var authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (!(authentication instanceof JwtAuthenticationToken jwtAuth)
-                || !jwtAuth.isAuthenticated()) {
+        if (!(authentication instanceof JwtAuthenticationToken jwtAuth) || !jwtAuth.isAuthenticated()) {
             rejectAuthentication(request, response);
             return;
         }
@@ -61,8 +59,8 @@ public final class SessionVerificationFilter extends OncePerRequestFilter {
         UUID requestId = requireRequestId(request);
         final boolean active;
         try {
-            active = sessionClient.isActive(
-                    userId, sessionId, requestId, RequestDeadlineFilter.requireDeadline(request));
+            active = sessionClient.isActive(userId, sessionId, requestId,
+                    RequestDeadlineFilter.requireDeadline(request));
         } catch (SessionVerificationUnavailableException exception) {
             SecurityContextHolder.clearContext();
             errorWriter.write(response, HttpServletResponse.SC_SERVICE_UNAVAILABLE,
@@ -77,23 +75,20 @@ public final class SessionVerificationFilter extends OncePerRequestFilter {
     }
 
     private void rejectAuthentication(HttpServletRequest request,
-                                      HttpServletResponse response) throws IOException, ServletException {
+        HttpServletResponse response) throws IOException, ServletException {
         SecurityContextHolder.clearContext();
-        securityErrors.commence(request, response,
-                new BadCredentialsException("Invalid access token"));
+        securityErrors.commence(request, response, new BadCredentialsException("Invalid access token"));
     }
 
     private static UUID requireRequestId(HttpServletRequest request) {
         Object value = request.getAttribute("request_id");
         if (!(value instanceof String text)) {
-            throw new IllegalStateException(
-                    "RequestIdFilter must set request_id as a string before security filters");
+            throw new IllegalStateException("RequestIdFilter must set request_id as a string before security filters");
         }
         try {
             return UUID.fromString(text);
         } catch (IllegalArgumentException exception) {
-            throw new IllegalStateException(
-                    "RequestIdFilter must provide a valid request_id", exception);
+            throw new IllegalStateException("RequestIdFilter must provide a valid request_id", exception);
         }
     }
 }

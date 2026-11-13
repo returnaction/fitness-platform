@@ -30,13 +30,8 @@ public final class AccessTokenSigner {
 
     public AccessTokenSigner(ECPrivateKey key, String keyId, String issuer, String audience, Clock clock) {
         this.key = Objects.requireNonNull(key);
-        if (!Curve.P_256.equals(Curve.forECParameterSpec(key.getParams()))
-                || keyId == null
-                || keyId.isBlank()
-                || issuer == null
-                || issuer.isBlank()
-                || audience == null
-                || audience.isBlank()) {
+        if (!Curve.P_256.equals(Curve.forECParameterSpec(key.getParams())) || keyId == null || keyId.isBlank()
+                || issuer == null || issuer.isBlank() || audience == null || audience.isBlank()) {
             throw new IllegalArgumentException("Invalid access token signing configuration");
         }
         this.keyId = keyId;
@@ -59,8 +54,7 @@ public final class AccessTokenSigner {
         if (!expires.isAfter(now)) {
             throw new IllegalArgumentException("Session has expired");
         }
-        JWTClaimsSet claims = new JWTClaimsSet.Builder()
-                .issuer(issuer)
+        JWTClaimsSet claims = new JWTClaimsSet.Builder().issuer(issuer)
                 .audience(List.of(audience))
                 .subject(userId.toString())
                 .claim("sid", sessionId.toString())
@@ -69,8 +63,7 @@ public final class AccessTokenSigner {
                 .expirationTime(Date.from(expires))
                 .jwtID(UUID.randomUUID().toString())
                 .build();
-        SignedJWT jwt = new SignedJWT(
-                new JWSHeader.Builder(JWSAlgorithm.ES256).keyID(keyId).build(), claims);
+        SignedJWT jwt = new SignedJWT(new JWSHeader.Builder(JWSAlgorithm.ES256).keyID(keyId).build(), claims);
         try {
             jwt.sign(new ECDSASigner(key));
         } catch (JOSEException exception) {

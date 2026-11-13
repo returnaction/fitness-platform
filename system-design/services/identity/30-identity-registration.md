@@ -181,7 +181,7 @@ Accounts возвращает `ABORTED`, когда после ограниче�
 `401 invalid_credentials`, без раскрытия статуса регистрации.
 
 ```json
-{"error":{"code":"registration_pending","message":"Подготавливаем аккаунт. Попробуйте войти позже","request_id":"<uuid>"}}
+{"error":{"code":"registration_pending","message":"Подготавливаем аккаунт. Попробуйте войти позже","requestId":"<uuid>"}}
 ```
 
 Активация без сессии и выдача сессии по авторизованному запросу разделены:
@@ -256,7 +256,7 @@ Docker image или логи.
 временное правило: разрешение получает только пользователь с актуальной ролью
 `SUPER_ADMIN`; Identity проверяет подпись JWT, состояние сессии и роль по своей
 основной базе при каждом административном запросе. Тело
-`{"expected_version": 3, "reason": "Исправлены права сервиса Coins"}`;
+`{"expectedVersion": 3, "reason": "Исправлены права сервиса Coins"}`;
 причина обязательна, 1–500 символов без секретов. Под блокировкой операции
 проверяются версия, `PENDING` и наличие `recovery_blocked_at`; затем очищаются
 блокировка и код ошибки, `next_retry_at` ставится на время БД, версия растёт,
@@ -521,8 +521,8 @@ endpoint. В старом Python-коде минимум пароля соста
 {
   "user": {"id": "<uuid>", "email": "anna@example.com", "status": "ACTIVE"},
   "session": {
-    "access_token": "<access-token>", "refresh_token": "<refresh-token>",
-    "token_type": "Bearer", "expires_in": 900, "refresh_expires_in": 2592000
+    "accessToken": "<access-token>", "refreshToken": "<refresh-token>",
+    "tokenType": "Bearer", "expiresIn": 900, "refreshExpiresIn": 2592000
   }
 }
 ```
@@ -580,7 +580,7 @@ TTL: access — 15 минут, refresh — 30 дней, как согласов�
   повторяется. Кошелёк создаётся с балансом 0, повторы не создают второй.
 - В тестовой версии занятый email — `409 email_already_registered`; риск
   перечисления адресов пересматривается перед публичным запуском.
-- Формат ошибки: `code`, `message`, необязательный `details`, `request_id`;
+- Формат ошибки: `code`, `message`, необязательный `details`, `requestId`;
   новые поля совместимы с клиентами, игнорирующими неизвестные поля.
 - Тесты должны охватывать параллельные запросы, повторы, потерю ответа, сбои
   профиля/кошелька, отсутствие секретов в логах и работу PostgreSQL.
@@ -598,7 +598,7 @@ TTL: access — 15 минут, refresh — 30 дней, как согласов�
     "code": "validation_error",
     "message": "Проверьте введённые данные",
     "details": [{"field": "email", "code": "invalid_format"}],
-    "request_id": "<uuid>"
+    "requestId": "<uuid>"
   }
 }
 ```

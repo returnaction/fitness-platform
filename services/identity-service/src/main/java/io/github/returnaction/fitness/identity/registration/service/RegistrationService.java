@@ -55,9 +55,8 @@ public class RegistrationService {
         }
     }
 
-    private RegistrationStartResult resolveWriteConflict(byte[] digest,
-                                                         ValidatedCredentials input,
-                                                         DataIntegrityViolationException exception) {
+    private RegistrationStartResult resolveWriteConflict(byte[] digest, ValidatedCredentials input,
+        DataIntegrityViolationException exception) {
 
         RegistrationOperationEntity existing = operationRepository.findByIdempotencyKeyDigest(digest).orElse(null);
         if (existing != null) {

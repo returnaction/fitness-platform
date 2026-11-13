@@ -38,9 +38,8 @@ public final class HttpDeadlineFilter extends OncePerRequestFilter {
     }
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request,
-                                    HttpServletResponse response,
-                                    FilterChain chain) throws ServletException, IOException {
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
+        FilterChain chain) throws ServletException, IOException {
         var deadline = RequestDeadlineFilter.requireDeadline(request);
         HttpDeadlineScope scope = null;
         try {

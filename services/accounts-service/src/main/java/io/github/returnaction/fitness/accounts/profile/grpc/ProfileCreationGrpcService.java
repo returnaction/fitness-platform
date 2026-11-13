@@ -18,15 +18,13 @@ import org.springframework.stereotype.Component;
  */
 @Component
 @RequiredArgsConstructor
-public final class ProfileCreationGrpcService
-        extends
-            ProfileCreationServiceGrpc.ProfileCreationServiceImplBase {
+public final class ProfileCreationGrpcService extends ProfileCreationServiceGrpc.ProfileCreationServiceImplBase {
 
     private final ProfileCreationService profileCreationService;
 
     @Override
     public void createProfileIfAbsent(CreateProfileIfAbsentRequest request,
-                                      StreamObserver<CreateProfileIfAbsentResponse> observer) {
+        StreamObserver<CreateProfileIfAbsentResponse> observer) {
 
         UUID userId;
 

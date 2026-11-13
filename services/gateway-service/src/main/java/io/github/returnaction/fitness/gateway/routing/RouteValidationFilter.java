@@ -41,32 +41,30 @@ public final class RouteValidationFilter extends OncePerRequestFilter {
     }
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request,
-                                    HttpServletResponse response,
-                                    FilterChain chain) throws ServletException, IOException {
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
+        FilterChain chain) throws ServletException, IOException {
         List<String> allowedMethods = allowedMethods(request);
         if (allowedMethods.isEmpty()) {
-            errorWriter.write(response, HttpServletResponse.SC_NOT_FOUND,
-                    GatewayErrorCode.NOT_FOUND, RequestIdResolver.getOrCreate(request));
+            errorWriter.write(response, HttpServletResponse.SC_NOT_FOUND, GatewayErrorCode.NOT_FOUND,
+                    RequestIdResolver.getOrCreate(request));
             return;
         }
         if (!allowedMethods.contains(request.getMethod())) {
             response.setHeader(HttpHeaders.ALLOW, String.join(", ", allowedMethods));
-            errorWriter.write(response, HttpServletResponse.SC_METHOD_NOT_ALLOWED,
-                    GatewayErrorCode.METHOD_NOT_ALLOWED, RequestIdResolver.getOrCreate(request));
+            errorWriter.write(response, HttpServletResponse.SC_METHOD_NOT_ALLOWED, GatewayErrorCode.METHOD_NOT_ALLOWED,
+                    RequestIdResolver.getOrCreate(request));
             return;
         }
         if (request.getQueryString() != null) {
-            errorWriter.write(response, HttpServletResponse.SC_BAD_REQUEST,
-                    GatewayErrorCode.INVALID_REQUEST, RequestIdResolver.getOrCreate(request));
+            errorWriter.write(response, HttpServletResponse.SC_BAD_REQUEST, GatewayErrorCode.INVALID_REQUEST,
+                    RequestIdResolver.getOrCreate(request));
             return;
         }
         chain.doFilter(request, response);
     }
 
     private List<String> allowedMethods(HttpServletRequest request) {
-        return routes
-                .stream()
+        return routes.stream()
                 .filter(route -> route.matcher().matches(request))
                 .map(RouteMatcher::method)
                 .distinct()
@@ -74,6 +72,7 @@ public final class RouteValidationFilter extends OncePerRequestFilter {
                 .toList();
     }
 
-    private record RouteMatcher(RequestMatcher matcher, String method) {
+    private record RouteMatcher(RequestMatcher matcher,
+                                String method) {
     }
 }

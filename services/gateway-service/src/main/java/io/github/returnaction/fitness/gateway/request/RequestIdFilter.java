@@ -29,16 +29,14 @@ public final class RequestIdFilter extends OncePerRequestFilter {
     }
 
     @Override
-    protected void doFilterNestedErrorDispatch(HttpServletRequest request,
-                                               HttpServletResponse response,
-                                               FilterChain chain) throws ServletException, IOException {
+    protected void doFilterNestedErrorDispatch(HttpServletRequest request, HttpServletResponse response,
+        FilterChain chain) throws ServletException, IOException {
         doFilterInternal(request, response, chain);
     }
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request,
-                                    HttpServletResponse response,
-                                    FilterChain chain) throws ServletException, IOException {
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
+        FilterChain chain) throws ServletException, IOException {
         String requestId = RequestIdResolver.getOrCreate(request);
         response.setHeader(REQUEST_ID_HEADER, requestId);
         String previous = MDC.get(REQUEST_ID_ATTRIBUTE);

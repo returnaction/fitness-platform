@@ -55,18 +55,16 @@ class SessionVerificationGrpcServiceTest {
         when(repository.check(any(), any()))
                 .thenThrow(new DataAccessResourceFailureException("private database details"));
         StreamObserver<CheckSessionResponse> failure = observer();
-        service.checkSession(
-                request(UUID.randomUUID().toString(), UUID.randomUUID().toString()), failure);
+        service.checkSession(request(UUID.randomUUID().toString(), UUID.randomUUID().toString()), failure);
         verify(failure).onError(error.capture());
         assertThat(Status.fromThrowable(error.getValue()).getCode()).isEqualTo(Status.Code.UNAVAILABLE);
         assertThat(Status.fromThrowable(error.getValue()).getDescription()).doesNotContain("private");
-        org.mockito.Mockito.doThrow(
-                new org.springframework.transaction.CannotCreateTransactionException("database unavailable"))
+        org.mockito.Mockito
+                .doThrow(new org.springframework.transaction.CannotCreateTransactionException("database unavailable"))
                 .when(repository)
                 .check(any(), any());
         StreamObserver<CheckSessionResponse> transactionFailure = observer();
-        service.checkSession(
-                request(UUID.randomUUID().toString(), UUID.randomUUID().toString()), transactionFailure);
+        service.checkSession(request(UUID.randomUUID().toString(), UUID.randomUUID().toString()), transactionFailure);
         verify(transactionFailure).onError(error.capture());
         assertThat(Status.fromThrowable(error.getValue()).getCode()).isEqualTo(Status.Code.UNAVAILABLE);
     }

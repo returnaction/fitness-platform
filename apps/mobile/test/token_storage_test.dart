@@ -3,6 +3,24 @@ import 'package:fitness_app/features/auth/model/session_tokens.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test(
+    'reads legacy local sessions and writes camelCase on the next save',
+    () async {
+      final store = _FakeSecureValueStore();
+      store.values['auth_session_v1'] =
+          '{"access_token":"legacy-access","refresh_token":"legacy-refresh"}';
+      final storage = TokenStorage(store);
+      final tokens = await storage.read();
+      expect(tokens!.accessToken, 'legacy-access');
+      expect(tokens.refreshToken, 'legacy-refresh');
+      await storage.write(tokens);
+      expect(
+        store.values['auth_session_v1'],
+        '{"accessToken":"legacy-access","refreshToken":"legacy-refresh"}',
+      );
+    },
+  );
+
   test('stores the complete token pair in one secure value', () async {
     final store = _FakeSecureValueStore();
     final storage = TokenStorage(store);

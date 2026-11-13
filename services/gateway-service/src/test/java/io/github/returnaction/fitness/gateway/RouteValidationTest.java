@@ -1,6 +1,7 @@
 package io.github.returnaction.fitness.gateway;
 
 import io.github.returnaction.fitness.gateway.routing.RouteValidationFilter;
+import io.github.returnaction.fitness.gateway.routing.RouteAccess;
 import io.github.returnaction.fitness.gateway.security.session.SessionVerificationClient;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletContext;
@@ -65,10 +66,11 @@ class RouteValidationTest {
                 assertError(client, "POST", "/unknown?x=1", bearer, 404, "not_found");
                 assertError(client, "OPTIONS", "/unknown", bearer, 404, "not_found");
                 for (var route : GatewayRouteCatalog.routes()) {
-                    assertError(client, "GET", route.path() + "?x=1", bearer, 405, "method_not_allowed");
+                    String unsupportedMethod = route.path().equals("/api/v1/accounts/me") ? "POST" : "GET";
+                    assertError(client, unsupportedMethod, route.path() + "?x=1", bearer, 405, "method_not_allowed");
                     assertError(client, "OPTIONS", route.path(), bearer, 405, "method_not_allowed");
                     assertError(client, "HEAD", route.path(), bearer, 405, null);
-                    assertError(client, "POST", route.path() + "?x=1", bearer, 400, "invalid_request");
+                    assertError(client, route.method().name(), route.path() + "?x=1", bearer, 400, "invalid_request");
                 }
             }
         }
@@ -80,12 +82,11 @@ class RouteValidationTest {
             try (var socket = new Socket("127.0.0.1", port)) {
                 socket.setSoTimeout(3000);
                 socket.getOutputStream()
-                        .write(("POST " + route.path() + "? HTTP/1.1\r\n"
+                        .write((route.method().name() + " " + route.path() + "? HTTP/1.1\r\n"
                                 + "Host: localhost\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")
                                 .getBytes(StandardCharsets.US_ASCII));
                 socket.getOutputStream().flush();
-                String response = new String(socket.getInputStream().readAllBytes(),
-                        StandardCharsets.UTF_8);
+                String response = new String(socket.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
                 assertThat(response).startsWith("HTTP/1.1 400").contains("invalid_request");
             }
         }
@@ -108,15 +109,15 @@ class RouteValidationTest {
 
     @Test
     void policyMatchesOnlyCatalogOperationsAndProtectedRouteStaysClosed() throws Exception {
-        assertThat(GatewayRouteCatalog.routes()).hasSize(5);
+        assertThat(GatewayRouteCatalog.routes()).hasSize(7);
         try (var client = HttpClient.newHttpClient()) {
             for (var route : GatewayRouteCatalog.routes()) {
-                var request = new MockHttpServletRequest("POST", route.path());
-                boolean protectedRoute = route.path().endsWith("/logout-all");
+                var request = new MockHttpServletRequest(route.method().name(), route.path());
+                boolean protectedRoute = route.access() == RouteAccess.AUTHENTICATED;
                 assertThat(policy.protectedRequests().matches(request)).isEqualTo(protectedRoute);
                 assertThat(policy.publicRequests().matches(request)).isEqualTo(!protectedRoute);
                 if (protectedRoute) {
-                    assertError(client, "POST", route.path(), "", 401, "invalid_access_token");
+                    assertError(client, route.method().name(), route.path(), "", 401, "invalid_access_token");
                 }
             }
         }
@@ -130,10 +131,16 @@ class RouteValidationTest {
 
     @Test
     void catalogValidationRejectsEmptyDuplicateAndMissingUpstream() {
-        var upstreams = new UpstreamProperties(Map.of(UpstreamId.IDENTITY,
-                new UpstreamProperties.Settings(URI.create("http://localhost:1"))));
+        var upstreams = new UpstreamProperties(
+                Map.of(UpstreamId.IDENTITY, new UpstreamProperties.Settings(URI.create("http://localhost:1")),
+                        UpstreamId.ACCOUNT, new UpstreamProperties.Settings(URI.create("http://localhost:2"))));
         var routes = GatewayRouteCatalog.routes();
         GatewayRouteValidator.validate(routes, upstreams);
+        assertThatThrownBy(() -> GatewayRouteValidator.validate(routes,
+                new UpstreamProperties(Map.of(UpstreamId.IDENTITY,
+                        new UpstreamProperties.Settings(URI.create("http://localhost:1"))))))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("ACCOUNT");
         assertThatThrownBy(() -> GatewayRouteValidator.validate(List.of(), upstreams))
                 .isInstanceOf(IllegalStateException.class);
         assertThatThrownBy(
@@ -143,12 +150,8 @@ class RouteValidationTest {
                 .isInstanceOf(IllegalStateException.class);
     }
 
-    private void assertError(HttpClient client,
-                             String method,
-                             String path,
-                             String bearer,
-                             int status,
-                             String code) throws Exception {
+    private void assertError(HttpClient client, String method, String path, String bearer, int status,
+        String code) throws Exception {
         var builder = HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + path))
                 .header("Origin", "https://untrusted.example")
                 .header("X-Request-Id", "client-id")
@@ -161,14 +164,15 @@ class RouteValidationTest {
         assertThat(response.headers().firstValue("Access-Control-Allow-Origin")).isEmpty();
         assertThat(response.headers().firstValue("Access-Control-Allow-Methods")).isEmpty();
         if (status == 405) {
-            assertThat(response.headers().firstValue("Allow")).contains("POST");
+            String expected = path.startsWith("/api/v1/accounts/me") ? "GET, PUT" : "POST";
+            assertThat(response.headers().firstValue("Allow")).contains(expected);
         }
         String id = response.headers().firstValue("X-Request-Id").orElseThrow();
         assertThat(UUID.fromString(id)).isNotNull();
         if (code != null) {
             var error = mapper.readTree(response.body()).get("error");
             assertThat(error.get("code").asString()).isEqualTo(code);
-            assertThat(error.get("request_id").asString()).isEqualTo(id);
+            assertThat(error.get("requestId").asString()).isEqualTo(id);
         }
     }
 }

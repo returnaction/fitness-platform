@@ -64,7 +64,7 @@ writers до `SEALED`; иначе снимок запрещён. `BUILDING` не
 Проектный wire payload — UTF-8 JSON без неизвестных обязательных полей;
 канонизация JSON — RFC 8785, значения BIGINT представляются десятичными
 строками, без плавающих денежных значений. UUID — lowercase с дефисами, время
-UTC; схема каждого item содержит `schema_version: 1`. В v1 строки нормализуются
+UTC; схема каждого item содержит `schemaVersion: 1`. В v1 строки нормализуются
 **только согласно выбранной схеме** до построения snapshot; доменные строки
 не преобразуются молча после подписания. Каждое `canonical_bytes` сохраняется,
 `item_sha256 = SHA-256(canonical_bytes)`; проверка делается на обеих сторонах.
@@ -114,9 +114,9 @@ epoch неверен; `INVALID_ARGUMENT` — некорректный DTO; `ALRE
 ## Снимок `EVENT_JOURNAL`
 
 Каждая запись имеет `item_type: EVENT` и стабильный `business_key: event_id`.
-Содержимое v1: `event_id`, `event_type`, `schema_version`, `aggregate_id`,
-`journal_seq` строкой BIGINT, `payload` и `payload_digest` с явным алгоритмом
-исходной версии события. Передача исходного event_id не создаёт новый факт.
+Содержимое v1: `eventId`, `eventType`, `schemaVersion`, `aggregateId`,
+`journalSeq` строкой BIGINT, `payload` и `payloadDigest` с явным алгоритмом
+исходной версии события. Передача исходного eventId не создаёт новый факт.
 Журнал каждого владельца определён в его модели. Область включает поток и
 получателя; правила маршрутизации конкретных типов и их версии должны быть
 зафиксированы до формирования snapshot. Отсутствующий журнал или покрытие
@@ -125,7 +125,7 @@ epoch неверен; `INVALID_ARGUMENT` — некорректный DTO; `ALRE
 ## Снимок и API сверки конкретного challenge
 
 Challenge создаёт `CHALLENGE_RESULT`, Coins — `COINS_CHALLENGE`, scope:
-`{"schema_version":1,"challenge_id":"<uuid>"}`. Для полной сверки оба
+`{"schemaVersion":1,"challengeId":"<uuid>"}`. Для полной сверки оба
 снимка должны быть `SEALED` в одном recovery run после надёжной остановки
 соответствующих writers. Они не являются магическим общим snapshot разных БД:
 временные расхождения и неприменённые события выявляются по ID и версиям.
@@ -134,10 +134,10 @@ Challenge создаёт `CHALLENGE_RESULT`, Coins — `COINS_CHALLENGE`, scope:
 
 | `item_type` | `business_key` | Обязательные данные v1 |
 | --- | --- | --- |
-| `CHALLENGE_STAKE_SET` | challenge UUID | `challenge_id`, `set_version` строкой BIGINT, `state`, `digest_hex` либо NULL, `item_count` строкой BIGINT либо NULL. |
-| `CHALLENGE_STAKE_ITEM` | hold UUID | `challenge_id`, `set_version`, `hold_id`, `user_id`, `amount` строкой положительного BIGINT. |
-| `CHALLENGE_RESULT` | result UUID | `challenge_id`, `result_id`, `set_version`, `outcome`, `rule_version`, `winner_count`, `winners_digest_hex`. |
-| `CHALLENGE_WINNER` | user UUID | `result_id`, `user_id`. |
+| `CHALLENGE_STAKE_SET` | challenge UUID | `challengeId`, `setVersion` строкой BIGINT, `state`, `digestHex` либо NULL, `itemCount` строкой BIGINT либо NULL. |
+| `CHALLENGE_STAKE_ITEM` | hold UUID | `challengeId`, `setVersion`, `holdId`, `userId`, `amount` строкой положительного BIGINT. |
+| `CHALLENGE_RESULT` | result UUID | `challengeId`, `resultId`, `setVersion`, `outcome`, `ruleVersion`, `winnerCount`, `winnersDigestHex`. |
+| `CHALLENGE_WINNER` | user UUID | `resultId`, `userId`. |
 
 Отсутствие окончательного результата допустимо, если состояние challenge
 ещё не предполагает результат; сверка не подменяет это пустым выигрышем.
@@ -147,19 +147,19 @@ Challenge создаёт `CHALLENGE_RESULT`, Coins — `COINS_CHALLENGE`, scope:
 
 | `item_type` | `business_key` | Обязательные данные v1 |
 | --- | --- | --- |
-| `COIN_STAKE_SET` | challenge UUID | `challenge_id`, `state`, `set_version` / `digest_hex` или NULL, `cancellation_id` или NULL. |
-| `COIN_HOLD` | hold UUID | `hold_id`, `user_id`, `challenge_id`, `join_operation_id`, `amount`, `status`. |
-| `COIN_STAKE_OPERATION` | `kind:operation_uuid` | `kind`, `operation_id`, `challenge_id`, `request_hash_hex`, `result` без секретов. |
-| `COIN_SETTLEMENT` | settlement UUID | `settlement_id`, `challenge_id`, `result_id`, `set_version`, `rule_version`, `phase`, `pool`, `winner_count`, `winners_digest_hex`, `seed_digest_hex` или NULL. Сам seed не передаётся. |
-| `COIN_ALLOCATION` | `settlement_uuid:user_uuid` | `settlement_id`, `user_id`, `amount`, `remainder_bonus`, `status`. |
-| `COIN_HOLD_MOVE` | `settlement_uuid:hold_uuid` | `settlement_id`, `hold_id`, `amount`. |
-| `COIN_ESCROW` | settlement UUID | `settlement_id`, `balance`. |
-| `COIN_ESCROW_ENTRY` | entry UUID | `settlement_id`, `operation_id`, `wallet_ledger_entry_id`, `delta`. |
-| `COIN_WALLET` | user UUID | `user_id`, `available_balance`, `locked_balance`. |
-| `COIN_LEDGER_ENTRY` | entry UUID | `entry_id`, `user_id`, `operation_id`, `entry_index`, `type`, `available_delta`, `locked_delta`, `challenge_id` или NULL, `reverses_entry_id` или NULL. |
+| `COIN_STAKE_SET` | challenge UUID | `challengeId`, `state`, `setVersion` / `digestHex` или NULL, `cancellationId` или NULL. |
+| `COIN_HOLD` | hold UUID | `holdId`, `userId`, `challengeId`, `joinOperationId`, `amount`, `status`. |
+| `COIN_STAKE_OPERATION` | `kind:operation_uuid` | `kind`, `operationId`, `challengeId`, `requestHashHex`, `result` без секретов. |
+| `COIN_SETTLEMENT` | settlement UUID | `settlementId`, `challengeId`, `resultId`, `setVersion`, `ruleVersion`, `phase`, `pool`, `winnerCount`, `winnersDigestHex`, `seedDigestHex` или NULL. Сам seed не передаётся. |
+| `COIN_ALLOCATION` | `settlement_uuid:user_uuid` | `settlementId`, `userId`, `amount`, `remainderBonus`, `status`. |
+| `COIN_HOLD_MOVE` | `settlement_uuid:hold_uuid` | `settlementId`, `holdId`, `amount`. |
+| `COIN_ESCROW` | settlement UUID | `settlementId`, `balance`. |
+| `COIN_ESCROW_ENTRY` | entry UUID | `settlementId`, `operationId`, `walletLedgerEntryId`, `delta`. |
+| `COIN_WALLET` | user UUID | `userId`, `availableBalance`, `lockedBalance`. |
+| `COIN_LEDGER_ENTRY` | entry UUID | `entryId`, `userId`, `operationId`, `entryIndex`, `type`, `availableDelta`, `lockedDelta`, `challengeId` или NULL, `reversesEntryId` или NULL. |
 
 Денежные числа и счётчики BIGINT — строки; все записи содержат
-`schema_version:1`. Снимок включает **все** ledger-записи затронутых
+`schemaVersion:1`. Снимок включает **все** ledger-записи затронутых
 кошельков, включая другие challenge, либо подтверждённый начальный остаток и
 полную историю после него. В текущей модели начальная точка не определена,
 поэтому v1 использует полную доступную историю кошельков и BLOCKED при её

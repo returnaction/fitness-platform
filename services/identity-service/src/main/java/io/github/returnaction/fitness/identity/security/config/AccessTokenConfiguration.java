@@ -28,7 +28,7 @@ public class AccessTokenConfiguration {
 
     @Bean
     JwtKeyMaterial jwtKeyMaterial(@Value("${identity.jwt.private-key}") String privateKey,
-                                  @Value("${identity.jwt.public-key}") String publicKey) throws IOException, GeneralSecurityException {
+        @Value("${identity.jwt.public-key}") String publicKey) throws IOException, GeneralSecurityException {
         var factory = KeyFactory.getInstance("EC");
         var loaded = factory.generatePrivate(new PKCS8EncodedKeySpec(readPem(privateKey, "PRIVATE KEY")));
         var publicLoaded = factory.generatePublic(new X509EncodedKeySpec(readPem(publicKey, "PUBLIC KEY")));
@@ -49,17 +49,14 @@ public class AccessTokenConfiguration {
     }
 
     @Bean
-    AccessTokenSigner accessTokenSigner(JwtKeyMaterial keys,
-                                        @Value("${identity.jwt.key-id}") String keyId,
-                                        @Value("${identity.jwt.issuer}") String issuer,
-                                        @Value("${identity.jwt.audience}") String audience) {
+    AccessTokenSigner accessTokenSigner(JwtKeyMaterial keys, @Value("${identity.jwt.key-id}") String keyId,
+        @Value("${identity.jwt.issuer}") String issuer, @Value("${identity.jwt.audience}") String audience) {
         return new AccessTokenSigner(keys.privateKey(), keyId, issuer, audience, Clock.systemUTC());
     }
 
     @Bean
     PublicJwtKeys publicJwtKeys(JwtKeyMaterial keys, @Value("${identity.jwt.key-id}") String keyId) {
-        var jwk = new ECKey.Builder(Curve.P_256, keys.publicKey())
-                .keyID(keyId)
+        var jwk = new ECKey.Builder(Curve.P_256, keys.publicKey()).keyID(keyId)
                 .keyUse(KeyUse.SIGNATURE)
                 .algorithm(JWSAlgorithm.ES256)
                 .build();
@@ -77,6 +74,7 @@ public class AccessTokenConfiguration {
         return Base64.getDecoder().decode(encoded);
     }
 
-    record JwtKeyMaterial(ECPrivateKey privateKey, ECPublicKey publicKey) {
+    record JwtKeyMaterial(ECPrivateKey privateKey,
+                          ECPublicKey publicKey) {
     }
 }

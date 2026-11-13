@@ -28,22 +28,17 @@ public class RefreshTokenRepository {
     }
 
     public String lockUser(UUID id) {
-        var rows = entityManager
-                .createNativeQuery("SELECT status FROM users WHERE id=:id FOR UPDATE")
+        var rows = entityManager.createNativeQuery("SELECT status FROM users WHERE id=:id FOR UPDATE")
                 .setParameter("id", id)
                 .getResultList();
         return rows.isEmpty() ? null : (String) rows.getFirst();
     }
 
     public Session lockSession(UUID id, UUID userId) {
-        var rows = entityManager
-                .createNativeQuery("""
-                        SELECT expires_at, revoked_at, clock_timestamp() FROM auth_sessions
-                        WHERE id=:id AND user_id=:user FOR UPDATE
-                        """)
-                .setParameter("id", id)
-                .setParameter("user", userId)
-                .getResultList();
+        var rows = entityManager.createNativeQuery("""
+                SELECT expires_at, revoked_at, clock_timestamp() FROM auth_sessions
+                WHERE id=:id AND user_id=:user FOR UPDATE
+                """).setParameter("id", id).setParameter("user", userId).getResultList();
         if (rows.isEmpty())
             return null;
         Object[] row = (Object[]) rows.getFirst();
@@ -51,14 +46,10 @@ public class RefreshTokenRepository {
     }
 
     public Token lockToken(UUID id, UUID sessionId) {
-        var rows = entityManager
-                .createNativeQuery("""
-                        SELECT secret_hash, used_at, revoked_at, expires_at FROM refresh_tokens
-                        WHERE id=:id AND session_id=:session FOR UPDATE
-                        """)
-                .setParameter("id", id)
-                .setParameter("session", sessionId)
-                .getResultList();
+        var rows = entityManager.createNativeQuery("""
+                SELECT secret_hash, used_at, revoked_at, expires_at FROM refresh_tokens
+                WHERE id=:id AND session_id=:session FOR UPDATE
+                """).setParameter("id", id).setParameter("session", sessionId).getResultList();
         if (rows.isEmpty())
             return null;
         Object[] row = (Object[]) rows.getFirst();
@@ -74,18 +65,18 @@ public class RefreshTokenRepository {
     }
 
     public void revokeAllSessions(UUID userId) {
-        entityManager.createNativeQuery("UPDATE auth_sessions SET revoked_at=clock_timestamp() "
-                + "WHERE user_id=:userId AND revoked_at IS NULL AND expires_at > clock_timestamp()")
+        entityManager
+                .createNativeQuery("UPDATE auth_sessions SET revoked_at=clock_timestamp() "
+                        + "WHERE user_id=:userId AND revoked_at IS NULL AND expires_at > clock_timestamp()")
                 .setParameter("userId", userId)
                 .executeUpdate();
     }
 
     public void insertToken(UUID id, UUID sessionId, byte[] hash, Instant expires) {
-        entityManager
-                .createNativeQuery("""
-                        INSERT INTO refresh_tokens (id, session_id, secret_hash, expires_at)
-                        VALUES (:id, :session, :hash, :expires)
-                        """)
+        entityManager.createNativeQuery("""
+                INSERT INTO refresh_tokens (id, session_id, secret_hash, expires_at)
+                VALUES (:id, :session, :hash, :expires)
+                """)
                 .setParameter("id", id)
                 .setParameter("session", sessionId)
                 .setParameter("hash", hash)
@@ -94,21 +85,26 @@ public class RefreshTokenRepository {
     }
 
     public void markUsed(UUID id, UUID replacement) {
-        entityManager
-                .createNativeQuery(
-                        "UPDATE refresh_tokens SET used_at=clock_timestamp(), replaced_by_token_id=:replacement WHERE id=:id")
+        entityManager.createNativeQuery(
+                "UPDATE refresh_tokens SET used_at=clock_timestamp(), replaced_by_token_id=:replacement WHERE id=:id")
                 .setParameter("replacement", replacement)
                 .setParameter("id", id)
                 .executeUpdate();
     }
 
-    public record SessionAndUserIds(UUID sessionId, UUID userId) {
+    public record SessionAndUserIds(UUID sessionId,
+                                    UUID userId) {
     }
 
-    public record Session(Instant expiresAt, Instant revokedAt, Instant checkedAt) {
+    public record Session(Instant expiresAt,
+                          Instant revokedAt,
+                          Instant checkedAt) {
     }
 
-    public record Token(byte[] hash, Instant usedAt, Instant revokedAt, Instant expiresAt) {
+    public record Token(byte[] hash,
+                        Instant usedAt,
+                        Instant revokedAt,
+                        Instant expiresAt) {
 
         public Token {
             hash = hash == null ? null : hash.clone();

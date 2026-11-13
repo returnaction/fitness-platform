@@ -92,7 +92,7 @@ class WalletCreationIntegrationTest {
 
             @Override
             public void createWalletIfAbsent(CreateWalletIfAbsentRequest request,
-                                             StreamObserver<CreateWalletIfAbsentResponse> observer) {
+                StreamObserver<CreateWalletIfAbsentResponse> observer) {
                 boolean drop = loseFirstResponse.getAndSet(false);
                 grpcService.createWalletIfAbsent(request, new StreamObserver<>() {
 
@@ -121,9 +121,7 @@ class WalletCreationIntegrationTest {
                 .addService(faultInjectedService)
                 .build()
                 .start();
-        var channel = NettyChannelBuilder.forAddress("127.0.0.1", server.getPort())
-                .usePlaintext()
-                .build();
+        var channel = NettyChannelBuilder.forAddress("127.0.0.1", server.getPort()).usePlaintext().build();
         try {
             UUID userId = UUID.randomUUID();
             var request = CreateWalletIfAbsentRequest.newBuilder()
@@ -132,21 +130,16 @@ class WalletCreationIntegrationTest {
                     .setRegistrationOperationId(UUID.randomUUID().toString())
                     .build();
             var stub = WalletCreationServiceGrpc.newBlockingStub(channel).withDeadlineAfter(5, TimeUnit.SECONDS);
-            assertThatThrownBy(() -> stub.createWalletIfAbsent(request))
-                    .isInstanceOfSatisfying(
-                            StatusRuntimeException.class,
-                            error -> assertThat(error.getStatus().getCode()).isEqualTo(Status.Code.UNAVAILABLE));
-            assertThat(queryNumber("SELECT count(*) FROM coin_wallets WHERE user_id=:id", userId))
-                    .isEqualTo(1);
+            assertThatThrownBy(() -> stub.createWalletIfAbsent(request)).isInstanceOfSatisfying(
+                    StatusRuntimeException.class,
+                    error -> assertThat(error.getStatus().getCode()).isEqualTo(Status.Code.UNAVAILABLE));
+            assertThat(queryNumber("SELECT count(*) FROM coin_wallets WHERE user_id=:id", userId)).isEqualTo(1);
             executeUpdate("UPDATE coin_wallets SET available_balance=25 WHERE user_id=:id", userId);
-            assertThat(stub.withDeadlineAfter(5, TimeUnit.SECONDS)
-                    .createWalletIfAbsent(request)
-                    .getStatus())
+            assertThat(stub.withDeadlineAfter(5, TimeUnit.SECONDS).createWalletIfAbsent(request).getStatus())
                     .isEqualTo(CreationStatus.CREATION_STATUS_READY);
             assertThat(queryNumber("SELECT available_balance FROM coin_wallets WHERE user_id=:id", userId))
                     .isEqualTo(25);
-            assertThat(queryNumber("SELECT count(*) FROM coin_wallets WHERE user_id=:id", userId))
-                    .isEqualTo(1);
+            assertThat(queryNumber("SELECT count(*) FROM coin_wallets WHERE user_id=:id", userId)).isEqualTo(1);
         } finally {
             channel.shutdownNow().awaitTermination(5, TimeUnit.SECONDS);
             server.shutdownNow().awaitTermination(5, TimeUnit.SECONDS);
@@ -162,8 +155,7 @@ class WalletCreationIntegrationTest {
             first.get();
             second.get();
         }
-        assertThat(queryNumber("SELECT count(*) FROM coin_wallets WHERE user_id = :id", userId))
-                .isEqualTo(1);
+        assertThat(queryNumber("SELECT count(*) FROM coin_wallets WHERE user_id = :id", userId)).isEqualTo(1);
         WalletEntity initial = wallet(userId);
         assertThat(initial.getAvailableBalance()).isZero();
         assertThat(initial.getLockedBalance()).isZero();
@@ -194,9 +186,8 @@ class WalletCreationIntegrationTest {
         try (var socket = new ServerSocket(0)) {
             port = socket.getLocalPort();
         }
-        var server = new SecureGrpcServer(grpcService, "127.0.0.1", port,
-                certificates.serverCertificate().toString(), certificates.serverPrivateKey().toString(),
-                certificates.caCertificate().toString());
+        var server = new SecureGrpcServer(grpcService, "127.0.0.1", port, certificates.serverCertificate().toString(),
+                certificates.serverPrivateKey().toString(), certificates.caCertificate().toString());
         var identity = NettyChannelBuilder.forAddress("localhost", port)
                 .sslContext(GrpcSslContexts.forClient()
                         .trustManager(certificates.caCertificate().toFile())

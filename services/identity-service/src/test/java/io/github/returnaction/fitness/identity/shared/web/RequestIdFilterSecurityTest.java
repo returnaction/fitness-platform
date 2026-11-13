@@ -27,8 +27,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.support.TransactionTemplate;
 
 @SpringBootTest(webEnvironment = WebEnvironment.MOCK, properties = {
-        "spring.autoconfigure.exclude=org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration,org.springframework.boot.security.autoconfigure.UserDetailsServiceAutoConfiguration"
-})
+        "spring.autoconfigure.exclude=org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration,org.springframework.boot.security.autoconfigure.UserDetailsServiceAutoConfiguration"})
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 class RequestIdFilterSecurityTest {
@@ -123,12 +122,10 @@ class RequestIdFilterSecurityTest {
 
     @Test
     void jwksWorksOverHttpAndLogoutStillRequiresUserJwt() throws Exception {
-        mockMvc.perform(get("/.well-known/jwks.json"))
-                .andExpect(status().isOk());
-        mockMvc.perform(post("/api/v1/auth/logout-all"))
-                .andExpect(status().isUnauthorized());
-        mockMvc.perform(post("/api/v1/admin/identity/registration-operations/test")
-                .header("Authorization", "Bearer ignored"))
+        mockMvc.perform(get("/.well-known/jwks.json")).andExpect(status().isOk());
+        mockMvc.perform(post("/api/v1/auth/logout-all")).andExpect(status().isUnauthorized());
+        mockMvc.perform(
+                post("/api/v1/admin/identity/registration-operations/test").header("Authorization", "Bearer ignored"))
                 .andExpect(status().isForbidden());
     }
 }

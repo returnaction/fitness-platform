@@ -36,12 +36,10 @@ public class RegistrationController {
      */
     @PostMapping(value = "/register", produces = "application/json")
     ResponseEntity<RegisterResponse> register(@RequestHeader("Idempotency-Key") String idempotencyKey,
-                                              @RequestBody RegisterUserRequest request) {
+        @RequestBody RegisterUserRequest request) {
 
         RegisterResponse response = registrationFacade.register(idempotencyKey, request);
 
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .header("Cache-Control", "no-store")
-                .body(response);
+        return ResponseEntity.status(HttpStatus.CREATED).header("Cache-Control", "no-store").body(response);
     }
 }

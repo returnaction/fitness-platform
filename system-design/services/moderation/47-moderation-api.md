@@ -16,7 +16,7 @@ UTC, JSON — UTF-8. Тело запроса не содержит ID модер
 ставка или имя challenge.
 
 Ошибки используют [общий формат](../identity/30-identity-registration.md):
-`{"error":{"code":"case_conflict","message":"Карточка уже изменилась","request_id":"<uuid>"}}`.
+`{"error":{"code":"case_conflict","message":"Карточка уже изменилась","requestId":"<uuid>"}}`.
 `details` — необязательный массив `{field, code}`; HTTP-статус и `code`
 стабильны для версии API, текст предназначен человеку.
 
@@ -50,9 +50,9 @@ points для обязательной причины; для `APPROVE` допу
 снимком; клиент обновляет её повторным запросом. `200`:
 
 ```json
-{"items":[{"case_id":"<uuid>","state":"OPEN","version":1,
-"created_at":"2026-11-05T10:00:00Z","exercise_name":"Push-up"}],
-"next_cursor":null}
+{"items":[{"caseId":"<uuid>","state":"OPEN","version":1,
+"createdAt":"2026-11-05T10:00:00Z","exerciseName":"Push-up"}],
+"nextCursor":null}
 ```
 
 Очередь показывает доступные дела; открытие файла требует отдельного назначения
@@ -68,8 +68,8 @@ points для обязательной причины; для `APPROVE` допу
 `review.video.read`. `200`:
 
 ```json
-{"case_id":"<uuid>","state":"IN_REVIEW","version":2,
-"assignment_id":"<uuid>","assigned_at":"2026-11-05T10:00:00Z"}
+{"caseId":"<uuid>","state":"IN_REVIEW","version":2,
+"assignmentId":"<uuid>","assignedAt":"2026-11-05T10:00:00Z"}
 ```
 
 `409 case_already_assigned`, `409 case_closed`, `409 admission_inactive`.
@@ -80,8 +80,8 @@ points для обязательной причины; для `APPROVE` допу
 ### Вернуть карточку
 
 `POST /api/v1/moderation/review-cases/{case_id}/release`, тело
-`{"case_version":2}`; только назначенный модератор либо уполномоченный
-администратор. `200`: `{"case_id":"<uuid>","state":"OPEN","version":3}`.
+`{"caseVersion":2}`; только назначенный модератор либо уполномоченный
+администратор. `200`: `{"caseId":"<uuid>","state":"OPEN","version":3}`.
 `409 case_conflict`, `409 case_closed`; для чужого назначения — `403`.
 Снятие назначения и решение конкурируют на одной строке и не могут оба
 успешно изменить одну версию. Правило 20 минут обсуждалось для возврата дела;
@@ -93,10 +93,10 @@ points для обязательной причины; для `APPROVE` допу
 модератору с `review.video.read`. `200`:
 
 ```json
-{"case_id":"<uuid>","state":"IN_REVIEW","version":2,
+{"caseId":"<uuid>","state":"IN_REVIEW","version":2,
 "asset":{"id":"<uuid>","generation":1},
-"task":{"schema_version":1,"exercise_id":1,"variation_id":1,"exercise_name":"Push-up",
-"variation_name":"Narrow grip","description":"Выполнить отжимания узким хватом",
+"task":{"schemaVersion":1,"exerciseId":1,"variationId":1,"exerciseName":"Push-up",
+"variationName":"Narrow grip","description":"Выполнить отжимания узким хватом",
 "instructions":"Поставьте руки ближе ширины плеч и выполните отжимания.",
 "target":{"metric":"REPETITIONS","value":10,"unit":"REP"}}}
 ```
@@ -111,7 +111,7 @@ DTO задачи — пример для повторений; вариант в
 `review.video.decide`, активное назначение. Запрос:
 
 ```json
-{"case_version":2,"verdict":"DISAPPROVE_TECHNIQUE",
+{"caseVersion":2,"verdict":"DISAPPROVE_TECHNIQUE",
 "reason":"Спина не сохраняет положение"}
 ```
 
@@ -120,8 +120,8 @@ DTO задачи — пример для повторений; вариант в
 кроме `APPROVE`, причина обязательна. `201 Created`:
 
 ```json
-{"decision_id":"<uuid>","case_id":"<uuid>","verdict":"DISAPPROVE_TECHNIQUE",
-"case_state":"DECIDED","decision_status":"RECORDED"}
+{"decisionId":"<uuid>","caseId":"<uuid>","verdict":"DISAPPROVE_TECHNIQUE",
+"caseState":"DECIDED","decisionStatus":"RECORDED"}
 ```
 
 `RECORDED` означает, что Moderation сохранила решение, а не что Challenge уже
@@ -140,11 +140,11 @@ DTO задачи — пример для повторений; вариант в
 
 | Метод | Тело | Ответ |
 | --- | --- | --- |
-| `GET /api/v1/moderation/appeal-cases?limit=20&cursor=...` | — | `200 {"items":[{"case_id":"...","state":"UNDER_REVIEW","version":1,"submitted_at":"...","review_due_at":"..."}],"next_cursor":null}` |
-| `POST /api/v1/moderation/appeal-cases/{id}/assign` | `{}` | `200 {"case_id":"...","assignment_id":"...","case_version":2}` |
-| `POST /api/v1/moderation/appeal-cases/{id}/release` | `{"case_version":2}` | `200 {"case_id":"...","case_version":3}` |
-| `GET /api/v1/moderation/appeal-cases/{id}` | — | `200 {"case_id":"...","state":"UNDER_REVIEW","version":2,"original_verdict":"DISAPPROVE_TECHNIQUE","original_reason":"...","asset_id":"...","asset_generation":1}` |
-| `POST /api/v1/moderation/appeal-cases/{id}/decisions` | `{"case_version":2,"outcome":"UPHELD","reason":"..."}` | `201 {"decision_id":"...","case_id":"...","outcome":"UPHELD","decision_status":"RECORDED"}` |
+| `GET /api/v1/moderation/appeal-cases?limit=20&cursor=...` | — | `200 {"items":[{"caseId":"...","state":"UNDER_REVIEW","version":1,"submittedAt":"...","reviewDueAt":"..."}],"nextCursor":null}` |
+| `POST /api/v1/moderation/appeal-cases/{id}/assign` | `{}` | `200 {"caseId":"...","assignmentId":"...","caseVersion":2}` |
+| `POST /api/v1/moderation/appeal-cases/{id}/release` | `{"caseVersion":2}` | `200 {"caseId":"...","caseVersion":3}` |
+| `GET /api/v1/moderation/appeal-cases/{id}` | — | `200 {"caseId":"...","state":"UNDER_REVIEW","version":2,"originalVerdict":"DISAPPROVE_TECHNIQUE","originalReason":"...","assetId":"...","assetGeneration":1}` |
+| `POST /api/v1/moderation/appeal-cases/{id}/decisions` | `{"caseVersion":2,"outcome":"UPHELD","reason":"..."}` | `201 {"decisionId":"...","caseId":"...","outcome":"UPHELD","decisionStatus":"RECORDED"}` |
 
 `outcome`: `UPHELD` или `REJECTED`; причина обязательна. Дополнительные ошибки:
 `409 case_already_assigned`, `409 case_conflict`, `409 case_already_decided`,
@@ -160,27 +160,27 @@ DTO задачи — пример для повторений; вариант в
 
 | Метод | Тело | Ответ |
 | --- | --- | --- |
-| `GET /api/v1/moderation/technical-cases?limit=20&cursor=...` | — | `200 {"items":[{"case_id":"...","state":"OPEN","version":1,"reason_code":"ASSEMBLY_FAILED"}],"next_cursor":null}` |
-| `POST /api/v1/moderation/technical-cases/{id}/assign` | `{}` | `200 {"case_id":"...","assignment_id":"...","case_version":2}` |
-| `POST /api/v1/moderation/technical-cases/{id}/release` | `{"case_version":2}` | `200 {"case_id":"...","case_version":3}` |
-| `GET /api/v1/moderation/technical-cases/{id}` | — | `200 {"case_id":"...","state":"IN_REVIEW","version":2,"submission_id":"...","reason_code":"ASSEMBLY_FAILED","evidence_ref":{"schema_version":1,"assessment_id":"..."}}` |
-| `POST /api/v1/moderation/technical-cases/{id}/decisions` | `{"case_version":2,"decision":"INCONCLUSIVE","reason":"..."}` | `201 {"decision_id":"...","case_id":"...","state":"ESCALATED"}` |
+| `GET /api/v1/moderation/technical-cases?limit=20&cursor=...` | — | `200 {"items":[{"caseId":"...","state":"OPEN","version":1,"reasonCode":"ASSEMBLY_FAILED"}],"nextCursor":null}` |
+| `POST /api/v1/moderation/technical-cases/{id}/assign` | `{}` | `200 {"caseId":"...","assignmentId":"...","caseVersion":2}` |
+| `POST /api/v1/moderation/technical-cases/{id}/release` | `{"caseVersion":2}` | `200 {"caseId":"...","caseVersion":3}` |
+| `GET /api/v1/moderation/technical-cases/{id}` | — | `200 {"caseId":"...","state":"IN_REVIEW","version":2,"submissionId":"...","reasonCode":"ASSEMBLY_FAILED","evidenceRef":{"schemaVersion":1,"assessmentId":"..."}}` |
+| `POST /api/v1/moderation/technical-cases/{id}/decisions` | `{"caseVersion":2,"decision":"INCONCLUSIVE","reason":"..."}` | `201 {"decisionId":"...","caseId":"...","state":"ESCALATED"}` |
 
 Допустимы `INCONCLUSIVE`, `RETRY_AFTER_FIX`, `CONFIRMED_TAMPERING`. Последние
 два возвращают `state: RESOLVING`, пока Video Proof или Challenge не обработал
 решение. `INCONCLUSIVE` создаёт промежуточную запись, а не окончательный исход.
-`evidence_ref` v1 содержит `schema_version=1` и `assessment_id` UUID; файлы и
+`evidenceRef` v1 содержит `schemaVersion=1` и `assessmentId` UUID; файлы и
 секреты в нём не передаются. Коды причин и назначение ответственного ещё нужно
 уточнить; обработка исхода повтора описана в [событиях](../../interactions/51-technical-review-events.md). Подробности:
 [технический разбор](43-video-technical-review.md).
 
 ## События и отказ
 
-`moderation.review_decided` v1: envelope `event_id`, `event_type`,
-`schema_version`, `occurred_at`, `producer`, `correlation_id`; data содержит
-`decision_id`, `case_id`, `submission_id`, `task_id`, `admission_id`,
-`admission_version`, `verdict`, `reason`, `decided_at`. Ключ Kafka —
-`submission_id`; топик и сериализация определены в
+`moderation.review_decided` v1: envelope `eventId`, `eventType`,
+`schemaVersion`, `occurredAt`, `producer`, `correlationId`; data содержит
+`decisionId`, `caseId`, `submissionId`, `taskId`, `admissionId`,
+`admissionVersion`, `verdict`, `reason`, `decidedAt`. Ключ Kafka —
+`submissionId`; топик и сериализация определены в
 [каталоге событий](../../architecture/messaging/19-kafka-topology.md). Данные не содержат
 идентичность модератора, URL, токены или видео. Challenge применяет событие с
 inbox и проверяет версию допуска. Доставка может повториться; локальная запись
@@ -191,18 +191,18 @@ inbox и проверяет версию допуска. Доставка мож
 Канонический пример `moderation.review_decided` v1:
 
 ```json
-{"event_id":"<uuid>","event_type":"moderation.review_decided","schema_version":1,
- "occurred_at":"2026-11-05T12:05:00Z","producer":"moderation","correlation_id":"<uuid>",
- "data":{"decision_id":"<uuid>","case_id":"<uuid>","submission_id":"<uuid>",
- "task_id":"<uuid>","admission_id":"<uuid>","admission_version":1,
+{"eventId":"<uuid>","eventType":"moderation.review_decided","schemaVersion":1,
+ "occurredAt":"2026-11-05T12:05:00Z","producer":"moderation","correlationId":"<uuid>",
+ "data":{"decisionId":"<uuid>","caseId":"<uuid>","submissionId":"<uuid>",
+ "taskId":"<uuid>","admissionId":"<uuid>","admissionVersion":1,
  "verdict":"DISAPPROVE_TECHNIQUE","reason":"Недостаточная амплитуда движения",
- "decided_at":"2026-11-05T12:05:00Z"}}
+ "decidedAt":"2026-11-05T12:05:00Z"}}
 ```
 
 Все показанные поля обязательны; `reason` — строка для отклонений, для
 `APPROVE` допускается NULL. Словарь вердиктов — в [модели решений](25-moderation-decisions.md#согласованные-коды-решений-и-состояние-задания).
 Время и причина являются данными решения, а не состоянием сессии модератора.
-`decision_id` идентифицирует неизменяемое решение; при повторе один `event_id`
+`decisionId` идентифицирует неизменяемое решение; при повторе один `eventId`
 с другим payload — конфликт, а не новая версия. Challenge применяет его только
 при актуальном допуске; неизвестная зависимость ожидает обработки, противоречие
 передаётся на разбор. Устаревшее решение остаётся в аудите Moderation.

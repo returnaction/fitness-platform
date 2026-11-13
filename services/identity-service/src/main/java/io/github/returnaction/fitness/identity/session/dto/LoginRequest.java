@@ -5,7 +5,7 @@ import jakarta.validation.constraints.NotNull;
 
 @ValidLoginCredentials
 public record LoginRequest(@NotNull(message = "required") String email,
-        @NotNull(message = "required") String password) {
+                           @NotNull(message = "required") String password) {
 
     @Override
     public String toString() {

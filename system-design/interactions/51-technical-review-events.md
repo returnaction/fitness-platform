@@ -1,17 +1,17 @@
 # События технического разбора видео — проект v1
 
 Будущая Java / Spring-система; не реализация. Общая envelope, inbox/outbox и
-Kafka key `submission_id` — в [событиях модерации](48-moderation-events.md).
+Kafka key `submissionId` — в [событиях модерации](48-moderation-events.md).
 Moderation владеет решением, Video Proof — обработкой, Challenge — итогом
 задания. Имена топиков и сериализация ещё выбираются.
 
 ## 1. `video.technical_review_required`: Video Proof → Moderation
 
 ```json
-{"event_id":"<uuid>","event_type":"video.technical_review_required","schema_version":1,
- "occurred_at":"2026-11-05T12:00:00Z","producer":"video-proof","correlation_id":"<uuid>",
- "data":{"trigger_id":"<uuid>","submission_id":"<uuid>","reason_code":"ASSEMBLY_FAILED",
- "evidence_ref":{"schema_version":1,"assessment_id":"<uuid>"}}}
+{"eventId":"<uuid>","eventType":"video.technical_review_required","schemaVersion":1,
+ "occurredAt":"2026-11-05T12:00:00Z","producer":"video-proof","correlationId":"<uuid>",
+ "data":{"triggerId":"<uuid>","submissionId":"<uuid>","reasonCode":"ASSEMBLY_FAILED",
+ "evidenceRef":{"schemaVersion":1,"assessmentId":"<uuid>"}}}
 ```
 
 Факт и outbox сохраняются одной транзакцией Video Proof. Moderation через inbox
@@ -25,18 +25,18 @@ Moderation владеет решением, Video Proof — обработкой
 ## 2. `moderation.technical_decided`: Moderation → Video Proof и Challenge
 
 ```json
-{"event_id":"<uuid>","event_type":"moderation.technical_decided","schema_version":1,
- "occurred_at":"2026-11-05T12:10:00Z","producer":"moderation","correlation_id":"<uuid>",
- "data":{"case_id":"<uuid>","decision_id":"<uuid>","case_version":2,
- "submission_id":"<uuid>","decision":"RETRY_AFTER_FIX",
- "evidence_ref":{"schema_version":1,"assessment_id":"<uuid>"},
- "decided_at":"2026-11-05T12:10:00Z"}}
+{"eventId":"<uuid>","eventType":"moderation.technical_decided","schemaVersion":1,
+ "occurredAt":"2026-11-05T12:10:00Z","producer":"moderation","correlationId":"<uuid>",
+ "data":{"caseId":"<uuid>","decisionId":"<uuid>","caseVersion":2,
+ "submissionId":"<uuid>","decision":"RETRY_AFTER_FIX",
+ "evidenceRef":{"schemaVersion":1,"assessmentId":"<uuid>"},
+ "decidedAt":"2026-11-05T12:10:00Z"}}
 ```
 
 `decision`: `INCONCLUSIVE`, `RETRY_AFTER_FIX`, `CONFIRMED_TAMPERING`.
 `INCONCLUSIVE` не является окончательным результатом; Challenge продолжает
 ожидать. `RETRY_AFTER_FIX` разрешает Video Proof создать одну новую версию
-обработки по `decision_id`; создаётся локально с inbox и защитой уникальности.
+обработки по `decisionId`; создаётся локально с inbox и защитой уникальности.
 `CONFIRMED_TAMPERING` Challenge применяет к корректной записи согласно правилам
 после проверки актуальной версии дела; Video Proof сохраняет историю. Подозрение
 не является доказательством. Полное правило достаточности доказательств и права
@@ -45,11 +45,11 @@ Moderation владеет решением, Video Proof — обработкой
 ## 3. `video.technical_retry_completed`: Video Proof → Moderation и Challenge
 
 ```json
-{"event_id":"<uuid>","event_type":"video.technical_retry_completed","schema_version":1,
- "occurred_at":"2026-11-05T12:20:00Z","producer":"video-proof","correlation_id":"<uuid>",
- "data":{"case_id":"<uuid>","decision_id":"<uuid>","submission_id":"<uuid>",
- "processing_generation":2,"outcome":"SUCCEEDED",
- "assessment_id":"<uuid>","completed_at":"2026-11-05T12:20:00Z"}}
+{"eventId":"<uuid>","eventType":"video.technical_retry_completed","schemaVersion":1,
+ "occurredAt":"2026-11-05T12:20:00Z","producer":"video-proof","correlationId":"<uuid>",
+ "data":{"caseId":"<uuid>","decisionId":"<uuid>","submissionId":"<uuid>",
+ "processingGeneration":2,"outcome":"SUCCEEDED",
+ "assessmentId":"<uuid>","completedAt":"2026-11-05T12:20:00Z"}}
 ```
 
 `outcome`: `SUCCEEDED` или `BLOCKED`. Успех означает завершение технического
@@ -60,7 +60,7 @@ Moderation владеет решением, Video Proof — обработкой
 зависимости и проверяют ID решения/поколения; никто не принимает результат
 устаревшей обработки на основании только времени события.
 
-Moderation под блокировкой дела проверяет, что `decision_id` относится к
+Moderation под блокировкой дела проверяет, что `decisionId` относится к
 последнему ожидаемому `RETRY_AFTER_FIX` и дело в `RESOLVING`. Для `SUCCEEDED`
 дело переходит в `CLOSED`, при `BLOCKED` — в `ESCALATED` для нового разбора;
 старое решение и evidence не перезаписываются. Inbox, изменение дела и аудит —

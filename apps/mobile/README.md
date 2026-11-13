@@ -127,3 +127,11 @@ revoked-session rejection and local logout while Identity was stopped. The
 phone also passed injected 503 and lost-refresh-response scenarios. A successful
 APK install alone is not an application smoke-test pass. Build and emulator
 startup should run sequentially on a memory-constrained host.
+
+## JSON API
+
+Имена полей запросов и ответов — camelCase: accessToken, refreshToken,
+expiresIn, refreshExpiresIn, tokenType, requestId. Сервер и мобильный клиент
+обновляются совместно. Заголовки и коды ошибок сохраняются.
+Ранее сохранённые в secure storage пары access_token/refresh_token читаются
+только локальным адаптером совместимости; новые записи используют camelCase.

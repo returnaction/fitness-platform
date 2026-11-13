@@ -195,7 +195,7 @@ moderation_technical_assignments.id`, `reviewer_user_id UUID NOT NULL`,
 обоснования, а не только несовпадения хеша. Различать решение о запуске повтора
 и результат повторной обработки; оба сохраняются без перезаписи истории.
 Переход после результата Video Proof описан в [событиях технического разбора](../../interactions/51-technical-review-events.md).
-Доказательство v1 — объект `{"schema_version":1,"assessment_id":"<uuid>"}`;
+Доказательство v1 — объект `{"schemaVersion":1,"assessmentId":"<uuid>"}`;
 подробности читаются у Video Proof по полномочию, не копируются в событие.
 
 ## `moderation_idempotency_requests`

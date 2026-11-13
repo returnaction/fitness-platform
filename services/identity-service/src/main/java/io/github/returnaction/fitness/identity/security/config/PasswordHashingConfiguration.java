@@ -15,11 +15,7 @@ public class PasswordHashingConfiguration {
 
     @Bean
     PasswordEncoder passwordEncoder(Argon2PasswordProperties properties) {
-        return new Argon2PasswordEncoder(
-                properties.saltLength(),
-                properties.hashLength(),
-                properties.parallelism(),
-                properties.memoryKib(),
-                properties.iterations());
+        return new Argon2PasswordEncoder(properties.saltLength(), properties.hashLength(), properties.parallelism(),
+                properties.memoryKib(), properties.iterations());
     }
 }

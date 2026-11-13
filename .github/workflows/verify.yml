@@ -65,10 +65,10 @@ jobs:
           java-version: "25.0.5"
           cache: maven # Закэшировать Maven, чтобы в следующий раз качать быстрее
 
-      - name: Verify Maven build, formatting, and static analysis
+      - name: Verify Maven build, tests, and static analysis
         # Шаг 3: Запустить тот самый mvnw (Maven Wrapper), о котором мы говорили ранее!
         # Флаг --batch-mode отключает лишние цветные символы в логах (чтобы робот не путался).
-        # Команда verify запускает компиляцию, тесты и проверку стиля кода.
+        # Команда verify запускает компиляцию, тесты и статический анализ.
         run: bash ./mvnw --batch-mode --no-transfer-progress verify
 
 

@@ -17,19 +17,22 @@ class ApiExceptionHandlerTest {
 
     @Test
     void authenticationFailuresKeepTheirStatusMessageAndHeaders() {
-        record Case(AuthenticationFailureException.Reason reason, int status, String code, String message) {
+        record Case(AuthenticationFailureException.Reason reason,
+                    int status,
+                    String code,
+                    String message) {
         }
         var cases = java.util.List.of(
-                new Case(AuthenticationFailureException.Reason.INVALID_CREDENTIALS, 401,
-                        "invalid_credentials", "Invalid email or password."),
-                new Case(AuthenticationFailureException.Reason.ACCOUNT_UNAVAILABLE, 403,
-                        "account_unavailable", "Account is unavailable."),
-                new Case(AuthenticationFailureException.Reason.REGISTRATION_PENDING, 503,
-                        "registration_pending", "Registration is being prepared. Try again later."),
-                new Case(AuthenticationFailureException.Reason.INVALID_REFRESH, 401,
-                        "invalid_refresh_token", "Request could not be completed."),
-                new Case(AuthenticationFailureException.Reason.REFRESH_ACCOUNT_UNAVAILABLE, 403,
-                        "account_unavailable", "Request could not be completed."));
+                new Case(AuthenticationFailureException.Reason.INVALID_CREDENTIALS, 401, "invalid_credentials",
+                        "Invalid email or password."),
+                new Case(AuthenticationFailureException.Reason.ACCOUNT_UNAVAILABLE, 403, "account_unavailable",
+                        "Account is unavailable."),
+                new Case(AuthenticationFailureException.Reason.REGISTRATION_PENDING, 503, "registration_pending",
+                        "Registration is being prepared. Try again later."),
+                new Case(AuthenticationFailureException.Reason.INVALID_REFRESH, 401, "invalid_refresh_token",
+                        "Request could not be completed."),
+                new Case(AuthenticationFailureException.Reason.REFRESH_ACCOUNT_UNAVAILABLE, 403, "account_unavailable",
+                        "Request could not be completed."));
         var handler = new ApiExceptionHandler();
         var request = new MockHttpServletRequest();
         String requestId = UUID.randomUUID().toString();
@@ -66,14 +69,12 @@ class ApiExceptionHandlerTest {
     @Test
     void databaseFailureDoesNotExposeExceptionMessage() {
         var request = new MockHttpServletRequest();
-        var response = new ApiExceptionHandler()
-                .handleDatabaseFailure(
-                        new DataAccessResourceFailureException("private@example.com secret-token SELECT password"),
-                        request);
+        var response = new ApiExceptionHandler().handleDatabaseFailure(
+                new DataAccessResourceFailureException("private@example.com secret-token SELECT password"), request);
 
         assertThat(response.getStatusCode().value()).isEqualTo(503);
-        assertThat(response.getBody().toString())
-                .doesNotContain("private@example.com", "secret-token", "SELECT", "password");
+        assertThat(response.getBody().toString()).doesNotContain("private@example.com", "secret-token", "SELECT",
+                "password");
     }
 
     @Test

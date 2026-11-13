@@ -10,9 +10,9 @@ Challenge владеет правом апелляции и допуском; Mo
 ## Общая оболочка
 
 Все события JSON UTF-8 в проекте v1, время RFC 3339 UTC, идентификаторы UUID.
-Названия топиков и реестр схем ещё не выбраны. Обязательные поля: `event_id`,
-`event_type`, `schema_version` = 1, `occurred_at`, `producer`, `correlation_id`,
-`data`. `event_id` неизменен при повторной публикации. Kafka key — `submission_id`
+Названия топиков и реестр схем ещё не выбраны. Обязательные поля: `eventId`,
+`eventType`, `schemaVersion` = 1, `occurredAt`, `producer`, `correlationId`,
+`data`. `eventId` неизменен при повторной публикации. Kafka key — `submissionId`
 в событиях ниже; общая транзакция между сервисами и Kafka отсутствует.
 
 Запись факта и outbox — один commit отправителя; получатель сохраняет inbox,
@@ -25,15 +25,15 @@ Challenge владеет правом апелляции и допуском; Mo
 ## 1. `appeal.submitted` v1: Challenge → Moderation
 
 ```json
-{"event_id":"<uuid>","event_type":"appeal.submitted","schema_version":1,
- "occurred_at":"2026-11-05T12:00:00Z","producer":"challenge","correlation_id":"<uuid>",
- "data":{"appeal_id":"<uuid>","submission_id":"<uuid>","task_id":"<uuid>",
- "original_decision_id":"<uuid>","submitted_at":"2026-11-05T12:00:00Z",
- "review_due_at":"2026-11-06T12:00:00Z","appeal_version":1}}
+{"eventId":"<uuid>","eventType":"appeal.submitted","schemaVersion":1,
+ "occurredAt":"2026-11-05T12:00:00Z","producer":"challenge","correlationId":"<uuid>",
+ "data":{"appealId":"<uuid>","submissionId":"<uuid>","taskId":"<uuid>",
+ "originalDecisionId":"<uuid>","submittedAt":"2026-11-05T12:00:00Z",
+ "reviewDueAt":"2026-11-06T12:00:00Z","appealVersion":1}}
 ```
 
 Challenge принимает подачу и проверяет её срок атомарно по своим серверным
-часам. Moderation создаёт карточку по `appeal_id` единожды; задержка Kafka не
+часам. Moderation создаёт карточку по `appealId` единожды; задержка Kafka не
 отменяет своевременную подачу. Если исходное решение ещё не пришло в локальную
 базу Moderation, событие надёжно ожидает зависимости с оповещением, а не
 отбрасывается. Проект хранения: `moderation_pending_events` в
@@ -42,12 +42,12 @@ Challenge принимает подачу и проверяет её срок а
 ## 2. `appeal.decided` v1: Moderation → Challenge
 
 ```json
-{"event_id":"<uuid>","event_type":"appeal.decided","schema_version":1,
- "occurred_at":"2026-11-05T13:00:00Z","producer":"moderation","correlation_id":"<uuid>",
- "data":{"appeal_id":"<uuid>","appeal_decision_id":"<uuid>","original_decision_id":"<uuid>",
- "submission_id":"<uuid>","task_id":"<uuid>","outcome":"UPHELD",
- "reason":"Техника соответствует заданию","decided_at":"2026-11-05T13:00:00Z",
- "appeal_version":1}}
+{"eventId":"<uuid>","eventType":"appeal.decided","schemaVersion":1,
+ "occurredAt":"2026-11-05T13:00:00Z","producer":"moderation","correlationId":"<uuid>",
+ "data":{"appealId":"<uuid>","appealDecisionId":"<uuid>","originalDecisionId":"<uuid>",
+ "submissionId":"<uuid>","taskId":"<uuid>","outcome":"UPHELD",
+ "reason":"Техника соответствует заданию","decidedAt":"2026-11-05T13:00:00Z",
+ "appealVersion":1}}
 ```
 
 `outcome` — `UPHELD` либо `REJECTED`. Причина обязательна и ограничена API
@@ -61,11 +61,11 @@ Moderation. Challenge проверяет связь апелляции с исх
 ## 2a. `appeal.cancelled` v1: Challenge → Moderation
 
 ```json
-{"event_id":"<uuid>","event_type":"appeal.cancelled","schema_version":1,
- "occurred_at":"2026-11-05T13:05:00Z","producer":"challenge","correlation_id":"<uuid>",
- "data":{"appeal_id":"<uuid>","submission_id":"<uuid>","task_id":"<uuid>",
- "original_decision_id":"<uuid>","appeal_version":2,
- "reason_code":"OTHER_TASK_FINAL_FAILED","cancelled_at":"2026-11-05T13:05:00Z"}}
+{"eventId":"<uuid>","eventType":"appeal.cancelled","schemaVersion":1,
+ "occurredAt":"2026-11-05T13:05:00Z","producer":"challenge","correlationId":"<uuid>",
+ "data":{"appealId":"<uuid>","submissionId":"<uuid>","taskId":"<uuid>",
+ "originalDecisionId":"<uuid>","appealVersion":2,
+ "reasonCode":"OTHER_TASK_FINAL_FAILED","cancelledAt":"2026-11-05T13:05:00Z"}}
 ```
 
 Challenge отменяет находящуюся на рассмотрении апелляцию только когда другое
@@ -85,13 +85,13 @@ Challenge отменяет находящуюся на рассмотрении 
 ## 3. `proof.review_admission_revoked` v1: Challenge → Moderation
 
 ```json
-{"event_id":"<uuid>","event_type":"proof.review_admission_revoked","schema_version":1,
- "occurred_at":"2026-11-05T13:10:00Z","producer":"challenge","correlation_id":"<uuid>",
- "data":{"submission_id":"<uuid>","task_id":"<uuid>","admission_id":"<uuid>",
- "admission_version":2,"revoked_at":"2026-11-05T13:10:00Z","reason_code":"PARTICIPATION_ENDED"}}
+{"eventId":"<uuid>","eventType":"proof.review_admission_revoked","schemaVersion":1,
+ "occurredAt":"2026-11-05T13:10:00Z","producer":"challenge","correlationId":"<uuid>",
+ "data":{"submissionId":"<uuid>","taskId":"<uuid>","admissionId":"<uuid>",
+ "admissionVersion":2,"revokedAt":"2026-11-05T13:10:00Z","reasonCode":"PARTICIPATION_ENDED"}}
 ```
 
-`admission_version` — новая версия состояния допуска; `reason_code` — проектный
+`admissionVersion` — новая версия состояния допуска; `reasonCode` — проектный
 стабильный код, полный словарь ещё не утверждён. Для одной отправки Challenge
 монотонно увеличивает версию; ревокация фиксируется с outbox одним commit.
 Moderation сохраняет последнюю известную версию, закрывает открытую карточку и
@@ -101,9 +101,9 @@ Moderation сохраняет последнюю известную версию
 tombstone `(submission_id, admission_id, version)` и не создавать карточку по
 более старой версии. Если события одной версии противоречат друг другу —
 карантин. Отсутствующая версия, повторный допуск после отзыва и возможная смена
-`admission_id` требуют отдельной процедуры восстановления; нельзя просто
+`admissionId` требуют отдельной процедуры восстановления; нельзя просто
 увеличить число партиций и предположить прежний порядок. Проект v1 использует
-стабильный `admission_id` на submission и [guard / pending](../services/moderation/45-moderation-data-model.md#moderation_admission_guards--проект);
+стабильный `admissionId` на submission и [guard / pending](../services/moderation/45-moderation-data-model.md#moderation_admission_guards--проект);
 его ещё требуется согласовать со схемой Challenge и проверить на гонках.
 
 Отзыв и исходное решение могут пересечься: Moderation сохраняет свою историю,

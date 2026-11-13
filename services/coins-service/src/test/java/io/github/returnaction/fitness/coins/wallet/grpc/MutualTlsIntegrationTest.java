@@ -56,18 +56,13 @@ class MutualTlsIntegrationTest {
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
     void springStartsActualServerAndRejectsInvalidCertificates(boolean malformed,
-                                                               @TempDir Path directory) throws Exception {
+        @TempDir Path directory) throws Exception {
         KeyPair caKey = keyPair();
         X500Name caName = new X500Name("CN=Test CA");
         X509Certificate ca = certificate(caName, caName, caKey, caKey, null, true);
         KeyPair serverKey = keyPair();
-        X509Certificate cert = certificate(
-                caName,
-                new X500Name("CN=localhost"),
-                serverKey,
-                caKey,
-                new GeneralName(GeneralName.dNSName, "localhost"),
-                false);
+        X509Certificate cert = certificate(caName, new X500Name("CN=localhost"), serverKey, caKey,
+                new GeneralName(GeneralName.dNSName, "localhost"), false);
         Path caFile = pem(directory.resolve("ca.pem"), ca);
         Path certFile = pem(directory.resolve("server.pem"), cert);
         Path keyFile = pem(directory.resolve("server.key"), serverKey.getPrivate());
@@ -83,19 +78,10 @@ class MutualTlsIntegrationTest {
         try (var context = new AnnotationConfigApplicationContext()) {
             context.getEnvironment()
                     .getPropertySources()
-                    .addFirst(new MapPropertySource(
-                            "test",
-                            Map.of(
-                                    "coins.grpc.address",
-                                    "127.0.0.1",
-                                    "coins.grpc.port",
-                                    port,
-                                    "coins.grpc.certificate",
-                                    certFile.toString(),
-                                    "coins.grpc.private-key",
-                                    keyFile.toString(),
-                                    "coins.grpc.trust-certificate",
-                                    caFile.toString())));
+                    .addFirst(new MapPropertySource("test",
+                            Map.of("coins.grpc.address", "127.0.0.1", "coins.grpc.port", port, "coins.grpc.certificate",
+                                    certFile.toString(), "coins.grpc.private-key", keyFile.toString(),
+                                    "coins.grpc.trust-certificate", caFile.toString())));
             context.registerBean(WalletCreationService.class, () -> creation);
             context.register(WalletCreationGrpcService.class, SecureGrpcServer.class);
             context.refresh();
@@ -117,19 +103,10 @@ class MutualTlsIntegrationTest {
         try (var context = new AnnotationConfigApplicationContext()) {
             context.getEnvironment()
                     .getPropertySources()
-                    .addFirst(new MapPropertySource(
-                            "test",
-                            Map.of(
-                                    "coins.grpc.address",
-                                    "127.0.0.1",
-                                    "coins.grpc.port",
-                                    port,
-                                    "coins.grpc.certificate",
-                                    invalidCertificate.toString(),
-                                    "coins.grpc.private-key",
-                                    keyFile.toString(),
-                                    "coins.grpc.trust-certificate",
-                                    caFile.toString())));
+                    .addFirst(new MapPropertySource("test",
+                            Map.of("coins.grpc.address", "127.0.0.1", "coins.grpc.port", port, "coins.grpc.certificate",
+                                    invalidCertificate.toString(), "coins.grpc.private-key", keyFile.toString(),
+                                    "coins.grpc.trust-certificate", caFile.toString())));
             context.registerBean(WalletCreationService.class, () -> creation);
             context.register(WalletCreationGrpcService.class, SecureGrpcServer.class);
             assertThatThrownBy(context::refresh).isInstanceOf(org.springframework.beans.BeansException.class);
@@ -150,47 +127,23 @@ class MutualTlsIntegrationTest {
         X500Name caName = new X500Name("CN=Test CA");
         X509Certificate ca = certificate(caName, caName, caKey, caKey, null, true);
         KeyPair serverKey = keyPair();
-        X509Certificate serverCert = certificate(
-                caName,
-                new X500Name("CN=localhost"),
-                serverKey,
-                caKey,
-                new GeneralName(GeneralName.dNSName, "localhost"),
-                false);
+        X509Certificate serverCert = certificate(caName, new X500Name("CN=localhost"), serverKey, caKey,
+                new GeneralName(GeneralName.dNSName, "localhost"), false);
         KeyPair identityKey = keyPair();
-        X509Certificate identityCert = certificate(
-                caName,
-                new X500Name("CN=identity"),
-                identityKey,
-                caKey,
+        X509Certificate identityCert = certificate(caName, new X500Name("CN=identity"), identityKey, caKey,
                 new GeneralName(GeneralName.uniformResourceIdentifier, "spiffe://fitness.local/identity-service"),
                 false);
         KeyPair otherKey = keyPair();
-        X509Certificate otherCert = certificate(
-                caName,
-                new X500Name("CN=other"),
-                otherKey,
-                caKey,
-                new GeneralName(GeneralName.uniformResourceIdentifier, "spiffe://fitness.local/coins-service"),
-                false);
+        X509Certificate otherCert = certificate(caName, new X500Name("CN=other"), otherKey, caKey,
+                new GeneralName(GeneralName.uniformResourceIdentifier, "spiffe://fitness.local/coins-service"), false);
         KeyPair expiredKey = keyPair();
-        X509Certificate expiredCert = certificate(
-                caName,
-                new X500Name("CN=expired"),
-                expiredKey,
-                caKey,
+        X509Certificate expiredCert = certificate(caName, new X500Name("CN=expired"), expiredKey, caKey,
                 new GeneralName(GeneralName.uniformResourceIdentifier, "spiffe://fitness.local/identity-service"),
-                false,
-                Instant.now().minusSeconds(7200),
-                Instant.now().minusSeconds(3600));
+                false, Instant.now().minusSeconds(7200), Instant.now().minusSeconds(3600));
         KeyPair foreignCaKey = keyPair();
         X500Name foreignCaName = new X500Name("CN=Foreign CA");
         KeyPair foreignKey = keyPair();
-        X509Certificate foreignCert = certificate(
-                foreignCaName,
-                new X500Name("CN=foreign"),
-                foreignKey,
-                foreignCaKey,
+        X509Certificate foreignCert = certificate(foreignCaName, new X500Name("CN=foreign"), foreignKey, foreignCaKey,
                 new GeneralName(GeneralName.uniformResourceIdentifier, "spiffe://fitness.local/identity-service"),
                 false);
         WalletCreationService creation = mock(WalletCreationService.class);
@@ -199,8 +152,8 @@ class MutualTlsIntegrationTest {
                         .trustManager(ca)
                         .clientAuth(ClientAuth.REQUIRE)
                         .build())
-                .addService(ServerInterceptors.intercept(
-                        new WalletCreationGrpcService(creation), new IdentityAuthorizationInterceptor()))
+                .addService(ServerInterceptors.intercept(new WalletCreationGrpcService(creation),
+                        new IdentityAuthorizationInterceptor()))
                 .build()
                 .start();
         ManagedChannel identity = channel(server.getPort(), ca, identityKey, identityCert);
@@ -218,8 +171,7 @@ class MutualTlsIntegrationTest {
             assertThat(WalletCreationServiceGrpc.newBlockingStub(identity)
                     .withDeadlineAfter(5, TimeUnit.SECONDS)
                     .createWalletIfAbsent(request)
-                    .getStatus())
-                    .isEqualTo(CreationStatus.CREATION_STATUS_READY);
+                    .getStatus()).isEqualTo(CreationStatus.CREATION_STATUS_READY);
             verify(creation).createWalletIfAbsent(user);
             assertThatThrownBy(() -> WalletCreationServiceGrpc.newBlockingStub(other)
                     .withDeadlineAfter(5, TimeUnit.SECONDS)
@@ -255,17 +207,13 @@ class MutualTlsIntegrationTest {
         }
     }
 
-    private static ManagedChannel channel(int port,
-                                          X509Certificate ca,
-                                          KeyPair key,
-                                          X509Certificate certificate) throws Exception {
+    private static ManagedChannel channel(int port, X509Certificate ca, KeyPair key,
+        X509Certificate certificate) throws Exception {
         var ssl = GrpcSslContexts.forClient().trustManager(ca);
         if (key != null) {
             ssl.keyManager(key.getPrivate(), certificate);
         }
-        return NettyChannelBuilder.forAddress("localhost", port)
-                .sslContext(ssl.build())
-                .build();
+        return NettyChannelBuilder.forAddress("localhost", port).sslContext(ssl.build()).build();
     }
 
     private static KeyPair keyPair() throws Exception {
@@ -274,40 +222,22 @@ class MutualTlsIntegrationTest {
         return generator.generateKeyPair();
     }
 
-    private static X509Certificate certificate(
-                                               X500Name issuer,
-                                               X500Name subject,
-                                               KeyPair subjectKey,
-                                               KeyPair issuerKey,
-                                               GeneralName san,
-                                               boolean ca) throws Exception {
+    private static X509Certificate certificate(X500Name issuer, X500Name subject, KeyPair subjectKey, KeyPair issuerKey,
+        GeneralName san, boolean ca) throws Exception {
         Instant now = Instant.now();
-        return certificate(
-                issuer, subject, subjectKey, issuerKey, san, ca, now.minusSeconds(60), now.plusSeconds(3600));
+        return certificate(issuer, subject, subjectKey, issuerKey, san, ca, now.minusSeconds(60),
+                now.plusSeconds(3600));
     }
 
-    private static X509Certificate certificate(
-                                               X500Name issuer,
-                                               X500Name subject,
-                                               KeyPair subjectKey,
-                                               KeyPair issuerKey,
-                                               GeneralName san,
-                                               boolean ca,
-                                               Instant validFrom,
-                                               Instant validUntil) throws Exception {
-        var builder = new JcaX509v3CertificateBuilder(
-                issuer,
-                new BigInteger(128, new SecureRandom()).abs(),
-                Date.from(validFrom),
-                Date.from(validUntil),
-                subject,
-                subjectKey.getPublic());
+    private static X509Certificate certificate(X500Name issuer, X500Name subject, KeyPair subjectKey, KeyPair issuerKey,
+        GeneralName san, boolean ca, Instant validFrom, Instant validUntil) throws Exception {
+        var builder = new JcaX509v3CertificateBuilder(issuer, new BigInteger(128, new SecureRandom()).abs(),
+                Date.from(validFrom), Date.from(validUntil), subject, subjectKey.getPublic());
         builder.addExtension(Extension.basicConstraints, true, new BasicConstraints(ca));
         if (san != null) {
             builder.addExtension(Extension.subjectAlternativeName, false, new GeneralNames(san));
         }
-        return new JcaX509CertificateConverter()
-                .getCertificate(
-                        builder.build(new JcaContentSignerBuilder("SHA256withRSA").build(issuerKey.getPrivate())));
+        return new JcaX509CertificateConverter().getCertificate(
+                builder.build(new JcaContentSignerBuilder("SHA256withRSA").build(issuerKey.getPrivate())));
     }
 }
