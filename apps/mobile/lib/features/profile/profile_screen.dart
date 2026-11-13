@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../auth/sign_out_button.dart';
+import 'edit_profile_screen.dart';
 import 'profile.dart';
 import 'profile_controller.dart';
 
@@ -82,8 +83,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   _Detail(label: 'Visibility', value:
                     profile.visibility == ProfileVisibility.public ? 'Public' : 'Private'),
                   const SizedBox(height: 8),
-                  // The form and navigation are implemented in T005.
-                  const OutlinedButton(onPressed: null, child: Text('Edit profile')),
+                  OutlinedButton(
+                    onPressed: controller.saving || controller.pendingSave ? null : () {
+                      Navigator.of(context).push(MaterialPageRoute<void>(
+                        builder: (_) => EditProfileScreen(initialProfile: profile),
+                      ));
+                    },
+                    child: const Text('Edit profile'),
+                  ),
                 ],
               ),
             );

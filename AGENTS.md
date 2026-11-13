@@ -8,12 +8,12 @@ instructions in nested directories supplement the root instructions.
 
 - **Branch:** `41-mobile-profile`, created from current main; use the current
   checkout without creating a worktree, as requested by the user.
-- **Status:** in-progress — set at the user's request on 2026-11-13. This status
-  change alone does not authorize implementation; wait for an explicit start command.
+- **Status:** in-progress — implementation started at the user's explicit request
+  on 2026-11-13; T002–T004 completed, next task T005 awaits review.
 - **Topic:** mobile frontend for viewing and updating the user's own profile,
   using the existing Accounts GET/PUT endpoints from Spec 014.
-- **Authorized work:** specification preparation only; agreed behavior is recorded
-  in spec.md. Implementation requires an explicit start command. Scope is mobile
+- **Authorized work:** the user explicitly authorized starting implementation on
+  2026-11-13. Stop after each task for review as agreed. Scope is mobile
   frontend only. If backend/API changes appear necessary, tell the user why and
   discuss them before making any such changes; keep dependent tasks open.
 - **Goal, scope and acceptance criteria:** recorded in [spec.md](specs/015-mobile-profile/spec.md).
