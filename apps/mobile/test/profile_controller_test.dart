@@ -8,6 +8,7 @@ import 'package:fitness_app/features/auth/auth_repository.dart';
 import 'package:fitness_app/features/auth/model/session_tokens.dart';
 import 'package:fitness_app/features/auth/session_operation_coordinator.dart';
 import 'package:fitness_app/features/profile/profile.dart';
+import 'package:fitness_app/features/profile/durable_profile_storage.dart';
 import 'package:fitness_app/features/profile/profile_controller.dart';
 import 'package:fitness_app/features/profile/profile_repository.dart';
 import 'package:fitness_app/features/profile/profile_store.dart';
@@ -18,6 +19,77 @@ Profile value([int version = 1]) => Profile(nickname: 'Nikita', firstName: null,
   visibility: ProfileVisibility.private, version: version);
 
 void main() {
+  test('PUT waits for disk acknowledgement, restart recovers durable marker', () async {
+    final disk = Disk();
+    var durable = <String, String>{};
+    Completer<void>? gate;
+    final entered = Completer<void>();
+    final storage = DurableProfileStorage(disk, flush: () async {
+      if (gate != null) {
+        if (!entered.isCompleted) entered.complete();
+        await gate.future;
+      }
+      durable = Map.of(disk.values);
+    });
+    final api = Api();
+    final controller = make(api, ProfileStore(storage));
+    await controller.open();
+    gate = Completer<void>();
+    final reply = Completer<Profile>();
+    final sent = Completer<void>();
+    api.update = (_) { sent.complete(); return reply.future; };
+    final saving = controller.save(value());
+    await entered.future;
+    expect(api.puts, 0);
+    expect(jsonDecode(durable['own_profile_v1']!)['pendingSave'], isFalse);
+    gate.complete();
+    await sent.future;
+    expect(jsonDecode(durable['own_profile_v1']!)['pendingSave'], isTrue);
+    controller.dispose();
+    reply.completeError(const IdentityNetworkException());
+    await expectLater(saving, throwsA(isA<StaleProfileOperation>()));
+    final restartedDisk = Disk()..values.addAll(durable);
+    final restartedApi = Api()..read = () async => value(2);
+    final restarted = make(restartedApi, ProfileStore(restartedDisk));
+    await restarted.open();
+    expect(restartedApi.gets, 1);
+    expect(restartedApi.puts, 0);
+    expect(restarted.profile?.version, 2);
+    restarted.dispose();
+  });
+
+  test('failed disk acknowledgement prevents PUT', () async {
+    var fail = false;
+    final storage = DurableProfileStorage(Disk(), flush: () async {
+      if (fail) throw StateError('disk unavailable');
+    });
+    final api = Api();
+    final controller = make(api, ProfileStore(storage));
+    await controller.open();
+    fail = true;
+    await expectLater(controller.save(value()), throwsA(isA<ProfileStorageException>()));
+    expect(api.puts, 0);
+    controller.dispose();
+  });
+
+  test('logout waits for durable profile deletion', () async {
+    final disk = Disk();
+    final gate = Completer<void>();
+    final entered = Completer<void>();
+    final store = ProfileStore(DurableProfileStorage(disk, flush: () async {
+      entered.complete();
+      await gate.future;
+    }));
+    var cleared = false;
+    final clearing = store.clear().then((_) => cleared = true);
+    await entered.future;
+    expect(cleared, isFalse);
+    gate.complete();
+    await clearing;
+    expect(cleared, isTrue);
+    store.dispose();
+  });
+
   test('cache survives controller/store restart without another GET', () async {
     final disk = Disk();
     final api = Api();

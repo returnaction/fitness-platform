@@ -7,10 +7,11 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../../core/security/token_storage.dart';
 import '../auth/session_operation_coordinator.dart';
 import 'profile.dart';
+import 'durable_profile_storage.dart';
 
 final profileStoreProvider = Provider<ProfileStore>((ref) {
   final store = ProfileStore(
-    FlutterSecureValueStore(const FlutterSecureStorage()),
+    DurableProfileStorage(FlutterSecureValueStore(const FlutterSecureStorage())),
   );
   ref.onDispose(store.dispose);
   return store;

@@ -77,3 +77,20 @@ java apps/mobile/tool/ExportProfileTimezones.java | Set-Content -Encoding utf8 a
 
 Сервер остаётся источником окончательной проверки значений; изменения контракта
 или серверных правил требуют отдельного обсуждения с пользователем.
+
+## Исправление подтверждения записи Android — T008
+
+ProfileStore использует DurableProfileStorage поверх прежнего шифрованного
+flutter_secure_storage 11.0.0. После write/delete вызывается нативный flush через
+MethodChannel fitness/profile_storage. На фоновой очереди Flutter Android выполняет
+commit в тех же SharedPreferences (FlutterSecureStorage), сохраняя свежий случайный
+служебный маркер без данных пользователя. Новый маркер заставляет повторить запись
+снимка даже после неудачного предыдущего apply. Ошибка commit передаётся в
+ProfileStorageException; PUT не отправляется до подтверждения pendingSave.
+Профиль, accountId и pendingSave остаются одной зашифрованной записью.
+
+Контракт Android commit/apply:
+[SharedPreferences.Editor](https://developer.android.com/reference/android/content/SharedPreferences.Editor#commit()).
+Имя preferences связано с закреплённой версией плагина и его стандартными настройками;
+при обновлении плагина/namespace необходимо сверить адаптер и повторить device-тест.
+Это гарантия ожидания записи перед запросом, не обещание защиты от отказа накопителя.
