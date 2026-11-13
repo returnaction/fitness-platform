@@ -27,8 +27,9 @@ Jackson 3 допускает также массивы и другие пред�
 Security. Ошибки MVC и отказы Security используют ApiExceptionHandler;
 SecurityExceptionHandler передаёт исключения в HandlerExceptionResolver.
 
-Реальные контроллеры GET/PUT и сохранение профиля ещё не реализованы. ProfileHttpContractTest использует отдельный тестовый
-контроллер и тестовую цепочку Security, разрешённую только в его контексте.
+GET реализован в ProfileController; PUT и сохранение профиля ожидают T006–T007.
+ProfileHttpContractTest использует тестовый PUT-контроллер, mock ProfileService
+для GET и тестовую цепочку Security, разрешённую только в его контексте.
 Проверки преобразования JSON и HTTP не доказывают сохранение профиля в БД.
 
 
@@ -47,6 +48,25 @@ Accounts доверяет проверке JWT и сессии Gateway; филь
 или личность HTTP caller. Это локальное допущение, не техническая защита от обхода Gateway.
 Существующий gRPC mTLS сохраняется.
 
-ProfileAuthenticationSecurityTest проверяет production-цепочку Security с тестовым
-контроллером, а ProfileAuthenticationFilterTest — разбор claims, очистку и
-изоляцию параллельных запросов. Эти тесты не реализуют GET/PUT профиля из T005–T007.
+ProfileAuthenticationSecurityTest проверяет production-цепочку Security с настоящим
+GET-контроллером и mock ProfileService, а PUT пока обслуживает тестовый контроллер.
+ProfileAuthenticationFilterTest проверяет разбор claims, очистку и изоляцию
+параллельных запросов. Эти проверки не заменяют интеграционные тесты БД.
+
+
+## Чтение своего профиля — Spec 014 T005
+
+GET `/api/v1/accounts/me` получает UUID из SecurityContext. ProfileService читает
+существующую запись по user_id и возвращает восемь полей ProfileResponse,
+включая явные null. Ответ содержит Cache-Control: no-store. GET не создаёт
+профиль и не меняет version или updated_at.
+
+Отсутствующий профиль и временная недоступность БД дают 503 profile_unavailable.
+Обработчик пишет request-id и безопасную причину: profile_missing либо тип
+исключения. Текст исключения БД и данные профиля в этот лог не передаются.
+Непредвиденные ошибки SQL не маскируются под временную недоступность.
+
+ProfileReadIntegrationTest проверяет настоящий GET через Spring Security и MVC
+с отдельным PostgreSQL Testcontainers: поля, null, выбор владельца, отсутствие
+записей при чтении, отсутствующий профиль и остановку тестовой БД. Пользовательская
+БД для этих проверок не используется. Сквозная проверка через Gateway остаётся T009.

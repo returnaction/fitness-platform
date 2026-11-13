@@ -42,9 +42,8 @@ public class ProfileAuthenticationFilter extends OncePerRequestFilter {
     }
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request,
-                                    HttpServletResponse response,
-                                    FilterChain filterChain) throws ServletException, IOException {
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
+        FilterChain filterChain) throws ServletException, IOException {
 
         UsernamePasswordAuthenticationToken authentication;
 
@@ -56,9 +55,8 @@ public class ProfileAuthenticationFilter extends OncePerRequestFilter {
             return;
         } catch (ParseException | IllegalArgumentException exception) {
             SecurityContextHolder.clearContext();
-            securityExceptionHandler.commence(request,
-                response,
-                new BadCredentialsException("Invalid authentication context."));
+            securityExceptionHandler.commence(request, response,
+                    new BadCredentialsException("Invalid authentication context."));
             return;
         }
 
@@ -79,7 +77,7 @@ public class ProfileAuthenticationFilter extends OncePerRequestFilter {
         String authorization = request.getHeader("Authorization");
 
         if (authorization == null || !authorization.regionMatches(true, 0, "Bearer ", 0, 7)
-            || authorization.length() <= 7) {
+                || authorization.length() <= 7) {
             throw new BadCredentialsException("Invalid authentication context.");
         }
 

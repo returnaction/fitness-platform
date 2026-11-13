@@ -1,5 +1,6 @@
 package io.github.returnaction.fitness.accounts.profile.dto;
 
+import static org.mockito.Mockito.when;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -9,6 +10,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import io.github.returnaction.fitness.accounts.AccountsServiceApplication;
+import io.github.returnaction.fitness.accounts.profile.service.ProfileService;
 import io.github.returnaction.fitness.accounts.profile.entity.ProfileVisibility;
 import io.github.returnaction.fitness.accounts.profile.grpc.SecureGrpcServer;
 import io.github.returnaction.fitness.accounts.profile.service.ProfileCreationService;
@@ -38,7 +40,6 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
@@ -62,6 +63,9 @@ class ProfileHttpContractTest {
     private JsonMapper mapper;
     @MockitoBean
     private ProfileCreationService creationService;
+    @MockitoBean
+    private ProfileService profileService;
+
     @MockitoBean
     private SecureGrpcServer grpcServer;
 
@@ -206,6 +210,8 @@ class ProfileHttpContractTest {
                 return request;
             })).andExpect(status().isBadRequest()).andExpect(jsonPath("$.error.code").value("invalid_request"));
         }
+        when(profileService.getOwnProfile(null)).thenReturn(
+                new ProfileResponse("Player_1", null, null, null, null, "UTC", ProfileVisibility.PRIVATE, 1L));
         mvc.perform(get(PATH)).andExpect(status().isOk());
         mvc.perform(get("/actuator/health?foo=bar")).andExpect(status().isOk());
     }
@@ -250,9 +256,5 @@ class ProfileHttpContractTest {
                     request.dateOfBirth(), request.timezone(), request.visibility(), request.version());
         }
 
-        @GetMapping(PATH)
-        ProfileResponse getProfile() {
-            return new ProfileResponse("Player_1", null, null, null, null, "UTC", ProfileVisibility.PRIVATE, 1L);
-        }
     }
 }

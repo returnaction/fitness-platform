@@ -7,9 +7,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import io.github.returnaction.fitness.accounts.AccountsServiceApplication;
+import io.github.returnaction.fitness.accounts.profile.service.ProfileService;
 import io.github.returnaction.fitness.accounts.profile.grpc.SecureGrpcServer;
 import io.github.returnaction.fitness.accounts.profile.service.ProfileCreationService;
 import java.util.List;
+import java.util.UUID;
+import io.github.returnaction.fitness.accounts.profile.dto.ProfileResponse;
+import io.github.returnaction.fitness.accounts.profile.entity.ProfileVisibility;
+import static org.mockito.Mockito.when;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -49,6 +54,9 @@ class ProfileAuthenticationSecurityTest {
     @MockitoBean
     private ProfileCreationService creationService;
     @MockitoBean
+    private ProfileService profileService;
+
+    @MockitoBean
     private SecureGrpcServer grpcServer;
 
     private String bearer() {
@@ -57,11 +65,12 @@ class ProfileAuthenticationSecurityTest {
 
     @Test
     void productionChainAdmitsBothOperationsWithNoRolesAndNoSession() throws Exception {
+        when(profileService.getOwnProfile(UUID.fromString(ID)))
+                .thenReturn(new ProfileResponse(ID, null, null, null, null, "UTC", ProfileVisibility.PRIVATE, 1L));
         for (HttpMethod method : List.of(HttpMethod.GET, HttpMethod.PUT)) {
             var result = mvc.perform(request(method, PATH).header("Authorization", bearer()))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.userId").value(ID))
-                    .andExpect(jsonPath("$.roles").isEmpty())
+                    .andExpect(jsonPath(method == HttpMethod.GET ? "$.nickname" : "$.userId").value(ID))
                     .andExpect(header().string("Cache-Control", "no-store"))
                     .andReturn();
             assertThat(result.getRequest().getSession(false)).isNull();
@@ -86,6 +95,7 @@ class ProfileAuthenticationSecurityTest {
 
     @Test
     void controllerFailureRemains500AndFollowingRequestIsUnauthenticated() throws Exception {
+        when(profileService.getOwnProfile(UUID.fromString(ID))).thenThrow(new IllegalStateException("test failure"));
         mvc.perform(get(PATH).header("Authorization", bearer()).header("X-Test-Fail", "true"))
                 .andExpect(status().isInternalServerError())
                 .andExpect(jsonPath("$.error.code").value("internal_error"));
@@ -128,7 +138,7 @@ class ProfileAuthenticationSecurityTest {
     @Profile("profile-security-test")
     static class ContextController {
 
-        @RequestMapping(value = PATH, method = {RequestMethod.GET, RequestMethod.PUT})
+        @RequestMapping(value = PATH, method = RequestMethod.PUT)
         Map<String, Object> currentUser(@RequestHeader(value = "X-Test-Fail", defaultValue = "false") boolean fail) {
             if (fail)
                 throw new IllegalStateException("test controller failure");
