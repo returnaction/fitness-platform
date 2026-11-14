@@ -27,6 +27,7 @@ paths:
       schema:
         type: string
     get:
+      tags: [Accounts]
       operationId: getOwnProfile
       summary: Прочитать свой профиль
       security:
@@ -64,6 +65,7 @@ paths:
         '503':
           $ref: '#/components/responses/Unavailable'
     put:
+      tags: [Accounts]
       operationId: updateOwnProfile
       summary: Полностью сохранить свой профиль
       security:

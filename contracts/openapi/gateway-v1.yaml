@@ -5,10 +5,18 @@ info:
   description: >-
     Identity owns the referenced auth operations. Gateway additionally enforces
     the limits and transport errors in ../gateway-v1.md. Accounts owns the own-profile
-    operations added by Spec 014 (runtime pending T002). No other paths are public.
+    operations added by Spec 014. Coins owns the wallet operation specified by
+    Spec 017 (runtime pending). No other paths are public.
 servers:
   - url: http://127.0.0.1:8088
     description: Local development only
+tags:
+  - name: Authentication
+    description: 'Gateway → identity-service: регистрация, вход и сессии.'
+  - name: Accounts
+    description: 'Gateway → accounts-service: чтение и обновление своего профиля.'
+  - name: Coins
+    description: 'Gateway → coins-service: чтение своего баланса.'
 paths:
   /api/v1/auth/register:
     $ref: './identity-auth-v1.yaml#/paths/~1api~1v1~1auth~1register'
@@ -22,12 +30,17 @@ paths:
     $ref: './identity-auth-v1.yaml#/paths/~1api~1v1~1auth~1logout-all'
   /api/v1/accounts/me:
     $ref: './accounts-profile-v1.yaml#/paths/~1api~1v1~1accounts~1me'
+  /api/v1/coins/me:
+    $ref: './coins-wallet-v1.yaml#/paths/~1api~1v1~1coins~1me'
 components:
   securitySchemes:
     BearerAccess:
       $ref: './identity-auth-v1.yaml#/components/securitySchemes/BearerAccess'
 x-gateway-policy:
-  protected-paths: [/api/v1/auth/logout-all, /api/v1/accounts/me]
+  protected-paths: [/api/v1/auth/logout-all, /api/v1/accounts/me, /api/v1/coins/me]
+  upstream-errors:
+    /api/v1/coins/me:
+      '503': coins_unavailable
   session-check: grpc-mtls-every-request
   retries: 0
   max-body-bytes: 16384
