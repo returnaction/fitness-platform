@@ -1,0 +1,10 @@
+databaseChangeLog:
+  - changeSet:
+      id: 003-create-catalog-variations
+      author: returnaction
+      dbms: postgresql
+      changes:
+        - sqlFile:
+            path: 003-create-catalog-variations.sql
+            relativeToChangelogFile: true
+            stripComments: false
