@@ -18,10 +18,14 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class ExerciseCatalogServiceApplicationTest {
 
-    // JPA-репозитории отключены в test-профиле, поэтому use case подменяется моком.
+    // JPA-репозитории отключены в test-профиле, поэтому бины чтения подменяются моками.
     @MockitoBean
     private io.github.returnaction.fitness.exercisecatalog.catalog.validation.ValidateChallengeTargetUseCase
             validateChallengeTargetUseCase;
+
+    @MockitoBean
+    private io.github.returnaction.fitness.exercisecatalog.catalog.service.ExerciseCategoryListService
+            exerciseCategoryListService;
 
     @LocalServerPort
     private int port;
