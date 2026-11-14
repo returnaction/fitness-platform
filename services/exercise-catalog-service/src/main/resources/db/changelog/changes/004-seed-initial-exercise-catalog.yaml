@@ -1,0 +1,10 @@
+databaseChangeLog:
+  - changeSet:
+      id: 004-seed-initial-exercise-catalog
+      author: returnaction
+      dbms: postgresql
+      changes:
+        - sqlFile:
+            path: 004-seed-initial-exercise-catalog.sql
+            relativeToChangelogFile: true
+            stripComments: false
