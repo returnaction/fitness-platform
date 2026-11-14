@@ -5,3 +5,6 @@ databaseChangeLog:
   - include:
       file: changes/002-create-catalog-exercises.yaml
       relativeToChangelogFile: true
+  - include:
+      file: changes/003-create-catalog-variations.yaml
+      relativeToChangelogFile: true

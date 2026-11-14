@@ -33,7 +33,7 @@ class CatalogSchemaMigrationIntegrationTest {
         applyMigrations();
 
         try (Connection connection = connection()) {
-            assertThat(changeSetCount(connection)).isEqualTo(2);
+            assertThat(changeSetCount(connection)).isEqualTo(3);
             assertThat(tableExists(connection, "catalog_categories")).isTrue();
             assertThat(columnCount(connection, "catalog_categories")).isEqualTo(8);
             assertThat(indexDefinition(connection, "catalog_categories_active_order_index"))
@@ -43,6 +43,11 @@ class CatalogSchemaMigrationIntegrationTest {
             assertThat(columnCount(connection, "catalog_exercises")).isEqualTo(11);
             assertThat(indexDefinition(connection, "catalog_exercises_category_active_order_index"))
                 .contains("(category_id, is_active, sort_order, id)");
+
+            assertThat(tableExists(connection, "catalog_variations")).isTrue();
+            assertThat(columnCount(connection, "catalog_variations")).isEqualTo(14);
+            assertThat(indexDefinition(connection, "catalog_variations_exercise_active_order_index"))
+                .contains("(exercise_id, is_active, sort_order, id)");
         }
     }
 
@@ -106,6 +111,48 @@ class CatalogSchemaMigrationIntegrationTest {
         }
     }
 
+    @Test
+    void rejectsInvalidVariationRows() throws Exception {
+        applyMigrations();
+
+        try (Connection connection = connection()) {
+            insertCategory(connection, 200, "BODYWEIGHT_VARIATION", 10, 1);
+            insertExercise(connection, 200, 200, "SQUAT", "REPETITIONS", 10, 1);
+            insertExercise(connection, 201, 200, "PUSH_UP", "REPETITIONS", 20, 1);
+
+            assertThatCode(() -> insertVariation(connection, 200, 200, "STANDARD", 1, 200, 1, 10, 1))
+                .doesNotThrowAnyException();
+            assertThatCode(() -> insertVariation(connection, 201, 201, "STANDARD", 1, 150, 1, 10, 1))
+                .as("same code is allowed for another exercise")
+                .doesNotThrowAnyException();
+
+            assertThatThrownBy(() -> insertVariation(connection, 202, 999, "STANDARD", 1, 100, 1, 10, 1))
+                .as("exercise does not exist")
+                .isInstanceOf(SQLException.class);
+            assertThatThrownBy(() -> insertVariation(connection, 203, 200, "STANDARD", 1, 100, 1, 20, 1))
+                .as("duplicate code within one exercise")
+                .isInstanceOf(SQLException.class);
+            assertThatThrownBy(() -> insertVariation(connection, 0, 200, "ZERO_ID", 1, 100, 1, 10, 1))
+                .as("id below range")
+                .isInstanceOf(SQLException.class);
+            assertThatThrownBy(() -> insertVariation(connection, 32768, 200, "TOO_BIG_ID", 1, 100, 1, 10, 1))
+                .as("id above range")
+                .isInstanceOf(SQLException.class);
+            assertThatThrownBy(() -> insertVariation(connection, 204, 200, "ZERO_MIN", 0, 100, 1, 10, 1))
+                .as("zero minimum target")
+                .isInstanceOf(SQLException.class);
+            assertThatThrownBy(() -> insertVariation(connection, 205, 200, "ZERO_STEP", 1, 100, 0, 10, 1))
+                .as("zero target step")
+                .isInstanceOf(SQLException.class);
+            assertThatThrownBy(() -> insertVariation(connection, 206, 200, "REVERSED_RANGE", 100, 10, 1, 10, 1))
+                .as("max_target below min_target")
+                .isInstanceOf(SQLException.class);
+            assertThatThrownBy(() -> deleteExercise(connection, 200))
+                .as("exercise still has a variation")
+                .isInstanceOf(SQLException.class);
+        }
+    }
+
     private void applyMigrations() throws Exception {
         try (Connection connection = connection()) {
             Database database = DatabaseFactory.getInstance()
@@ -133,6 +180,38 @@ class CatalogSchemaMigrationIntegrationTest {
             statement.setString(3, code);
             statement.setInt(4, sortOrder);
             statement.setLong(5, version);
+            statement.executeUpdate();
+        }
+    }
+
+    private void insertVariation(Connection connection, int id, int exerciseId, String code, long minTarget,
+        long maxTarget, long targetStep, int sortOrder, long version) throws SQLException {
+
+        try (PreparedStatement statement = connection.prepareStatement("""
+            INSERT INTO catalog_variations
+                (id, exercise_id, code, name, description, instructions, min_target, max_target,
+                 target_step, is_active, sort_order, version)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, true, ?, ?)
+            """)) {
+            statement.setInt(1, id);
+            statement.setInt(2, exerciseId);
+            statement.setString(3, code);
+            statement.setString(4, code);
+            statement.setString(5, code);
+            statement.setString(6, code);
+            statement.setLong(7, minTarget);
+            statement.setLong(8, maxTarget);
+            statement.setLong(9, targetStep);
+            statement.setInt(10, sortOrder);
+            statement.setLong(11, version);
+            statement.executeUpdate();
+        }
+    }
+
+    private void deleteExercise(Connection connection, int id) throws SQLException {
+        try (PreparedStatement statement = connection.prepareStatement(
+            "DELETE FROM catalog_exercises WHERE id = ?")) {
+            statement.setInt(1, id);
             statement.executeUpdate();
         }
     }
