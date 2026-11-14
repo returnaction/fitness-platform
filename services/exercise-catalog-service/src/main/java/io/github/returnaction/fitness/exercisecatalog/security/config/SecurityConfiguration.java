@@ -16,7 +16,8 @@ class SecurityConfiguration {
                 .permitAll()
                 // Пользовательский JWT проверяет Gateway; Catalog не повторяет эту
                 // проверку. Механизм допуска только Gateway фиксируется в D003/T013.
-                .requestMatchers(HttpMethod.GET, "/api/v1/exercise-categories")
+                .requestMatchers(HttpMethod.GET, "/api/v1/exercise-categories", "/api/v1/exercises",
+                    "/api/v1/exercises/**")
                 .permitAll()
                 .anyRequest()
                 .denyAll()).build();
