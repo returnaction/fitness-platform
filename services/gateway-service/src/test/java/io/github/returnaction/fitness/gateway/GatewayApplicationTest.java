@@ -33,6 +33,6 @@ class GatewayApplicationTest {
     @Test
     void startsWithIsolatedTestConfiguration() {
         assertThat(tokenProperties.issuer()).isEqualTo("test-identity");
-        assertThat(timeoutProperties.timeout()).isEqualTo(Duration.ofSeconds(3));
+        assertThat(timeoutProperties.timeout()).isEqualTo(Duration.ofSeconds(7));
     }
 }
