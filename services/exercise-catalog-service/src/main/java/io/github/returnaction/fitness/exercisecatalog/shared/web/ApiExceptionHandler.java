@@ -1,5 +1,6 @@
 package io.github.returnaction.fitness.exercisecatalog.shared.web;
 
+import io.github.returnaction.fitness.exercisecatalog.catalog.exception.ExerciseNotFoundException;
 import io.github.returnaction.fitness.exercisecatalog.catalog.exception.InvalidCursorException;
 import io.github.returnaction.fitness.exercisecatalog.catalog.exception.InvalidPaginationException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -29,6 +30,11 @@ public class ApiExceptionHandler {
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     ResponseEntity<ApiErrorResponse> handleTypeMismatch(HttpServletRequest request) {
         return response(HttpStatus.BAD_REQUEST, "invalid_request", "Check the request parameters.", request);
+    }
+
+    @ExceptionHandler(ExerciseNotFoundException.class)
+    ResponseEntity<ApiErrorResponse> handleExerciseNotFound(HttpServletRequest request) {
+        return response(HttpStatus.NOT_FOUND, "not_found", "Exercise not found.", request);
     }
 
     @ExceptionHandler(Exception.class)
