@@ -1,0 +1,10 @@
+databaseChangeLog:
+  - changeSet:
+      id: 001-create-catalog-categories
+      author: returnaction
+      dbms: postgresql
+      changes:
+        - sqlFile:
+            path: 001-create-catalog-categories.sql
+            relativeToChangelogFile: true
+            stripComments: false
