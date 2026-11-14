@@ -28,16 +28,21 @@ class CatalogSchemaMigrationIntegrationTest {
     static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:17-alpine");
 
     @Test
-    void appliesCategoryMigrationOnceWithTableAndIndex() throws Exception {
+    void appliesMigrationsOnceWithTablesAndIndexes() throws Exception {
         applyMigrations();
         applyMigrations();
 
         try (Connection connection = connection()) {
-            assertThat(changeSetCount(connection)).isEqualTo(1);
+            assertThat(changeSetCount(connection)).isEqualTo(2);
             assertThat(tableExists(connection, "catalog_categories")).isTrue();
             assertThat(columnCount(connection, "catalog_categories")).isEqualTo(8);
             assertThat(indexDefinition(connection, "catalog_categories_active_order_index"))
                 .contains("(is_active, sort_order, id)");
+
+            assertThat(tableExists(connection, "catalog_exercises")).isTrue();
+            assertThat(columnCount(connection, "catalog_exercises")).isEqualTo(11);
+            assertThat(indexDefinition(connection, "catalog_exercises_category_active_order_index"))
+                .contains("(category_id, is_active, sort_order, id)");
         }
     }
 
@@ -63,6 +68,40 @@ class CatalogSchemaMigrationIntegrationTest {
                 .isInstanceOf(SQLException.class);
             assertThatThrownBy(() -> insertCategory(connection, 4, "ZERO_VERSION", 0, 0))
                 .as("zero version")
+                .isInstanceOf(SQLException.class);
+        }
+    }
+
+    @Test
+    void rejectsInvalidExerciseRows() throws Exception {
+        applyMigrations();
+
+        try (Connection connection = connection()) {
+            // Свои ID, чтобы не пересекаться с данными других методов в общем контейнере.
+            insertCategory(connection, 100, "BODYWEIGHT_TEST", 10, 1);
+            assertThatCode(() -> insertExercise(connection, 100, 100, "SQUAT", "REPETITIONS", 10, 1))
+                .doesNotThrowAnyException();
+
+            assertThatThrownBy(() -> insertExercise(connection, 101, 999, "MISSING_CATEGORY", "REPETITIONS", 0, 1))
+                .as("category does not exist")
+                .isInstanceOf(SQLException.class);
+            assertThatThrownBy(() -> insertExercise(connection, 102, 100, "SQUAT", "REPETITIONS", 20, 1))
+                .as("duplicate code")
+                .isInstanceOf(SQLException.class);
+            assertThatThrownBy(() -> insertExercise(connection, 0, 100, "ZERO_ID", "REPETITIONS", 0, 1))
+                .as("id below range")
+                .isInstanceOf(SQLException.class);
+            assertThatThrownBy(() -> insertExercise(connection, 32768, 100, "TOO_BIG_ID", "REPETITIONS", 0, 1))
+                .as("id above range")
+                .isInstanceOf(SQLException.class);
+            assertThatThrownBy(() -> insertExercise(connection, 104, 100, "UNKNOWN_METRIC", "PACE", 0, 1))
+                .as("unsupported metric")
+                .isInstanceOf(SQLException.class);
+            assertThatThrownBy(() -> insertExercise(connection, 105, 100, "NEGATIVE_ORDER", "REPETITIONS", -1, 1))
+                .as("negative sort_order")
+                .isInstanceOf(SQLException.class);
+            assertThatThrownBy(() -> deleteCategory(connection, 100))
+                .as("category still has an exercise")
                 .isInstanceOf(SQLException.class);
         }
     }
@@ -94,6 +133,34 @@ class CatalogSchemaMigrationIntegrationTest {
             statement.setString(3, code);
             statement.setInt(4, sortOrder);
             statement.setLong(5, version);
+            statement.executeUpdate();
+        }
+    }
+
+    private void insertExercise(Connection connection, int id, int categoryId, String code, String metric,
+        int sortOrder, long version) throws SQLException {
+
+        try (PreparedStatement statement = connection.prepareStatement("""
+            INSERT INTO catalog_exercises
+                (id, category_id, code, name, description, primary_metric, is_active, sort_order, version)
+            VALUES (?, ?, ?, ?, ?, ?, true, ?, ?)
+            """)) {
+            statement.setInt(1, id);
+            statement.setInt(2, categoryId);
+            statement.setString(3, code);
+            statement.setString(4, code);
+            statement.setString(5, code);
+            statement.setString(6, metric);
+            statement.setInt(7, sortOrder);
+            statement.setLong(8, version);
+            statement.executeUpdate();
+        }
+    }
+
+    private void deleteCategory(Connection connection, int id) throws SQLException {
+        try (PreparedStatement statement = connection.prepareStatement(
+            "DELETE FROM catalog_categories WHERE id = ?")) {
+            statement.setInt(1, id);
             statement.executeUpdate();
         }
     }

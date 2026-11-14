@@ -1,0 +1,10 @@
+databaseChangeLog:
+  - changeSet:
+      id: 002-create-catalog-exercises
+      author: returnaction
+      dbms: postgresql
+      changes:
+        - sqlFile:
+            path: 002-create-catalog-exercises.sql
+            relativeToChangelogFile: true
+            stripComments: false
