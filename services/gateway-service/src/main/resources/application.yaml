@@ -47,7 +47,7 @@ management:
 
 gateway:
   request:
-    timeout: 3s
+    timeout: 7s
   upstreams:
     services:
       IDENTITY:
