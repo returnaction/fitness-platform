@@ -1,3 +1,18 @@
 # Тестовый сервер выбирает свободный порт автоматически.
+spring:
+  config:
+    import:
+      - classpath:test-environment.properties
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration
+      - org.springframework.boot.hibernate.autoconfigure.HibernateJpaAutoConfiguration
+      - org.springframework.boot.liquibase.autoconfigure.LiquibaseAutoConfiguration
+  liquibase:
+    enabled: false
+management:
+  health:
+    db:
+      enabled: false
 server:
   port: 0

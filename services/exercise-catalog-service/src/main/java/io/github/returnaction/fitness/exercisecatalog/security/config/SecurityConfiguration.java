@@ -13,6 +13,12 @@ class SecurityConfiguration {
         return http.authorizeHttpRequests(requests -> requests
                 .requestMatchers("/actuator/health", "/actuator/health/**", "/actuator/info", "/actuator/prometheus")
                 .permitAll()
+                .requestMatchers("/api/v1/exercise-categories")
+                .permitAll()
+                .requestMatchers("/api/v1/exercises")
+                .permitAll()
+                .requestMatchers("/api/v1/exercises/*")
+                .permitAll()
                 .anyRequest()
                 .denyAll()).build();
     }
