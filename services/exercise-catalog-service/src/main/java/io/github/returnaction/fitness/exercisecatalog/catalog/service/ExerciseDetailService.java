@@ -2,6 +2,7 @@ package io.github.returnaction.fitness.exercisecatalog.catalog.service;
 
 import io.github.returnaction.fitness.exercisecatalog.catalog.dto.ExerciseDetailResponse;
 import io.github.returnaction.fitness.exercisecatalog.catalog.dto.ExerciseVariationResponse;
+import io.github.returnaction.fitness.exercisecatalog.catalog.entity.CatalogExerciseEntity;
 import io.github.returnaction.fitness.exercisecatalog.catalog.repository.CatalogExerciseRepository;
 import io.github.returnaction.fitness.exercisecatalog.catalog.repository.CatalogVariationRepository;
 import java.util.List;
@@ -28,7 +29,7 @@ public class ExerciseDetailService {
     @Transactional(readOnly = true)
     public ExerciseDetailResponse detail(int id) {
         var exercise = exercises.findById(id)
-                .filter(item -> item.getIsActive())
+                .filter(CatalogExerciseEntity::getIsActive)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "not_found"));
 
         List<ExerciseVariationResponse> activeVariations = variations

@@ -2,7 +2,9 @@ package io.github.returnaction.fitness.exercisecatalog.catalog.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import io.github.returnaction.fitness.exercisecatalog.catalog.dto.ExerciseListItem;
 import io.github.returnaction.fitness.exercisecatalog.catalog.dto.ExerciseListResponse;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.resttestclient.TestRestTemplate;
@@ -64,7 +66,8 @@ class ExerciseListHttpIntegrationTest {
                 url("/api/v1/exercises"), HttpMethod.GET, null, ExerciseListResponse.class);
 
         assertThat(response.getStatusCode().value()).isEqualTo(200);
-        assertThat(response.getBody().items()).extracting(item -> item.code())
+        Assertions.assertNotNull(response.getBody());
+        assertThat(response.getBody().items()).extracting(ExerciseListItem::code)
                 .containsExactly("SQUAT", "JUMP_ROPE", "PUSH_UP", "BURPEE", "JUMPING_JACK", "PLANK");
     }
 
@@ -74,7 +77,8 @@ class ExerciseListHttpIntegrationTest {
                 url("/api/v1/exercises?category_id=2"), HttpMethod.GET, null, ExerciseListResponse.class);
 
         assertThat(response.getStatusCode().value()).isEqualTo(200);
-        assertThat(response.getBody().items()).extracting(item -> item.code())
+        Assertions.assertNotNull(response.getBody());
+        assertThat(response.getBody().items()).extracting(ExerciseListItem::code)
                 .containsExactly("JUMP_ROPE");
         assertThat(response.getBody().nextCursor()).isNull();
     }
@@ -84,7 +88,8 @@ class ExerciseListHttpIntegrationTest {
         ResponseEntity<ExerciseListResponse> first = restTemplate.exchange(
                 url("/api/v1/exercises?limit=2"), HttpMethod.GET, null, ExerciseListResponse.class);
 
-        assertThat(first.getBody().items()).extracting(item -> item.code())
+        Assertions.assertNotNull(first.getBody());
+        assertThat(first.getBody().items()).extracting(ExerciseListItem::code)
                 .containsExactly("SQUAT", "JUMP_ROPE");
         assertThat(first.getBody().nextCursor()).isNotNull();
 
@@ -92,7 +97,8 @@ class ExerciseListHttpIntegrationTest {
                 url("/api/v1/exercises?limit=2&cursor=" + first.getBody().nextCursor()),
                 HttpMethod.GET, null, ExerciseListResponse.class);
 
-        assertThat(second.getBody().items()).extracting(item -> item.code())
+        Assertions.assertNotNull(second.getBody());
+        assertThat(second.getBody().items()).extracting(ExerciseListItem::code)
                 .containsExactly("PUSH_UP", "BURPEE");
         assertThat(second.getBody().nextCursor()).isNotNull();
 
@@ -100,7 +106,8 @@ class ExerciseListHttpIntegrationTest {
                 url("/api/v1/exercises?limit=2&cursor=" + second.getBody().nextCursor()),
                 HttpMethod.GET, null, ExerciseListResponse.class);
 
-        assertThat(third.getBody().items()).extracting(item -> item.code())
+        Assertions.assertNotNull(third.getBody());
+        assertThat(third.getBody().items()).extracting(ExerciseListItem::code)
                 .containsExactly("JUMPING_JACK", "PLANK");
         // Шестой элемент списка — JUMP_ROPE уже на первой странице; NO_STANDARD отфильтрован.
         assertThat(third.getBody().nextCursor()).isNull();
@@ -111,6 +118,7 @@ class ExerciseListHttpIntegrationTest {
         // Курсор страницы категории 1 нельзя использовать с фильтром категории 2.
         ResponseEntity<ExerciseListResponse> first = restTemplate.exchange(
                 url("/api/v1/exercises?category_id=1&limit=2"), HttpMethod.GET, null, ExerciseListResponse.class);
+        Assertions.assertNotNull(first.getBody());
         String cursor = first.getBody().nextCursor();
         assertThat(cursor).isNotNull();
 

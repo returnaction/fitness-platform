@@ -3,6 +3,8 @@ package io.github.returnaction.fitness.exercisecatalog.catalog.controller;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.github.returnaction.fitness.exercisecatalog.catalog.dto.ExerciseDetailResponse;
+import io.github.returnaction.fitness.exercisecatalog.catalog.dto.ExerciseVariationResponse;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.resttestclient.TestRestTemplate;
@@ -58,11 +60,12 @@ class ExerciseDetailHttpIntegrationTest {
 
         assertThat(response.getStatusCode().value()).isEqualTo(200);
         ExerciseDetailResponse detail = response.getBody();
+        Assertions.assertNotNull(detail);
         assertThat(detail.code()).isEqualTo("PUSH_UP");
         assertThat(detail.primaryMetric()).isEqualTo("REPETITIONS");
         assertThat(detail.unit()).isEqualTo("REP");
         // Только активные вариации, в порядке (sort_order, id), с инструкцией и пределами.
-        assertThat(detail.variations()).extracting(v -> v.code())
+        assertThat(detail.variations()).extracting(ExerciseVariationResponse::code)
                 .containsExactly("STANDARD", "ELEVATED_FEET", "NARROW", "WIDE", "KNEE");
         assertThat(detail.variations()).allSatisfy(v -> {
             assertThat(v.minTarget()).isPositive();
@@ -78,6 +81,7 @@ class ExerciseDetailHttpIntegrationTest {
                 url("/api/v1/exercises/6"), ExerciseDetailResponse.class);
 
         assertThat(response.getStatusCode().value()).isEqualTo(200);
+        Assertions.assertNotNull(response.getBody());
         assertThat(response.getBody().primaryMetric()).isEqualTo("DURATION");
         assertThat(response.getBody().unit()).isEqualTo("SECOND");
     }
