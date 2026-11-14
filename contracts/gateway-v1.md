@@ -33,7 +33,20 @@ Accounts владеет формой, ответами и бизнес-ошиб�
 метод, путь, тело и request_id, возвращает статус/тело и no-store. Поля профиля
 Gateway не валидирует. Маршрутизация и GET/PUT проверены сквозным сценарием Spec 014 T009.
 
-## Проверки и отказы
+## Контракт Coins (Spec 017; runtime ещё не реализован)
+
+`GET /api/v1/coins/me` требует JWT + CheckSession ACTIVE и пересылается в Coins
+по тому же пути с Authorization и X-Request-Id. Владелец ответа и ошибок —
+[Coins OpenAPI](openapi/coins-wallet-v1.yaml); Gateway подключает путь через `$ref`.
+Ответ содержит availableBalance/lockedBalance (integer/int64) и no-store.
+Coins извлекает claims по локальной модели доверия Accounts без повторной
+валидации подписи и сессии. userId и query string не принимаются.
+Ошибки Coins 500 wallet_invariant_violation, 500 internal_error и 503
+coins_unavailable передаются с единым телом ошибки и requestId. В OpenAPI
+`x-gateway-policy.upstream-errors` описывает ошибки upstream; `errors` сохраняет
+коды самого Gateway. Недоступный upstream (502) отличается от ответа Coins 503.
+
+## Проверки авторизации
 
 JWT: ES256/P-256, доверенные issuer/audience, обязательные UUID sub/sid/jti,
 iat/exp, срок не более 900 секунд. Тип roles проверяется по контракту 005;
