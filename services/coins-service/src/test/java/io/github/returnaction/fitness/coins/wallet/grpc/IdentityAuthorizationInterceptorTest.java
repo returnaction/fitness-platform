@@ -19,6 +19,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
 class IdentityAuthorizationInterceptorTest {
+
     private final IdentityAuthorizationInterceptor interceptor = new IdentityAuthorizationInterceptor();
 
     @Test
@@ -44,9 +45,7 @@ class IdentityAuthorizationInterceptorTest {
         when(certificate.getSubjectAlternativeNames())
                 .thenReturn(List.of(List.of(6, "spiffe://fitness.local/identity-service")));
         when(call.getAttributes())
-                .thenReturn(Attributes.newBuilder()
-                        .set(Grpc.TRANSPORT_ATTR_SSL_SESSION, session)
-                        .build());
+                .thenReturn(Attributes.newBuilder().set(Grpc.TRANSPORT_ATTR_SSL_SESSION, session).build());
         interceptor.interceptCall(call, new Metadata(), handler);
         verify(handler).startCall(any(), any());
     }
@@ -61,9 +60,7 @@ class IdentityAuthorizationInterceptorTest {
         when(certificate.getSubjectAlternativeNames())
                 .thenReturn(List.of(List.of(6, "spiffe://fitness.local/coins-service")));
         when(call.getAttributes())
-                .thenReturn(Attributes.newBuilder()
-                        .set(Grpc.TRANSPORT_ATTR_SSL_SESSION, session)
-                        .build());
+                .thenReturn(Attributes.newBuilder().set(Grpc.TRANSPORT_ATTR_SSL_SESSION, session).build());
         interceptor.interceptCall(call, new Metadata(), handler);
         verify(call).close(any(), any());
         verify(handler, never()).startCall(any(), any());

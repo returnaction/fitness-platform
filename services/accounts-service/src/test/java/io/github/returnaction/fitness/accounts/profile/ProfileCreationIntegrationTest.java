@@ -84,7 +84,7 @@ class ProfileCreationIntegrationTest {
 
             @Override
             public void createProfileIfAbsent(CreateProfileIfAbsentRequest request,
-                                              StreamObserver<CreateProfileIfAbsentResponse> observer) {
+                StreamObserver<CreateProfileIfAbsentResponse> observer) {
                 boolean drop = loseFirstResponse.getAndSet(false);
                 grpcService.createProfileIfAbsent(request, new StreamObserver<>() {
 
@@ -113,9 +113,7 @@ class ProfileCreationIntegrationTest {
                 .addService(faultInjectedService)
                 .build()
                 .start();
-        var channel = NettyChannelBuilder.forAddress("127.0.0.1", server.getPort())
-                .usePlaintext()
-                .build();
+        var channel = NettyChannelBuilder.forAddress("127.0.0.1", server.getPort()).usePlaintext().build();
         try {
             UUID userId = UUID.randomUUID();
             var request = CreateProfileIfAbsentRequest.newBuilder()
@@ -124,14 +122,11 @@ class ProfileCreationIntegrationTest {
                     .setRegistrationOperationId(UUID.randomUUID().toString())
                     .build();
             var stub = ProfileCreationServiceGrpc.newBlockingStub(channel).withDeadlineAfter(5, TimeUnit.SECONDS);
-            assertThatThrownBy(() -> stub.createProfileIfAbsent(request))
-                    .isInstanceOfSatisfying(
-                            StatusRuntimeException.class,
-                            error -> assertThat(error.getStatus().getCode()).isEqualTo(Status.Code.UNAVAILABLE));
+            assertThatThrownBy(() -> stub.createProfileIfAbsent(request)).isInstanceOfSatisfying(
+                    StatusRuntimeException.class,
+                    error -> assertThat(error.getStatus().getCode()).isEqualTo(Status.Code.UNAVAILABLE));
             String nickname = profile(userId).getNickname();
-            assertThat(stub.withDeadlineAfter(5, TimeUnit.SECONDS)
-                    .createProfileIfAbsent(request)
-                    .getStatus())
+            assertThat(stub.withDeadlineAfter(5, TimeUnit.SECONDS).createProfileIfAbsent(request).getStatus())
                     .isEqualTo(CreationStatus.CREATION_STATUS_READY);
             assertThat(profile(userId).getNickname()).isEqualTo(nickname);
             assertThat(profileCount(userId)).isOne();
@@ -148,20 +143,15 @@ class ProfileCreationIntegrationTest {
             port = socket.getLocalPort();
         }
         TestMtlsCertificates certificates = TestMtlsCertificates.create(certificateDirectory);
-        SecureGrpcServer server = new SecureGrpcServer(
-                grpcService,
-                "127.0.0.1",
-                port,
-                certificates.serverCertificate().toString(),
-                certificates.serverPrivateKey().toString(),
+        SecureGrpcServer server = new SecureGrpcServer(grpcService, "127.0.0.1", port,
+                certificates.serverCertificate().toString(), certificates.serverPrivateKey().toString(),
                 certificates.caCertificate().toString());
         server.start();
         try {
             var channel = NettyChannelBuilder.forAddress("localhost", port)
                     .sslContext(GrpcSslContexts.forClient()
                             .trustManager(certificates.caCertificate().toFile())
-                            .keyManager(
-                                    certificates.identityCertificate().toFile(),
+                            .keyManager(certificates.identityCertificate().toFile(),
                                     certificates.identityPrivateKey().toFile())
                             .build())
                     .build();
@@ -173,8 +163,7 @@ class ProfileCreationIntegrationTest {
                         .setRegistrationOperationId(operationId.toString())
                         .setRequestId(UUID.randomUUID().toString())
                         .build();
-                var stub = ProfileCreationServiceGrpc.newBlockingStub(channel)
-                        .withDeadlineAfter(5, TimeUnit.SECONDS);
+                var stub = ProfileCreationServiceGrpc.newBlockingStub(channel).withDeadlineAfter(5, TimeUnit.SECONDS);
                 assertThat(stub.createProfileIfAbsent(request).getStatus())
                         .isEqualTo(CreationStatus.CREATION_STATUS_READY);
                 assertThat(stub.createProfileIfAbsent(request).getStatus())
@@ -192,11 +181,8 @@ class ProfileCreationIntegrationTest {
     @Test
     void retriesWhenGeneratedNicknameIsAlreadyTaken() {
         UUID existing = UUID.randomUUID();
-        profileRepository.saveAndFlush(
-                new UserProfileEntity(existing, UUID.randomUUID(), "Player_000000000001"));
-        doReturn("Player_000000000001", "Player_000000000002")
-                .when(nicknameGenerator)
-                .generate();
+        profileRepository.saveAndFlush(new UserProfileEntity(existing, UUID.randomUUID(), "Player_000000000001"));
+        doReturn("Player_000000000001", "Player_000000000002").when(nicknameGenerator).generate();
         UUID userId = UUID.randomUUID();
         service.createIfAbsent(userId);
         assertThat(profile(userId).getNickname()).isEqualTo("Player_000000000002");
@@ -204,11 +190,10 @@ class ProfileCreationIntegrationTest {
 
     @Test
     void databaseRejectsCaseInsensitiveDuplicateNickname() {
-        profileRepository.saveAndFlush(
-                new UserProfileEntity(UUID.randomUUID(), UUID.randomUUID(), "UniqueNick"));
+        profileRepository.saveAndFlush(new UserProfileEntity(UUID.randomUUID(), UUID.randomUUID(), "UniqueNick"));
 
-        assertThatThrownBy(() -> profileRepository.saveAndFlush(
-                new UserProfileEntity(UUID.randomUUID(), UUID.randomUUID(), "uniquenick")))
+        assertThatThrownBy(() -> profileRepository
+                .saveAndFlush(new UserProfileEntity(UUID.randomUUID(), UUID.randomUUID(), "uniquenick")))
                 .isInstanceOf(DataIntegrityViolationException.class)
                 .satisfies(error -> assertThat(error.getCause().getMessage()).doesNotContain("uniquenick"));
     }

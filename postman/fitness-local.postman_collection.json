@@ -1,10 +1,15 @@
 {
   "info": {
-    "name": "Fitness Platform — локальная авторизация",
-    "description": "Auth через Gateway: регистрация, вход, refresh, выход и проверка отзыва. Реальные секреты не экспортировать. Недоступность Identity проверяется отдельно.",
+    "name": "Fitness Platform — локальная авторизация и профиль",
+    "description": "Auth и профиль через Gateway: регистрация, вход, refresh, просмотр и обновление профиля, выход и проверка отзыва. Реальные секреты не экспортировать. Недоступность Identity проверяется отдельно.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
+    {
+      "key": "profile_update_body",
+      "value": "",
+      "type": "string"
+    },
     {
       "key": "base_url",
       "value": "http://localhost:8088",
@@ -43,458 +48,24 @@
   ],
   "item": [
     {
-      "name": "1. Регистрация",
-      "event": [
-        {
-          "listen": "prerequest",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "if (!pm.collectionVariables.get('email')) {",
-              "  pm.collectionVariables.set('email', 'postman-' + pm.variables.replaceIn('{{$guid}}') + '@example.com');",
-              "}",
-              "if (!pm.collectionVariables.get('idempotency_key')) {",
-              "  pm.collectionVariables.set('idempotency_key', pm.variables.replaceIn('{{$guid}}'));",
-              "}",
-              "if (!pm.collectionVariables.get('password')) pm.collectionVariables.set('password', 'test-' + pm.variables.replaceIn('{{$guid}}'));"
-            ]
-          }
-        },
-        {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "if (pm.response.code === 201) {",
-              "  const session = pm.response.json().session;",
-              "  pm.collectionVariables.set('access_token', session.access_token);",
-              "  pm.collectionVariables.set('refresh_token', session.refresh_token);",
-              "}"
-            ]
-          }
-        },
-        {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
-              "pm.test('No store', () => pm.expect(pm.response.headers.get('Cache-Control')).to.include('no-store'));"
-            ]
-          }
-        }
-      ],
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          },
-          {
-            "key": "Idempotency-Key",
-            "value": "{{idempotency_key}}"
-          }
-        ],
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}",
-          "options": {
-            "raw": {
-              "language": "json"
-            }
-          }
-        },
-        "url": "{{base_url}}/api/v1/auth/register",
-        "description": "Создаёт пользователя, профиль, кошелёк и сессию. При 503 повторите запрос с тем же email, паролем и ключом. При 201 токены сохраняются в переменных коллекции."
-      }
-    },
-    {
-      "name": "2. Вход",
-      "event": [
-        {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "if (pm.response.code === 200) {",
-              "  const session = pm.response.json();",
-              "  pm.collectionVariables.set('access_token', session.access_token);",
-              "  pm.collectionVariables.set('refresh_token', session.refresh_token);",
-              "}"
-            ]
-          }
-        },
-        {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
-              "pm.test('No store', () => pm.expect(pm.response.headers.get('Cache-Control')).to.include('no-store'));"
-            ]
-          }
-        }
-      ],
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}",
-          "options": {
-            "raw": {
-              "language": "json"
-            }
-          }
-        },
-        "url": "{{base_url}}/api/v1/auth/login",
-        "description": "Использует сохранённые email и пароль. При ответе 200 обновляет токены в переменных коллекции."
-      }
-    },
-    {
-      "name": "3. Обновление токенов",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "url": "{{base_url}}/api/v1/auth/refresh",
-        "body": {
-          "mode": "raw",
-          "raw": "{\"refresh_token\":\"{{refresh_token}}\"}"
-        }
-      },
-      "event": [
-        {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
-              "pm.test('No store', () => pm.expect(pm.response.headers.get('Cache-Control')).to.include('no-store'));"
-            ]
-          }
-        },
-        {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "if (pm.response.code === 200) { const data = pm.response.json(); pm.collectionVariables.set('access_token', data.access_token); pm.collectionVariables.set('refresh_token', data.refresh_token); }"
-            ]
-          }
-        }
-      ]
-    },
-    {
-      "name": "4. Выход с устройства",
-      "event": [
-        {
-          "listen": "prerequest",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "pm.collectionVariables.set('revoked_access_token', pm.collectionVariables.get('access_token'));"
-            ]
-          }
-        },
-        {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "if (pm.response.code === 204) {",
-              "  pm.collectionVariables.unset('access_token');",
-              "  pm.collectionVariables.unset('refresh_token');",
-              "}"
-            ]
-          }
-        },
-        {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "pm.test('HTTP 204', () => pm.response.to.have.status(204));",
-              "pm.test('No store', () => pm.expect(pm.response.headers.get('Cache-Control')).to.include('no-store'));"
-            ]
-          }
-        }
-      ],
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"refresh_token\": \"{{refresh_token}}\"\n}",
-          "options": {
-            "raw": {
-              "language": "json"
-            }
-          }
-        },
-        "url": "{{base_url}}/api/v1/auth/logout",
-        "description": "Отзывает сессию по refresh-токену. После 204 сохранённые токены удаляются."
-      }
-    },
-    {
-      "name": "5. Отозванная сессия",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          },
-          {
-            "key": "Authorization",
-            "value": "Bearer {{revoked_access_token}}"
-          }
-        ],
-        "url": "{{base_url}}/api/v1/auth/logout-all"
-      },
-      "event": [
-        {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "pm.test('HTTP 401', () => pm.response.to.have.status(401));",
-              "pm.test('No store', () => pm.expect(pm.response.headers.get('Cache-Control')).to.include('no-store'));"
-            ]
-          }
-        }
-      ]
-    },
-    {
-      "name": "6. Повторный вход",
-      "event": [
-        {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "if (pm.response.code === 200) {",
-              "  const session = pm.response.json();",
-              "  pm.collectionVariables.set('access_token', session.access_token);",
-              "  pm.collectionVariables.set('refresh_token', session.refresh_token);",
-              "}"
-            ]
-          }
-        },
-        {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
-              "pm.test('No store', () => pm.expect(pm.response.headers.get('Cache-Control')).to.include('no-store'));"
-            ]
-          }
-        }
-      ],
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}",
-          "options": {
-            "raw": {
-              "language": "json"
-            }
-          }
-        },
-        "url": "{{base_url}}/api/v1/auth/login",
-        "description": "Использует сохранённые email и пароль. При ответе 200 обновляет токены в переменных коллекции."
-      }
-    },
-    {
-      "name": "7. Выход со всех устройств",
-      "event": [
-        {
-          "listen": "prerequest",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "pm.collectionVariables.set('revoked_access_token', pm.collectionVariables.get('access_token'));"
-            ]
-          }
-        },
-        {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "if (pm.response.code === 204) {",
-              "  pm.collectionVariables.unset('access_token');",
-              "  pm.collectionVariables.unset('refresh_token');",
-              "}"
-            ]
-          }
-        },
-        {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "pm.test('HTTP 204', () => pm.response.to.have.status(204));",
-              "pm.test('No store', () => pm.expect(pm.response.headers.get('Cache-Control')).to.include('no-store'));"
-            ]
-          }
-        }
-      ],
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Authorization",
-            "value": "Bearer {{access_token}}"
-          }
-        ],
-        "url": "{{base_url}}/api/v1/auth/logout-all",
-        "description": "Отзывает все активные сессии пользователя. После 204 сохранённые токены удаляются."
-      }
-    },
-    {
-      "name": "8. Все сессии отозваны",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          },
-          {
-            "key": "Authorization",
-            "value": "Bearer {{revoked_access_token}}"
-          }
-        ],
-        "url": "{{base_url}}/api/v1/auth/logout-all"
-      },
-      "event": [
-        {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "pm.test('HTTP 401', () => pm.response.to.have.status(401));",
-              "pm.test('No store', () => pm.expect(pm.response.headers.get('Cache-Control')).to.include('no-store'));"
-            ]
-          }
-        }
-      ]
-    },
-    {
-      "name": "9. Нет токена",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "url": "{{base_url}}/api/v1/auth/logout-all"
-      },
-      "event": [
-        {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "pm.test('HTTP 401', () => pm.response.to.have.status(401));",
-              "pm.test('No store', () => pm.expect(pm.response.headers.get('Cache-Control')).to.include('no-store'));"
-            ]
-          }
-        }
-      ]
-    },
-    {
-      "name": "10. Поддельный токен",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          },
-          {
-            "key": "Authorization",
-            "value": "Bearer synthetic-invalid-token"
-          }
-        ],
-        "url": "{{base_url}}/api/v1/auth/logout-all"
-      },
-      "event": [
-        {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "pm.test('HTTP 401', () => pm.response.to.have.status(401));",
-              "pm.test('No store', () => pm.expect(pm.response.headers.get('Cache-Control')).to.include('no-store'));"
-            ]
-          }
-        }
-      ]
-    },
-    {
-      "name": "11. Внутренний API закрыт",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "url": "{{base_url}}/api/v1/admin/identity/registration-operations/recover"
-      },
-      "event": [
-        {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "pm.test('HTTP 404', () => pm.response.to.have.status(404));",
-              "pm.test('No store', () => pm.expect(pm.response.headers.get('Cache-Control')).to.include('no-store'));"
-            ]
-          }
-        }
-      ]
-    },
-    {
-      "name": "12. Недоступность Identity (отдельно)",
+      "name": "Авторизация",
+      "description": "Регистрация, вход, обновление токенов и выход. Запрос «2. Вход» сохраняет токены для запросов профиля.",
       "item": [
         {
-          "name": "Активная сессия при недоступном Identity",
+          "name": "1. Регистрация",
           "event": [
             {
               "listen": "prerequest",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "if (pm.environment.get('run_outage') !== 'true') pm.execution.skipRequest();"
+                  "if (!pm.collectionVariables.get('email')) {",
+                  "  pm.collectionVariables.set('email', 'postman-' + pm.variables.replaceIn('{{$guid}}') + '@example.com');",
+                  "}",
+                  "if (!pm.collectionVariables.get('idempotency_key')) {",
+                  "  pm.collectionVariables.set('idempotency_key', pm.variables.replaceIn('{{$guid}}'));",
+                  "}",
+                  "if (!pm.collectionVariables.get('password')) pm.collectionVariables.set('password', 'test-' + pm.variables.replaceIn('{{$guid}}'));"
                 ]
               }
             },
@@ -503,8 +74,300 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('HTTP 503', () => pm.response.to.have.status(503));",
-                  "pm.test('Temporary failure', () => pm.expect(pm.response.json().error.code).to.eql('identity_unavailable'));"
+                  "if (pm.response.code === 201) {",
+                  "  const session = pm.response.json().session;",
+                  "  pm.collectionVariables.set('access_token', session.accessToken);",
+                  "  pm.collectionVariables.set('refresh_token', session.refreshToken);",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                  "pm.test('No store', () => pm.expect(pm.response.headers.get('Cache-Control')).to.include('no-store'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{idempotency_key}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{base_url}}/api/v1/auth/register",
+            "description": "Создаёт пользователя, профиль, кошелёк и сессию. При 503 повторите запрос с тем же email, паролем и ключом. При 201 токены сохраняются в переменных коллекции."
+          }
+        },
+        {
+          "name": "2. Вход",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const session = pm.response.json();",
+                  "  pm.collectionVariables.set('access_token', session.accessToken);",
+                  "  pm.collectionVariables.set('refresh_token', session.refreshToken);",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('No store', () => pm.expect(pm.response.headers.get('Cache-Control')).to.include('no-store'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{base_url}}/api/v1/auth/login",
+            "description": "Использует сохранённые email и пароль. При ответе 200 обновляет токены в переменных коллекции."
+          }
+        },
+        {
+          "name": "3. Обновление токенов",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/auth/refresh",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"refreshToken\":\"{{refresh_token}}\"}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('No store', () => pm.expect(pm.response.headers.get('Cache-Control')).to.include('no-store'));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) { const data = pm.response.json(); pm.collectionVariables.set('access_token', data.accessToken); pm.collectionVariables.set('refresh_token', data.refreshToken); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "4. Выход с устройства",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set('revoked_access_token', pm.collectionVariables.get('access_token'));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 204) {",
+                  "  pm.collectionVariables.unset('access_token');",
+                  "  pm.collectionVariables.unset('refresh_token');",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 204', () => pm.response.to.have.status(204));",
+                  "pm.test('No store', () => pm.expect(pm.response.headers.get('Cache-Control')).to.include('no-store'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refresh_token}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{base_url}}/api/v1/auth/logout",
+            "description": "Отзывает сессию по refresh-токену. После 204 сохранённые токены удаляются."
+          }
+        },
+        {
+          "name": "5. Отозванная сессия",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{revoked_access_token}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/auth/logout-all"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 401', () => pm.response.to.have.status(401));",
+                  "pm.test('No store', () => pm.expect(pm.response.headers.get('Cache-Control')).to.include('no-store'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "6. Повторный вход",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const session = pm.response.json();",
+                  "  pm.collectionVariables.set('access_token', session.accessToken);",
+                  "  pm.collectionVariables.set('refresh_token', session.refreshToken);",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('No store', () => pm.expect(pm.response.headers.get('Cache-Control')).to.include('no-store'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{base_url}}/api/v1/auth/login",
+            "description": "Использует сохранённые email и пароль. При ответе 200 обновляет токены в переменных коллекции."
+          }
+        },
+        {
+          "name": "7. Выход со всех устройств",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set('revoked_access_token', pm.collectionVariables.get('access_token'));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 204) {",
+                  "  pm.collectionVariables.unset('access_token');",
+                  "  pm.collectionVariables.unset('refresh_token');",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 204', () => pm.response.to.have.status(204));",
+                  "pm.test('No store', () => pm.expect(pm.response.headers.get('Cache-Control')).to.include('no-store'));"
                 ]
               }
             }
@@ -514,12 +377,239 @@
             "header": [
               {
                 "key": "Authorization",
-                "value": "Bearer {{outage_access_token}}"
+                "value": "Bearer {{access_token}}"
               }
             ],
             "url": "{{base_url}}/api/v1/auth/logout-all",
-            "description": "Получите access token до остановки Identity, задайте outage_access_token и run_outage=true в локальном environment. После проверки включите Identity. Не экспортируйте токены."
+            "description": "Отзывает все активные сессии пользователя. После 204 сохранённые токены удаляются."
           }
+        },
+        {
+          "name": "8. Все сессии отозваны",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{revoked_access_token}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/auth/logout-all"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 401', () => pm.response.to.have.status(401));",
+                  "pm.test('No store', () => pm.expect(pm.response.headers.get('Cache-Control')).to.include('no-store'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "9. Нет токена",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/auth/logout-all"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 401', () => pm.response.to.have.status(401));",
+                  "pm.test('No store', () => pm.expect(pm.response.headers.get('Cache-Control')).to.include('no-store'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "10. Поддельный токен",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer synthetic-invalid-token"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/auth/logout-all"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 401', () => pm.response.to.have.status(401));",
+                  "pm.test('No store', () => pm.expect(pm.response.headers.get('Cache-Control')).to.include('no-store'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "11. Внутренний API закрыт",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/admin/identity/registration-operations/recover"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 404', () => pm.response.to.have.status(404));",
+                  "pm.test('No store', () => pm.expect(pm.response.headers.get('Cache-Control')).to.include('no-store'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "12. Недоступность Identity (отдельно)",
+          "item": [
+            {
+              "name": "Активная сессия при недоступном Identity",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "if (pm.environment.get('run_outage') !== 'true') pm.execution.skipRequest();"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('HTTP 503', () => pm.response.to.have.status(503));",
+                      "pm.test('Temporary failure', () => pm.expect(pm.response.json().error.code).to.eql('identity_unavailable'));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{outage_access_token}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/v1/auth/logout-all",
+                "description": "Получите access token до остановки Identity, задайте outage_access_token и run_outage=true в локальном environment. После проверки включите Identity. Не экспортируйте токены."
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Профиль",
+      "description": "Перед запросами выполните «Авторизация → 2. Вход» или регистрацию. Если запускали проверки выхода, войдите повторно. Затем выполните просмотр и обновление профиля по порядку.",
+      "item": [
+        {
+          "name": "1. Просмотр своего профиля",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/accounts/me",
+            "description": "После регистрации или входа прочитайте профиль. Ответ целиком сохраняется в profile_update_body. В переменных коллекции измените нужные поля этого JSON перед запросом «2. Обновление своего профиля», сохранив все восемь полей и полученную version."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('No store', () => pm.expect(pm.response.headers.get('Cache-Control')).to.include('no-store'));",
+                  "if (pm.response.code === 200) {",
+                  "  pm.collectionVariables.set('profile_update_body', pm.response.text());",
+                  "} else {",
+                  "  pm.collectionVariables.unset('profile_update_body');",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "2. Обновление своего профиля",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/accounts/me",
+            "body": {
+              "mode": "raw",
+              "raw": "{{profile_update_body}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Сначала выполните «1. Просмотр своего профиля». В переменной profile_update_body измените nickname, firstName, lastName, bio, dateOfBirth, timezone или visibility. Все восемь полей, включая version, обязательны. При 200 сохраняется новый JSON с актуальной version. При 409 перечитайте профиль и согласуйте изменения вручную. Отправка без правок также увеличивает version."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('No store', () => pm.expect(pm.response.headers.get('Cache-Control')).to.include('no-store'));",
+                  "if (pm.response.code === 200) {",
+                  "  pm.collectionVariables.set('profile_update_body', pm.response.text());",
+                  "}"
+                ]
+              }
+            }
+          ]
         }
       ]
     }

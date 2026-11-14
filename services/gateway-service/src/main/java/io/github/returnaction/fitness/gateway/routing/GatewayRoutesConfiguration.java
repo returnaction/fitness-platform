@@ -28,8 +28,7 @@ public class GatewayRoutesConfiguration {
 
     private RouterFunction<ServerResponse> createRoute(GatewayRoute definition, UpstreamProperties upstreams) {
         String routeId = definition.method().name() + " " + definition.path();
-        return route(routeId)
-                .route(method(definition.method()).and(path(definition.path())), http())
+        return route(routeId).route(method(definition.method()).and(path(definition.path())), http())
                 .before(uri(upstreams.baseUrl(definition.upstream()).toString()))
                 .after((request, response) -> {
                     response.headers().set("X-Request-Id", RequestIdResolver.getOrCreate(request.servletRequest()));

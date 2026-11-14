@@ -49,12 +49,11 @@ public final class GrpcSessionVerificationClient implements SessionVerificationC
             return switch (response.getStatus()) {
                 case SESSION_STATUS_ACTIVE -> true;
                 case SESSION_STATUS_INVALID -> false;
-                default -> throw new SessionVerificationUnavailableException(
-                        "Unexpected session verification response");
+                default ->
+                    throw new SessionVerificationUnavailableException("Unexpected session verification response");
             };
         } catch (StatusRuntimeException exception) {
-            throw new SessionVerificationUnavailableException(
-                    "Session verification RPC failed", exception);
+            throw new SessionVerificationUnavailableException("Session verification RPC failed", exception);
         }
     }
 
@@ -62,8 +61,8 @@ public final class GrpcSessionVerificationClient implements SessionVerificationC
     public void close() {
         channel.shutdown();
         try {
-            boolean terminated = channel.awaitTermination(
-                    properties.shutdownTimeout().toMillis(), TimeUnit.MILLISECONDS);
+            boolean terminated = channel.awaitTermination(properties.shutdownTimeout().toMillis(),
+                    TimeUnit.MILLISECONDS);
             if (!terminated) {
                 channel.shutdownNow();
             }

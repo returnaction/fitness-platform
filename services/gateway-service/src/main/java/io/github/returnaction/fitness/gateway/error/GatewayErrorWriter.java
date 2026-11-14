@@ -16,14 +16,11 @@ public final class GatewayErrorWriter {
 
     private final ObjectMapper mapper;
 
-    public void write(HttpServletResponse response,
-                      int status,
-                      GatewayErrorCode error,
-                      String requestId) throws IOException {
+    public void write(HttpServletResponse response, int status, GatewayErrorCode error,
+        String requestId) throws IOException {
 
         if (response.isCommitted()) {
-            throw new IllegalStateException(
-                    "Cannot write an API error after response is committed");
+            throw new IllegalStateException("Cannot write an API error after response is committed");
         }
         var body = new ApiErrorResponse(
                 new ApiErrorResponse.Error(error.getCode(), error.getMessage(), List.of(), requestId));

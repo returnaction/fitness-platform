@@ -24,4 +24,5 @@ WORKDIR /app
 COPY --from=build /workspace/services/exercise-catalog-service/target/exercise-catalog-service-*.jar app.jar
 # EXPOSE документирует пример порта, но не задаёт SERVER_PORT.
 EXPOSE 8086
+USER 10001
 ENTRYPOINT ["java", "-jar", "/app/app.jar"]

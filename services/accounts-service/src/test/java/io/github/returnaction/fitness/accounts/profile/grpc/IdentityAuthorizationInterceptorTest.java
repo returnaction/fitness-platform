@@ -22,6 +22,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
 class IdentityAuthorizationInterceptorTest {
+
     private static final int URI_SAN_TYPE = 6;
     private final IdentityAuthorizationInterceptor interceptor = new IdentityAuthorizationInterceptor();
 
@@ -33,8 +34,7 @@ class IdentityAuthorizationInterceptorTest {
         interceptor.interceptCall(call, new Metadata(), handler);
         ArgumentCaptor<Status> status = ArgumentCaptor.forClass(Status.class);
         verify(call).close(status.capture(), any());
-        assertThat(status.getValue().getCode())
-                .isEqualTo(Status.Code.PERMISSION_DENIED);
+        assertThat(status.getValue().getCode()).isEqualTo(Status.Code.PERMISSION_DENIED);
         verify(handler, never()).startCall(any(), any());
     }
 
@@ -48,9 +48,7 @@ class IdentityAuthorizationInterceptorTest {
         when(certificate.getSubjectAlternativeNames())
                 .thenReturn(List.of(List.of(URI_SAN_TYPE, "spiffe://fitness.local/identity-service")));
         when(call.getAttributes())
-                .thenReturn(Attributes.newBuilder()
-                        .set(Grpc.TRANSPORT_ATTR_SSL_SESSION, session)
-                        .build());
+                .thenReturn(Attributes.newBuilder().set(Grpc.TRANSPORT_ATTR_SSL_SESSION, session).build());
         interceptor.interceptCall(call, new Metadata(), handler);
         verify(handler).startCall(any(), any());
     }
@@ -65,9 +63,7 @@ class IdentityAuthorizationInterceptorTest {
         when(certificate.getSubjectAlternativeNames())
                 .thenReturn(List.of(List.of(URI_SAN_TYPE, "spiffe://fitness.local/coins-service")));
         when(call.getAttributes())
-                .thenReturn(Attributes.newBuilder()
-                        .set(Grpc.TRANSPORT_ATTR_SSL_SESSION, session)
-                        .build());
+                .thenReturn(Attributes.newBuilder().set(Grpc.TRANSPORT_ATTR_SSL_SESSION, session).build());
         interceptor.interceptCall(call, new Metadata(), handler);
         verify(call).close(any(), any());
         verify(handler, never()).startCall(any(), any());
@@ -106,8 +102,7 @@ class IdentityAuthorizationInterceptorTest {
         SSLSession session = mock(SSLSession.class);
         X509Certificate certificate = mock(X509Certificate.class);
         when(session.getPeerCertificates()).thenReturn(new Certificate[]{certificate});
-        when(certificate.getSubjectAlternativeNames())
-                .thenReturn(List.of(List.of(2, "identity.example")));
+        when(certificate.getSubjectAlternativeNames()).thenReturn(List.of(List.of(2, "identity.example")));
         withSession(call, session);
 
         interceptor.interceptCall(call, new Metadata(), handler);

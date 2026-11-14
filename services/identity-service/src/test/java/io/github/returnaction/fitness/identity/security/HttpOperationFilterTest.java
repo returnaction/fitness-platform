@@ -15,9 +15,9 @@ import tools.jackson.databind.json.JsonMapper;
 
 class HttpOperationFilterTest {
 
-    private final HttpOperationFilter filter = new HttpOperationFilter(new MockEnvironment()
-            .withProperty("local.server.port", "8080")
-            .withProperty("local.management.port", "9080"),
+    private final HttpOperationFilter filter = new HttpOperationFilter(
+            new MockEnvironment().withProperty("local.server.port", "8080")
+                    .withProperty("local.management.port", "9080"),
             JsonMapper.builder().build());
 
     @Test
@@ -30,8 +30,8 @@ class HttpOperationFilterTest {
 
     @Test
     void deniesRecoveryUnknownOperationsAndManagementOnApiPort() throws Exception {
-        for (String path : List.of("/api/v1/admin/identity/registration-operations/123",
-                "/actuator/health", "/actuator/prometheus", "/unknown")) {
+        for (String path : List.of("/api/v1/admin/identity/registration-operations/123", "/actuator/health",
+                "/actuator/prometheus", "/unknown")) {
             assertDenied(request("GET", path));
         }
         assertDenied(request("GET", "/api/v1/auth/login"));

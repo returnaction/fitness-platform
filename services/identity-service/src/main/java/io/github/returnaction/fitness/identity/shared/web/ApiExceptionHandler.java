@@ -29,19 +29,15 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 @RestControllerAdvice
 public class ApiExceptionHandler {
 
-    @ExceptionHandler({
-            MethodArgumentTypeMismatchException.class,
-            HttpMessageNotReadableException.class,
-            InvalidIdempotencyKeyException.class,
-            MissingRequestHeaderException.class
-    })
+    @ExceptionHandler({MethodArgumentTypeMismatchException.class, HttpMessageNotReadableException.class,
+            InvalidIdempotencyKeyException.class, MissingRequestHeaderException.class})
     ResponseEntity<ApiErrorResponse> handleInvalidRequest(HttpServletRequest request) {
         return response(HttpStatus.BAD_REQUEST, "invalid_request", "Check the request format.", List.of(), request);
     }
 
     @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
     ResponseEntity<ApiErrorResponse> handleMethodNotAllowed(HttpRequestMethodNotSupportedException exception,
-                                                            HttpServletRequest request) {
+        HttpServletRequest request) {
         var builder = ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED);
         var supportedMethods = exception.getSupportedHttpMethods();
         if (supportedMethods != null && !supportedMethods.isEmpty()) {
@@ -52,7 +48,7 @@ public class ApiExceptionHandler {
 
     @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
     ResponseEntity<ApiErrorResponse> handleUnsupportedMediaType(HttpMediaTypeNotSupportedException exception,
-                                                                HttpServletRequest request) {
+        HttpServletRequest request) {
         return ResponseEntity.status(HttpStatus.UNSUPPORTED_MEDIA_TYPE)
                 .headers(exception.getHeaders())
                 .body(errorBody("unsupported_media_type", "Content type is not supported.", List.of(), request));
@@ -65,7 +61,7 @@ public class ApiExceptionHandler {
 
     @ExceptionHandler(AuthenticationFailureException.class)
     ResponseEntity<ApiErrorResponse> handleAuthenticationFailure(AuthenticationFailureException exception,
-                                                                 HttpServletRequest request) {
+        HttpServletRequest request) {
         HttpStatus status = switch (exception.reason()) {
             case INVALID_CREDENTIALS, INVALID_REFRESH -> HttpStatus.UNAUTHORIZED;
             case ACCOUNT_UNAVAILABLE, REFRESH_ACCOUNT_UNAVAILABLE -> HttpStatus.FORBIDDEN;
@@ -88,34 +84,28 @@ public class ApiExceptionHandler {
 
     @ExceptionHandler(InvalidAccessTokenException.class)
     ResponseEntity<ApiErrorResponse> handleInvalidAccess(InvalidAccessTokenException exception,
-                                                         HttpServletRequest request) {
+        HttpServletRequest request) {
         return response(HttpStatus.UNAUTHORIZED, "invalid_access_token", "Authentication required.", List.of(),
                 request);
     }
 
     @ExceptionHandler(RecoveryConflictException.class)
     ResponseEntity<ApiErrorResponse> handleRecoveryConflict(RecoveryConflictException exception,
-                                                            HttpServletRequest request) {
+        HttpServletRequest request) {
         HttpStatus status = "not_found".equals(exception.code()) ? HttpStatus.NOT_FOUND : HttpStatus.CONFLICT;
         return response(status, exception.code(), "Registration recovery could not be completed.", List.of(), request);
     }
 
-    @ExceptionHandler({
-            org.springframework.dao.DataAccessException.class,
-            org.springframework.transaction.TransactionException.class
-    })
+    @ExceptionHandler({org.springframework.dao.DataAccessException.class,
+            org.springframework.transaction.TransactionException.class})
     ResponseEntity<ApiErrorResponse> handleDatabaseFailure(Exception exception, HttpServletRequest request) {
-        return response(
-                HttpStatus.SERVICE_UNAVAILABLE,
-                "identity_unavailable",
-                "Identity service is unavailable.",
-                List.of(),
-                request);
+        return response(HttpStatus.SERVICE_UNAVAILABLE, "identity_unavailable", "Identity service is unavailable.",
+                List.of(), request);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     ResponseEntity<ApiErrorResponse> handleValidation(MethodArgumentNotValidException exception,
-                                                      HttpServletRequest request) {
+        HttpServletRequest request) {
         List<ApiErrorResponse.ErrorDetail> details = exception.getBindingResult()
                 .getFieldErrors()
                 .stream()
@@ -133,43 +123,33 @@ public class ApiExceptionHandler {
 
     @ExceptionHandler(RegistrationUnavailableException.class)
     ResponseEntity<ApiErrorResponse> handleRegistrationUnavailable(HttpServletRequest request) {
-        return response(
-                HttpStatus.SERVICE_UNAVAILABLE,
-                "registration_unavailable",
-                "Registration is being prepared.",
-                List.of(),
-                request);
+        return response(HttpStatus.SERVICE_UNAVAILABLE, "registration_unavailable", "Registration is being prepared.",
+                List.of(), request);
     }
 
     @ExceptionHandler(CredentialsValidationException.class)
     ResponseEntity<ApiErrorResponse> handleCredentialsValidation(CredentialsValidationException exception,
-                                                                 HttpServletRequest request) {
+        HttpServletRequest request) {
         List<ApiErrorResponse.ErrorDetail> details = exception.getViolations()
                 .stream()
                 .map(violation -> new ApiErrorResponse.ErrorDetail(violation.field(), violation.code()))
                 .toList();
-        return response(
-                HttpStatus.UNPROCESSABLE_CONTENT, "validation_error", "Check the submitted data.", details, request);
+        return response(HttpStatus.UNPROCESSABLE_CONTENT, "validation_error", "Check the submitted data.", details,
+                request);
     }
 
     @ExceptionHandler(RegistrationConflictException.class)
     ResponseEntity<ApiErrorResponse> handleRegistrationConflict(RegistrationConflictException exception,
-                                                                HttpServletRequest request) {
-        return response(
-                HttpStatus.CONFLICT,
-                exception.getCode(),
-                "Registration conflicts with existing data.",
-                List.of(),
-                request);
+        HttpServletRequest request) {
+        return response(HttpStatus.CONFLICT, exception.getCode(), "Registration conflicts with existing data.",
+                List.of(), request);
     }
 
     @ExceptionHandler(Exception.class)
     ResponseEntity<ApiErrorResponse> handleUnexpected(Exception exception, HttpServletRequest request) {
 
         String requestId = requestId(request);
-        log.error("Unhandled request failure, request_id={}, error_type={}",
-                requestId,
-                exception.getClass().getName());
+        log.error("Unhandled request failure, request_id={}, error_type={}", requestId, exception.getClass().getName());
         return response(HttpStatus.INTERNAL_SERVER_ERROR, "internal_error", "Unexpected server error.", List.of(),
                 request);
     }
@@ -178,40 +158,28 @@ public class ApiExceptionHandler {
         return new ApiErrorResponse.ErrorDetail(fieldError.getField(), "invalid");
     }
 
-    private ResponseEntity<ApiErrorResponse> response(HttpStatus status,
-                                                      String code,
-                                                      String message,
-                                                      List<ApiErrorResponse.ErrorDetail> details,
-                                                      HttpServletRequest request) {
+    private ResponseEntity<ApiErrorResponse> response(HttpStatus status, String code, String message,
+        List<ApiErrorResponse.ErrorDetail> details, HttpServletRequest request) {
 
         return ResponseEntity.status(status).body(errorBody(code, message, details, request));
     }
 
-    private ResponseEntity<ApiErrorResponse> response(HttpStatus status,
-                                                      String code,
-                                                      String message,
-                                                      List<ApiErrorResponse.ErrorDetail> details,
-                                                      HttpServletRequest request,
-                                                      String headerName,
-                                                      String headerValue) {
+    private ResponseEntity<ApiErrorResponse> response(HttpStatus status, String code, String message,
+        List<ApiErrorResponse.ErrorDetail> details, HttpServletRequest request, String headerName, String headerValue) {
 
         return ResponseEntity.status(status)
                 .header(headerName, headerValue)
                 .body(errorBody(code, message, details, request));
     }
 
-    private ApiErrorResponse errorBody(String code,
-                                       String message,
-                                       List<ApiErrorResponse.ErrorDetail> details,
-                                       HttpServletRequest request) {
+    private ApiErrorResponse errorBody(String code, String message, List<ApiErrorResponse.ErrorDetail> details,
+        HttpServletRequest request) {
 
         return new ApiErrorResponse(new ApiErrorResponse.Error(code, message, details, requestId(request)));
     }
 
     private String requestId(HttpServletRequest request) {
         Object requestId = request.getAttribute(RequestIdFilter.REQUEST_ID_ATTRIBUTE);
-        return requestId instanceof String value
-                ? value
-                : RequestIdResolver.parseOrGenerate(null).toString();
+        return requestId instanceof String value ? value : RequestIdResolver.parseOrGenerate(null).toString();
     }
 }

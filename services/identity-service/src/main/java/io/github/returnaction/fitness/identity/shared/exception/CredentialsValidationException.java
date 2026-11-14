@@ -17,6 +17,7 @@ public class CredentialsValidationException extends RuntimeException {
         this.violations = List.copyOf(violations);
     }
 
-    public record Violation(String field, String code) {
+    public record Violation(String field,
+                            String code) {
     }
 }

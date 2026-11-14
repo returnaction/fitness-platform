@@ -1,4 +1,4 @@
-FROM eclipse-temurin:25-jdk AS build
+FROM eclipse-temurin:25.0.5_8-jdk AS build
 
 WORKDIR /workspace
 COPY .mvn .mvn
@@ -19,9 +19,10 @@ RUN bash ./mvnw --batch-mode --no-transfer-progress -pl services/coins-service -
 COPY services/coins-service services/coins-service
 RUN bash ./mvnw --batch-mode --no-transfer-progress -pl services/coins-service -am package -DskipTests
 
-FROM eclipse-temurin:25-jre
+FROM eclipse-temurin:25.0.5_8-jre
 
 WORKDIR /app
 COPY --from=build /workspace/services/coins-service/target/coins-service-*.jar app.jar
 EXPOSE 8082
+USER 10001
 ENTRYPOINT ["java", "-jar", "/app/app.jar"]

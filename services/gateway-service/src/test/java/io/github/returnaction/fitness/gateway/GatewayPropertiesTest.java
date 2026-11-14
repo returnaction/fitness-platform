@@ -18,8 +18,7 @@ class GatewayPropertiesTest {
             .withPropertyValues("gateway.request.timeout=3s",
                     "gateway.upstreams.services.IDENTITY.base-url=http://localhost:8081",
                     "gateway.security.access-token.jwks-uri=http://localhost/keys",
-                    "gateway.security.access-token.issuer=identity",
-                    "gateway.security.access-token.audience=gateway",
+                    "gateway.security.access-token.issuer=identity", "gateway.security.access-token.audience=gateway",
                     "gateway.security.session-verification.host=localhost",
                     "gateway.security.session-verification.port=9091",
                     "gateway.security.session-verification.trust-certificate=test/ca.crt",
@@ -34,16 +33,12 @@ class GatewayPropertiesTest {
 
     @Test
     void rejectsInvalidSettings() {
-        for (String property : new String[]{
-                "gateway.request.timeout=0s",
-                "gateway.request.timeout=999999999999d",
-                "gateway.security.access-token.issuer=",
-                "gateway.security.access-token.jwks-uri=file:/keys",
+        for (String property : new String[]{"gateway.request.timeout=0s", "gateway.request.timeout=999999999999d",
+                "gateway.security.access-token.issuer=", "gateway.security.access-token.jwks-uri=file:/keys",
                 "gateway.security.session-verification.port=65536",
                 "gateway.security.session-verification.shutdown-timeout=-1s",
                 "gateway.upstreams.services.IDENTITY.base-url=http://localhost/path",
-                "gateway.upstreams.services.IDENTITY.base-url=http://user:password@localhost"
-        }) {
+                "gateway.upstreams.services.IDENTITY.base-url=http://user:password@localhost"}) {
             runner.withPropertyValues(property).run(context -> assertThat(context).hasFailed());
         }
     }

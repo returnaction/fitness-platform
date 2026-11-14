@@ -30,28 +30,23 @@ public class SessionVerificationGrpcService extends IdentitySessionServiceGrpc.I
             user = canonicalUuid(request.getUserId());
             session = canonicalUuid(request.getSessionId());
         } catch (IllegalArgumentException exception) {
-            observer.onError(
-                    Status.INVALID_ARGUMENT.withDescription("Invalid UUID").asRuntimeException());
+            observer.onError(Status.INVALID_ARGUMENT.withDescription("Invalid UUID").asRuntimeException());
             return;
         }
         try {
             var result = repository.check(user, session);
             var time = result.checkedAt();
             observer.onNext(CheckSessionResponse.newBuilder()
-                    .setStatus(
-                            result.active()
-                                    ? SessionStatus.SESSION_STATUS_ACTIVE
-                                    : SessionStatus.SESSION_STATUS_INVALID)
-                    .setCheckedAt(Timestamp.newBuilder()
-                            .setSeconds(time.getEpochSecond())
-                            .setNanos(time.getNano())
-                            .build())
+                    .setStatus(result.active()
+                            ? SessionStatus.SESSION_STATUS_ACTIVE
+                            : SessionStatus.SESSION_STATUS_INVALID)
+                    .setCheckedAt(
+                            Timestamp.newBuilder().setSeconds(time.getEpochSecond()).setNanos(time.getNano()).build())
                     .build());
             observer.onCompleted();
         } catch (DataAccessException | TransactionException exception) {
-            observer.onError(Status.UNAVAILABLE
-                    .withDescription("Session verification unavailable")
-                    .asRuntimeException());
+            observer.onError(
+                    Status.UNAVAILABLE.withDescription("Session verification unavailable").asRuntimeException());
         }
     }
 

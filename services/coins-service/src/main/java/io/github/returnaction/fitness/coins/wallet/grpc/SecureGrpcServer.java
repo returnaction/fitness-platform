@@ -22,12 +22,10 @@ public final class SecureGrpcServer implements SmartLifecycle {
     private final Server server;
     private volatile boolean running;
 
-    public SecureGrpcServer(WalletCreationGrpcService service,
-                            @Value("${coins.grpc.address}") String address,
-                            @Value("${coins.grpc.port}") int port,
-                            @Value("${coins.grpc.certificate}") String certificate,
-                            @Value("${coins.grpc.private-key}") String privateKey,
-                            @Value("${coins.grpc.trust-certificate}") String trustCertificate) throws IOException {
+    public SecureGrpcServer(WalletCreationGrpcService service, @Value("${coins.grpc.address}") String address,
+        @Value("${coins.grpc.port}") int port, @Value("${coins.grpc.certificate}") String certificate,
+        @Value("${coins.grpc.private-key}") String privateKey,
+        @Value("${coins.grpc.trust-certificate}") String trustCertificate) throws IOException {
         if (port < 1 || port > 65535 || address.isBlank()) {
             throw new IllegalArgumentException("Invalid gRPC address or port");
         }

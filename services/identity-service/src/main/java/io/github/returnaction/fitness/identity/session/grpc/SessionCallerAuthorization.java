@@ -22,10 +22,8 @@ public final class SessionCallerAuthorization implements ServerInterceptor {
     }
 
     @Override
-    public <ReqT, RespT> ServerCall.Listener<ReqT> interceptCall(
-                                                                 ServerCall<ReqT, RespT> call,
-                                                                 Metadata headers,
-                                                                 ServerCallHandler<ReqT, RespT> next) {
+    public <ReqT, RespT> ServerCall.Listener<ReqT> interceptCall(ServerCall<ReqT, RespT> call, Metadata headers,
+        ServerCallHandler<ReqT, RespT> next) {
         var session = call.getAttributes().get(Grpc.TRANSPORT_ATTR_SSL_SESSION);
         if (session == null) {
             call.close(Status.UNAUTHENTICATED.withDescription("Client authentication required"), new Metadata());
@@ -36,11 +34,9 @@ public final class SessionCallerAuthorization implements ServerInterceptor {
             var chain = session.getPeerCertificates();
             if (chain.length > 0 && chain[0] instanceof X509Certificate certificate) {
                 var names = certificate.getSubjectAlternativeNames();
-                if (names != null
-                        && names.stream()
-                                .anyMatch(name -> name.size() >= 2
-                                        && Integer.valueOf(6).equals(name.get(0))
-                                        && allowedCaller.equals(name.get(1)))) {
+                if (names != null && names.stream()
+                        .anyMatch(name -> name.size() >= 2 && Integer.valueOf(6).equals(name.get(0))
+                                && allowedCaller.equals(name.get(1)))) {
                     return next.startCall(call, headers);
                 }
             }

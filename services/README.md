@@ -12,7 +12,7 @@ Current modules:
 - `coins-service/` — owns wallets and implements `CreateWalletIfAbsent`.
 
 Accounts and Coins always start their internal gRPC servers with mandatory mTLS.
-Prepare the certificates using [local step-ca](../platform/step-ca/README.md)
+Prepare the certificates using the [local setup instructions](../LOCAL-SETUP.md)
 and configure the paths in each service's `.env`. Missing or invalid TLS
 materials prevent startup. The removed `COINS_GRPC_ENABLED` setting no longer
 disables the server.

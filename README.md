@@ -1,5 +1,7 @@
 # Fitness Platform
 
+[Локальный запуск на Windows](LOCAL-SETUP.md)
+
 The future fitness platform consists of a Flutter mobile application and Java /
 Spring Boot services. Its architecture and agreed product rules are documented
 in [System Design](system-design/README.md).
@@ -38,10 +40,11 @@ Run the documentation link check with:
 
 ## Local Identity configuration
 
-Create the ignored local configuration file once:
+From the repository root, prepare the local environment files for all services
+with an `.env.example` template:
 
 ```powershell
-.\scripts\initialize-identity-local-env.ps1
+.\scripts\initialize-local-env.ps1
 ```
 
 Then set the real `DATABASE_PASSWORD` in

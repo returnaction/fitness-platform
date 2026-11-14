@@ -33,9 +33,8 @@ public final class RecoveryAuthenticationFilter extends OncePerRequestFilter {
     }
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request,
-                                    HttpServletResponse response,
-                                    FilterChain chain) throws ServletException, IOException {
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
+        FilterChain chain) throws ServletException, IOException {
         String authorization = request.getHeader("Authorization");
         if (authorization == null || !authorization.startsWith("Bearer ") || authorization.length() <= 7) {
             fail(request, response, 401, "invalid_access_token", "Authentication required.");
@@ -43,19 +42,15 @@ public final class RecoveryAuthenticationFilter extends OncePerRequestFilter {
         }
         try {
             var userId = verifier.verify(authorization.substring(7));
-            var auth = new UsernamePasswordAuthenticationToken(
-                    userId, null, List.of(new SimpleGrantedAuthority("identity.registration.recover")));
+            var auth = new UsernamePasswordAuthenticationToken(userId, null,
+                    List.of(new SimpleGrantedAuthority("identity.registration.recover")));
             SecurityContextHolder.getContext().setAuthentication(auth);
         } catch (InvalidAccessTokenException exception) {
             fail(request, response, 401, "invalid_access_token", "Authentication required.");
             return;
         } catch (RecoveryAccessException exception) {
             boolean forbidden = "forbidden".equals(exception.code());
-            fail(
-                    request,
-                    response,
-                    forbidden ? 403 : 401,
-                    exception.code(),
+            fail(request, response, forbidden ? 403 : 401, exception.code(),
                     forbidden ? "Access denied." : "Authentication required.");
             return;
         } catch (DataAccessException | TransactionException exception) {
@@ -65,17 +60,14 @@ public final class RecoveryAuthenticationFilter extends OncePerRequestFilter {
         chain.doFilter(request, response);
     }
 
-    private void fail(HttpServletRequest request,
-                      HttpServletResponse response,
-                      int status,
-                      String code,
-                      String message) throws IOException {
+    private void fail(HttpServletRequest request, HttpServletResponse response, int status, String code,
+        String message) throws IOException {
         Object id = request.getAttribute(RequestIdFilter.REQUEST_ID_ATTRIBUTE);
         response.setStatus(status);
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
         response.getWriter()
                 .write("{\"error\":{\"code\":\"" + code + "\",\"message\":\"" + message
-                        + "\",\"details\":[],\"request_id\":\"" + id + "\"}}");
+                        + "\",\"details\":[],\"requestId\":\"" + id + "\"}}");
     }
 }

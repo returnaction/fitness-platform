@@ -23,12 +23,10 @@ public final class SecureGrpcServer implements SmartLifecycle {
     private final Server server;
     private volatile boolean running;
 
-    public SecureGrpcServer(ProfileCreationGrpcService service,
-                            @Value("${accounts.grpc.address}") String address,
-                            @Value("${accounts.grpc.port}") int port,
-                            @Value("${accounts.grpc.certificate}") String certificate,
-                            @Value("${accounts.grpc.private-key}") String privateKey,
-                            @Value("${accounts.grpc.trust-certificate}") String trustCertificate) throws IOException {
+    public SecureGrpcServer(ProfileCreationGrpcService service, @Value("${accounts.grpc.address}") String address,
+        @Value("${accounts.grpc.port}") int port, @Value("${accounts.grpc.certificate}") String certificate,
+        @Value("${accounts.grpc.private-key}") String privateKey,
+        @Value("${accounts.grpc.trust-certificate}") String trustCertificate) throws IOException {
 
         if (port < 1 || port > 65535 || address.isBlank()) {
             throw new IllegalArgumentException("Invalid gRPC address or port");

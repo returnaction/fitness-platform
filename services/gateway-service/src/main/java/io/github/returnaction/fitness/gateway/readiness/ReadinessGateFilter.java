@@ -22,9 +22,8 @@ public final class ReadinessGateFilter extends OncePerRequestFilter {
     private final GatewayErrorWriter errors;
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request,
-                                    HttpServletResponse response,
-                                    FilterChain chain) throws ServletException, IOException {
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
+        FilterChain chain) throws ServletException, IOException {
         if (!management.matches(request) && !keys.ready()) {
             errors.write(response, 503, GatewayErrorCode.IDENTITY_UNAVAILABLE, RequestIdResolver.getOrCreate(request));
             return;

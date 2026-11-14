@@ -19,10 +19,8 @@ import tools.jackson.databind.json.JsonMapper;
 public class SecurityConfiguration {
 
     @Bean
-    SecurityFilterChain securityFilterChain(HttpSecurity http,
-                                            Environment environment,
-                                            JsonMapper mapper,
-                                            @Qualifier("handlerExceptionResolver") HandlerExceptionResolver exceptionResolver) throws Exception {
+    SecurityFilterChain securityFilterChain(HttpSecurity http, Environment environment, JsonMapper mapper,
+        @Qualifier("handlerExceptionResolver") HandlerExceptionResolver exceptionResolver) throws Exception {
         return http.csrf(AbstractHttpConfigurer::disable)
                 .httpBasic(AbstractHttpConfigurer::disable)
                 .formLogin(AbstractHttpConfigurer::disable)
@@ -33,10 +31,7 @@ public class SecurityConfiguration {
                 .addFilterBefore(new LogoutAllAuthenticationFilter(exceptionResolver),
                         UsernamePasswordAuthenticationFilter.class)
                 .authorizeHttpRequests(authorization -> authorization
-                        .requestMatchers(
-                                "/actuator/health",
-                                "/actuator/health/**",
-                                "/actuator/info",
+                        .requestMatchers("/actuator/health", "/actuator/health/**", "/actuator/info",
                                 "/actuator/prometheus")
                         .permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/register")

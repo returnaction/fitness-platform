@@ -4,6 +4,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../core/network/identity_api_client.dart';
 import '../../core/security/token_storage.dart';
+import '../profile/profile_store.dart';
 import 'auth_repository.dart';
 import 'session_operation_coordinator.dart';
 
@@ -22,6 +23,13 @@ final authRepositoryProvider = Provider<AuthRepository>(
     ref.watch(identityApiClientProvider),
     ref.watch(tokenStorageProvider),
     ref.watch(sessionOperationCoordinatorProvider),
+    invalidateSessionData: ref.watch(profileStoreProvider).invalidate,
+    clearSessionData: ref.watch(profileStoreProvider).clear,
+    onRequestSessionFailure: (result, generation) {
+      if (ref.mounted) {
+        ref.read(authControllerProvider.notifier).handleRequestSessionFailure(result, generation);
+      }
+    },
   ),
 );
 
@@ -41,6 +49,20 @@ class AuthController extends AsyncNotifier<AuthStatus> {
   @override
   Future<AuthStatus> build() async {
     return _restore();
+  }
+
+  void handleRequestSessionFailure(SessionRestoreResult result, int generation) {
+    if (!ref.mounted ||
+        ref.read(authRepositoryProvider).sessionGeneration != generation ||
+        state.asData?.value != AuthStatus.authenticated) {
+      return;
+    }
+    if (result == SessionRestoreResult.guest || result == SessionRestoreResult.storageFailure) {
+      _operationId++;
+      state = AsyncData(result == SessionRestoreResult.guest
+          ? AuthStatus.guest : AuthStatus.storageFailure);
+    }
+    // A temporary refresh outage leaves the current form and session intact.
   }
 
   Future<void> restore() async {

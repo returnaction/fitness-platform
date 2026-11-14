@@ -31,9 +31,7 @@ public class RegistrationRecoveryService {
     @Transactional
     public State resume(UUID operationId, UUID actorUserId, long expectedVersion, String reason) {
         Objects.requireNonNull(actorUserId, "actorUserId");
-        if (expectedVersion < 1
-                || reason == null
-                || reason.isBlank()
+        if (expectedVersion < 1 || reason == null || reason.isBlank()
                 || reason.codePointCount(0, reason.length()) > 500) {
             throw new IllegalArgumentException("Invalid recovery request");
         }
@@ -56,7 +54,10 @@ public class RegistrationRecoveryService {
         return new State(row.operationId(), row.status(), row.version(), row.recoveryBlockedAt(), row.lastErrorCode());
     }
 
-    public record State(
-            UUID operationId, String status, long version, Instant recoveryBlockedAt, String lastErrorCode) {
+    public record State(UUID operationId,
+                        String status,
+                        long version,
+                        Instant recoveryBlockedAt,
+                        String lastErrorCode) {
     }
 }

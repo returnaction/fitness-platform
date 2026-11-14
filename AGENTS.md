@@ -4,76 +4,62 @@ This root file applies to the entire repository, including the
 [System Design documentation](system-design/README.md). More specific
 instructions in nested directories supplement the root instructions.
 
-## Active SDD Scope: 013-pending
+## SDD Scope and Workflow
 
-Until the user explicitly changes the scope, a request to continue development
-means continuing [013-pending](specs/013-pending/spec.md).
-Do not start implementing another feature or a system-design roadmap item just
-because it exists in the documentation. When the specification is complete or
-all remaining tasks are blocked, report the status and ask the user what to do
-next rather than choosing a different feature.
+No specification is currently active. Completed specifications remain in `specs/`
+as historical requirements and verification records; they do not authorize new work.
+When the user selects the next specification, fill in the scope template below.
+Do not choose a feature or a system-design roadmap item on the user's behalf.
 
-Before each development step:
+### Scope template for the next specification
 
-1. Read the current [task list](specs/013-pending/tasks.md),
-   [specification](specs/013-pending/spec.md), and
-   [plan](specs/013-pending/plan.md). Identify an open task, its
-   acceptance criteria, and any dependencies. Respect an explicit user request
-   and the current branch; do not assume the first unchecked item is always
-   actionable.
+- **Specification:** not selected; directory format: `specs/<number>-<name>/`.
+- **Branch:** not selected; follow the Git Branches rules below.
+- **Status:** not started; use the specification's actual status once selected.
+- **Goal and acceptance criteria:** record in `spec.md`.
+- **Included scope:** record the agreed services, APIs, clients and deliverables.
+- **Excluded scope:** record explicit exclusions and agreed limitations.
+- **Plan and tasks:** link to `plan.md` and `tasks.md` in the selected directory.
+- **Verification:** record required checks and evidence in `verification.md`.
+- **Authorized work:** record whether the user authorized preparation, specific
+  tasks or continued implementation. Approval of requirements alone does not
+  authorize implementation.
+- **Execution mode:** after each task, report evidence and stop for review unless
+  the user explicitly authorizes continued work.
+- **Questions and decisions:** record in `questions.md`, with affected tasks,
+  evidence, options, recommendation and any blocked scope.
+
+Replace these placeholders only with information established by the user or
+verified in the repository. Do not create a specification or branch merely to
+fill in the template. Once the selected specification is complete, clear its
+active scope here and keep its history in its own directory.
+
+### Before each authorized development step
+
+1. Read `spec.md`, `plan.md` and `tasks.md` in the active specification directory.
+   Identify the requested task, its acceptance criteria and dependencies.
+   Respect the user's request and the current branch; do not assume the first
+   unchecked item is always actionable.
 2. Tell the user which task is being addressed and why. Inspect the relevant
-   code, tests, contracts, configuration, and migrations before editing.
-3. Consult `system-design` when it provides context or a referenced decision
-   for that task. It is not an independent queue of implementation tasks.
-   Do not expand scope based on it. Explain contradictions, propose a
-   resolution, and ask the user when a material product decision is needed.
-4. Implement and verify the selected task and its necessary dependencies.
+   code, tests, contracts, configuration and migrations before editing.
+3. Consult `system-design` for relevant context or referenced decisions. It is
+   not an independent implementation queue. Explain contradictions and ask
+   the user when a material product decision is needed.
+4. Implement and verify only the authorized task and its necessary dependencies.
    Record meaningful newly discovered gaps in the task list; do not silently
    treat them as completed or launch unrelated work.
-5. Update the task list using evidence: check an item only when its whole scope
-   has been implemented and verified. Keep partial, skipped, or unverified work
-   open, splitting tasks where useful. Keep linked PR statuses accurate when
-   their state can be verified.
-6. Report the changes, checks and their limitations, remaining work, and the
-   next task tied to the specification. Continue with another in-scope task
-   when the user has authorized continued work and no intervention is needed.
+5. Check a task only when its whole agreed scope has been implemented and
+   verified. Keep partial or unverified work open; record skipped checks and
+   their implications. Keep linked PR statuses accurate when verifiable.
+6. Report changes, checks, limitations and remaining work. Follow the agreed
+   execution mode. When the specification is complete or all remaining tasks
+   are blocked, report the status and ask what to do next rather than choosing
+   another feature.
 
-### Spec 013 execution scope
-
-- The agreed local Spec 013 scope is complete through T007. T003 is cancelled;
-  Docker/server preparation (T008), Content-Encoding and unrelated follow-ups
-  remain outside scope. Do not start them automatically. Verification evidence
-  is in tasks.md and verification-t006.md; commits remain user-controlled.
-
-- Do not begin implementation until the user explicitly gives the start command.
-- The current request authorizes drafting Spec 013 for service access protection
-  and Identity pre-authentication on `39-gateway-refactor`, created from main.
-  Its directory remains `specs/013-pending`; read its current requirements.
-- Spec 013 scope and plan were approved after grilling on 2026-11-12; implementation requires
-  the user's explicit start command. Local services run as Java processes;
-  the future server deployment uses containers. Do not claim server protection
-  based only on local tests. Content-Encoding work is deferred by the user.
-- The user authorized T002 implementation. After completing each task, report
-  the changes and verification, then stop for user review. Do not commit or
-  start the next task without the user's next instruction.
-- Latest user decision: HTTP without HTTPS/client certificates for Identity.
-  Preserve existing gRPC mTLS. T003 HTTP mTLS is cancelled. Identity logout-all
-  work (T004–T007) is active in the plan: local HTTP trusts Gateway by assumption,
-  without authenticating the HTTP caller. Local bypass protection is not required
-  for this stage; do not claim server security. Do not prepare Docker deployment.
-  The user authorized Identity logout-all implementation and tests. Keep
-  SecurityContext with the UUID principal and no roles; retain authenticated()
-  and administrative AccessTokenVerifier. Report results and stop without committing.
-- Previous specifications' commit authorizations do not carry over to Spec 013.
-  Commits, push, merge, deployment and user-database migrations require
-  explicit authorization.
-- Record questions that genuinely require the user in
-  [questions.md](specs/013-pending/questions.md), with affected task,
-  evidence, options, recommendation, and blocked scope. Continue independent
-  tasks; do not guess product decisions or mark blocked work complete.
-- If every remaining task depends on user input or unavailable external access,
-  record the blockers and report the incomplete status. The goal of completion
-  does not authorize bypassing permissions or claiming unverified success.
+Commits, push, merge, deploy and user-database migrations require explicit
+user authorization. Authorization from a previous specification does not
+carry over. Preserve existing user changes and established security guarantees;
+label assumptions and unverified protection as such.
 
 ## Project and Technology
 
@@ -153,18 +139,3 @@ authorizations, fields, examples, errors, versions, idempotency, transactions,
 and failure handling. Update related documents when a contract changes.
 Check `.drawio` diagrams structurally; claim visual verification only when it
 has actually been performed.
-
-## Verification and Communication
-
-Test business rules and key errors, permissions, retries, and races. For
-important database operations, use PostgreSQL integration tests; verify
-migrations, contracts, and messaging with suitable integration tests. Run the
-project's existing build, formatter, static analysis, and tests as relevant to
-the task. When changing documentation only, check links and consistency; do
-not automatically run a build without a reason. Do not describe unverified
-work as working.
-
-Explain things to the user in Russian and in plain language. Do not repeat
-already made decisions as questions; propose solutions for technical details.
-Confirm material changes to business rules. In the result, state what changed,
-what was verified, and what limitations remain.

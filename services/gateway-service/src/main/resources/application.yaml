@@ -11,7 +11,7 @@ spring:
           form-filter:
             enabled: false
   jackson:
-    property-naming-strategy: SNAKE_CASE
+    property-naming-strategy: LOWER_CAMEL_CASE
   application:
     name: gateway-service
   profiles:
@@ -47,11 +47,13 @@ management:
 
 gateway:
   request:
-    timeout: 3s
+    timeout: 7s
   upstreams:
     services:
       IDENTITY:
         base-url: ${IDENTITY_HTTP_BASE_URL}
+      ACCOUNT:
+        base-url: ${ACCOUNT_HTTP_BASE_URL}
   security:
     jwks-startup:
       attempt-timeout: 3s

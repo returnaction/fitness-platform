@@ -21,9 +21,8 @@ public final class RequestDeadlineFilter extends OncePerRequestFilter {
     private final RequestTimeoutProperties properties;
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request,
-                                    HttpServletResponse response,
-                                    FilterChain chain) throws ServletException, IOException {
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
+        FilterChain chain) throws ServletException, IOException {
         if (request.getAttribute(DEADLINE_ATTRIBUTE) == null) {
             request.setAttribute(DEADLINE_ATTRIBUTE, RequestDeadline.start(properties.timeout()));
         }

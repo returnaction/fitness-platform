@@ -1,4 +1,17 @@
 spring:
+  jackson:
+    deserialization:
+      fail-on-unknown-properties: true
+      accept-float-as-int: false
+      fail-on-null-creator-properties: false
+    datatype:
+      enum:
+        fail-on-numbers-for-enums: true
+        read-unknown-enum-values-as-null: false
+        read-unknown-enum-values-using-default-value: false
+    mapper:
+      allow-coercion-of-scalars: false
+      accept-case-insensitive-enums: false
   application:
     name: accounts-service
   autoconfigure:

@@ -4,7 +4,9 @@ import io.github.returnaction.fitness.identity.registration.entity.user.UserStat
 import java.util.UUID;
 
 /** Данные, необходимые для входа; хеш пароля не выводится в логах. */
-public record LoginUser(UUID id, UserStatus status, String passwordHash) {
+public record LoginUser(UUID id,
+                        UserStatus status,
+                        String passwordHash) {
 
     @Override
     public String toString() {

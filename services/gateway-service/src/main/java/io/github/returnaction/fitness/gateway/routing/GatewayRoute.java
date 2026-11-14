@@ -3,7 +3,10 @@ package io.github.returnaction.fitness.gateway.routing;
 import java.util.Objects;
 import org.springframework.http.HttpMethod;
 
-public record GatewayRoute(HttpMethod method, String path, UpstreamId upstream, RouteAccess access) {
+public record GatewayRoute(HttpMethod method,
+                           String path,
+                           UpstreamId upstream,
+                           RouteAccess access) {
 
     public GatewayRoute {
         Objects.requireNonNull(method, "Route method is required");

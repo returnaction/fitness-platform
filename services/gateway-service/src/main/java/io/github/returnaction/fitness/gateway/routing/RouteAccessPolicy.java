@@ -36,8 +36,7 @@ public final class RouteAccessPolicy {
         List<RequestMatcher> matchers = GatewayRouteCatalog.routes()
                 .stream()
                 .filter(definition -> definition.access() == access)
-                .map(definition -> (RequestMatcher) paths.matcher(
-                        definition.method(), definition.path()))
+                .map(definition -> (RequestMatcher) paths.matcher(definition.method(), definition.path()))
                 .toList();
         return matchers.isEmpty() ? request -> false : new OrRequestMatcher(matchers);
     }

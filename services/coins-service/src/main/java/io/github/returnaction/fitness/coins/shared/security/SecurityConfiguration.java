@@ -18,8 +18,8 @@ public class SecurityConfiguration {
                 .logout(AbstractHttpConfigurer::disable)
                 .sessionManagement(sessions -> sessions.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(authorization -> authorization
-                        .requestMatchers(
-                                "/actuator/health", "/actuator/health/**", "/actuator/info", "/actuator/prometheus")
+                        .requestMatchers("/actuator/health", "/actuator/health/**", "/actuator/info",
+                                "/actuator/prometheus")
                         .permitAll()
                         .anyRequest()
                         .denyAll())

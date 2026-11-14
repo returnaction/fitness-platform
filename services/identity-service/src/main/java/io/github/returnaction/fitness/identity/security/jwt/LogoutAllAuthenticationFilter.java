@@ -33,9 +33,8 @@ public final class LogoutAllAuthenticationFilter extends OncePerRequestFilter {
     }
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request,
-                                    HttpServletResponse response,
-                                    FilterChain chain) throws ServletException, IOException {
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
+        FilterChain chain) throws ServletException, IOException {
         String accept = request.getHeader("Accept");
         try {
             if (accept != null && MediaType.parseMediaTypes(accept)

@@ -33,13 +33,9 @@ public class SecurityConfiguration {
     }
 
     @Bean
-    SecurityFilterChain securityFilterChain(HttpSecurity http,
-                                            SecurityErrorHandler errors,
-                                            ManagementPort management,
-                                            RouteValidationFilter routeValidation,
-                                            RouteAccessPolicy policy,
-                                            JwtDecoder decoder,
-                                            SessionVerificationFilter sessionFilter) throws Exception {
+    SecurityFilterChain securityFilterChain(HttpSecurity http, SecurityErrorHandler errors, ManagementPort management,
+        RouteValidationFilter routeValidation, RouteAccessPolicy policy, JwtDecoder decoder,
+        SessionVerificationFilter sessionFilter) throws Exception {
         var bearer = new DefaultBearerTokenResolver();
         var authentication = new JwtAuthenticationConverter();
         authentication.setJwtGrantedAuthoritiesConverter(jwt -> List.of());
@@ -52,14 +48,13 @@ public class SecurityConfiguration {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .addFilterBefore(routeValidation, BearerTokenAuthenticationFilter.class)
                 .addFilterAfter(sessionFilter, BearerTokenAuthenticationFilter.class)
-                .oauth2ResourceServer(resource -> resource
-                        .bearerTokenResolver(
-                                request -> management.matches(request) || policy.publicRequests().matches(request)
-                                        ? null
-                                        : bearer.resolve(request))
-                        .jwt(jwt -> jwt.decoder(decoder).jwtAuthenticationConverter(authentication))
-                        .authenticationEntryPoint(errors)
-                        .accessDeniedHandler(errors))
+                .oauth2ResourceServer(
+                        resource -> resource
+                                .bearerTokenResolver(request -> management.matches(request)
+                                        || policy.publicRequests().matches(request) ? null : bearer.resolve(request))
+                                .jwt(jwt -> jwt.decoder(decoder).jwtAuthenticationConverter(authentication))
+                                .authenticationEntryPoint(errors)
+                                .accessDeniedHandler(errors))
                 .authorizeHttpRequests(authorize -> authorize.dispatcherTypeMatchers(DispatcherType.ERROR)
                         .permitAll()
                         .requestMatchers(management::matches)

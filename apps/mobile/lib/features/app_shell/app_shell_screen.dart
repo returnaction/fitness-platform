@@ -1,17 +1,42 @@
 import 'package:flutter/material.dart';
 
-class AppShellScreen extends StatelessWidget {
-  const AppShellScreen({required this.title, super.key});
+import '../auth/account_screen.dart';
+import '../profile/profile_screen.dart';
 
-  final String title;
+class AppShellScreen extends StatefulWidget {
+  const AppShellScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text(title)),
-      body: Center(
-        child: Text(title, style: Theme.of(context).textTheme.headlineMedium),
-      ),
-    );
-  }
+  State<AppShellScreen> createState() => _AppShellScreenState();
+}
+
+class _AppShellScreenState extends State<AppShellScreen> {
+  int _selectedIndex = 0;
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    body: _selectedIndex == 2
+        ? const ProfileScreen()
+        : const AccountScreen(),
+    bottomNavigationBar: NavigationBar(
+      selectedIndex: _selectedIndex,
+      onDestinationSelected: (index) {
+        if (index == 2 && _selectedIndex != index) {
+          setState(() => _selectedIndex = index);
+        }
+      },
+      destinations: const [
+        NavigationDestination(
+          icon: Icon(Icons.home_outlined), label: 'Home', enabled: false,
+        ),
+        NavigationDestination(
+          icon: Icon(Icons.emoji_events_outlined), label: 'Challenges', enabled: false,
+        ),
+        NavigationDestination(
+          icon: Icon(Icons.person_outline), selectedIcon: Icon(Icons.person),
+          label: 'Profile',
+        ),
+      ],
+    ),
+  );
 }

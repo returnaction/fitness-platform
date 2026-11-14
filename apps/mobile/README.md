@@ -98,27 +98,15 @@ tokens.
 
 ## Checks
 
-For a manual phone fault test, start the real backend, then from the repository
-root run `python scripts/mobile-fault-proxy.py --mode 503` in a separate terminal.
-Temporarily map `adb -s <device-id> reverse tcp:8088 tcp:18088`. Sign in and
-restart the app: the first refresh receives a synthetic 503 before reaching
-Gateway; `Try again` forwards the next refresh normally. Stop the fixture with
-Ctrl+C and restart with `--mode drop` to discard the first successful refresh
-response from the real Gateway. Restarting the app again must not send another
-refresh after the lost response. The fixture prints only paths/statuses.
-Always stop it and restore `adb -s <device-id> reverse tcp:8088 tcp:8088` when
-finished. These are injected failures, not evidence of a real Identity outage.
-
 Run the normal checks from `apps/mobile`:
 
 ```powershell
 C:\development\flutter\bin\flutter.bat analyze
 C:\development\flutter\bin\flutter.bat test
-C:\development\flutter\bin\dart.bat format --output=none --set-exit-if-changed lib test
 C:\development\flutter\bin\flutter.bat build apk --debug
 ```
 
-The 48 automated tests cover HTTP contracts with a substituted transport,
+The original 48 auth automated tests covered HTTP contracts with a substituted transport,
 repository races, session failure policy, storage failures and UI transitions.
 They do not prove real-device failure injection. See
 [Spec 008 verification](../../specs/008-mobile-flutter-auth/verification.md) for
@@ -127,3 +115,31 @@ revoked-session rejection and local logout while Identity was stopped. The
 phone also passed injected 503 and lost-refresh-response scenarios. A successful
 APK install alone is not an application smoke-test pass. Build and emulator
 startup should run sequentially on a memory-constrained host.
+
+## JSON API
+
+Имена полей запросов и ответов — camelCase: accessToken, refreshToken,
+expiresIn, refreshExpiresIn, tokenType, requestId. Сервер и мобильный клиент
+обновляются совместно. Заголовки и коды ошибок сохраняются.
+Ранее сохранённые в secure storage пары access_token/refresh_token читаются
+только локальным адаптером совместимости; новые записи используют camelCase.
+
+## Own profile (Spec 015)
+
+Implemented: Profile navigation, GET/PUT `/api/v1/accounts/me` through Gateway,
+editing all profile fields, local encrypted cache, pull-to-refresh, version
+conflicts and uncertain-save recovery. Android waits for disk acknowledgement
+before sending PUT; an interrupted save is checked with GET after restart.
+
+The latest recorded verification passed 119 Flutter tests, analyze and the debug
+APK build, followed by physical SM-S938B / Android 16 scenarios. See
+[Spec 015 verification](../../specs/015-mobile-profile/verification.md) for actual
+results, injected failures and limitations. Automatic formatting is disabled
+per AGENTS.md. Local Gateway management in that run used port 9088; use your
+configured management port rather than assuming the 8089 example above.
+
+Spec 015 was closed on 2026-11-14 at the user's request. Known issue outside its
+closing scope: registration can display an error despite creating the account;
+Gateway's 3-second deadline conflicts with Identity's longer preparation/wait.
+This has not been fixed; the user will track it separately. Profile completion
+does not claim successful registration verification.

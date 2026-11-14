@@ -1,0 +1,447 @@
+openapi: 3.1.0
+info:
+  title: Fitness Accounts own-profile API
+  version: 1.0.0
+  description: 'Контракт реализованного и проверенного серверного API Spec 014. Владелец профиля — Accounts. Gateway проверяет
+    JWT и CheckSession по gRPC mTLS. UUID владельца только из sub, не из тела/клиентских заголовков; роль
+    не требуется. Локально Accounts доверяет Gateway без повторной проверки подписи: это не подтверждает
+    личность HTTP caller. Query string запрещён. Строгие типы без coercion. Strip для nickname/firstName/lastName/bio
+    до валидации; U+0000 — 422/invalid_format. Общие транспортные ошибки Gateway сохраняются (../gateway-v1.md).
+    details всегда присутствует, при отсутствии деталей — [].'
+servers:
+- url: http://127.0.0.1:8088
+  description: Local Gateway
+paths:
+  /api/v1/accounts/me:
+    parameters:
+    - name: X-Request-Id
+      in: header
+      required: false
+      description: >-
+        Мобильному приложению не требуется передавать этот заголовок в Gateway.
+        Gateway всегда генерирует собственный UUID для каждого запроса.
+        Переданный клиентом X-Request-Id игнорируется, даже если это корректный UUID.
+        Gateway передаёт свой X-Request-Id в Accounts. Accounts сохраняет этот
+        идентификатор в ответе. Этот же идентификатор возвращается клиенту
+        в заголовке ответа, а при ошибке — также в error.requestId.
+      schema:
+        type: string
+    get:
+      operationId: getOwnProfile
+      summary: Прочитать свой профиль
+      security:
+      - BearerAccess: []
+      responses:
+        '200':
+          description: Все восемь полей, включая явные null. PUT возвращает сохранённый профиль после
+            commit.
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProfileResponse'
+              example:
+                nickname: Player_482731
+                firstName: null
+                lastName: null
+                bio: null
+                dateOfBirth: null
+                timezone: UTC
+                visibility: PRIVATE
+                version: 1
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+    put:
+      operationId: updateOwnProfile
+      summary: Полностью сохранить свой профиль
+      security:
+      - BearerAccess: []
+      responses:
+        '200':
+          description: Все восемь полей, включая явные null. PUT возвращает сохранённый профиль после
+            commit.
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProfileResponse'
+              example:
+                nickname: Player_482731
+                firstName: Анна Мария
+                lastName: null
+                bio: null
+                dateOfBirth: null
+                timezone: UTC
+                visibility: PRIVATE
+                version: 2
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+      description: Все восемь полей обязательны к присутствию. Ограничения строк в схеме относятся к нормализованным
+        значениям. Нормализация/валидация вне транзакции; короткий READ COMMITTED UPDATE по UUID и version,
+        RETURNING, без сетевых вызовов. Version увеличивается даже без изменений. Idempotency-Key не требуется.
+        Потерянный ответ/таймаут не доказывает откат; повтор со старой версией даёт конфликт. Перечитать
+        профиль, не подменять версию автоматически.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProfileRequest'
+            examples:
+              update:
+                value:
+                  nickname: Player_482731
+                  firstName: Анна Мария
+                  lastName: null
+                  bio: null
+                  dateOfBirth: null
+                  timezone: UTC
+                  visibility: PRIVATE
+                  version: 1
+              clearOptional:
+                value:
+                  nickname: Player_482731
+                  firstName: null
+                  lastName: null
+                  bio: null
+                  dateOfBirth: null
+                  timezone: UTC
+                  visibility: PRIVATE
+                  version: 1
+components:
+  securitySchemes:
+    BearerAccess:
+      $ref: ./identity-auth-v1.yaml#/components/securitySchemes/BearerAccess
+  headers:
+    NoStore:
+      description: Содержит no-store; возможны дополнительные директивы запрета кеширования.
+      schema:
+        type: string
+      example: no-store
+    RequestId:
+      description: Общий идентификатор запроса.
+      schema:
+        type: string
+        format: uuid
+  schemas:
+    UpdateProfileRequest:
+      type: object
+      additionalProperties: false
+      required:
+      - nickname
+      - firstName
+      - lastName
+      - bio
+      - dateOfBirth
+      - timezone
+      - visibility
+      - version
+      properties:
+        nickname:
+          type: string
+          minLength: 3
+          maxLength: 30
+          pattern: ^[A-Za-z0-9_-]+$
+          description: После strip(). Уникален без учёта регистра. Свой ник и смена регистра разрешены;
+            старый ник сразу освобождается. Частота смены не ограничена.
+        firstName:
+          type:
+          - string
+          - 'null'
+          maxLength: 100
+          description: После strip(); пустое значение становится null. Хотя бы одна буква; буквы разных
+            языков и относящиеся к ним знаки, внутренние обычные пробелы, дефис, апострофы U+0027/U+2019.
+            Без цифр, emoji, табуляций и переносов. Длина в Unicode code points, как VARCHAR(100).
+        lastName:
+          type:
+          - string
+          - 'null'
+          maxLength: 100
+          description: Те же правила нормализации, символов и длины, что у firstName.
+        bio:
+          type:
+          - string
+          - 'null'
+          maxLength: 500
+          description: После strip(); пустое значение становится null. Обычный текст, emoji и переносы
+            разрешены; HTML/Markdown не интерпретируются. Длина в Unicode code points, как VARCHAR(500).
+        dateOfBirth:
+          type:
+          - string
+          - 'null'
+          format: date
+          description: 'YYYY-MM-DD: от текущей даты UTC минус 150 лет до текущей даты UTC включительно.
+            Без сдвига timezone. Непреобразуемая дата — 400; вне диапазона — 422.'
+        timezone:
+          type: string
+          description: Обязательный существующий часовой пояс IANA, например Europe/Moscow или UTC.
+        visibility:
+          type: string
+          enum:
+          - PRIVATE
+          - PUBLIC
+          description: Только сохраняется. Неизвестное значение, регистр или тип — 400; null — 422.
+        version:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 9223372036854775807
+          description: Ожидаемая версия из GET. Строка и дробное число не преобразуются в Long. Отсутствие
+            — 400; null или неположительное значение — 422.
+      description: Ограничения строк после нормализации; nullable не означает возможность пропустить поле.
+    ProfileResponse:
+      type: object
+      additionalProperties: false
+      required:
+      - nickname
+      - firstName
+      - lastName
+      - bio
+      - dateOfBirth
+      - timezone
+      - visibility
+      - version
+      properties:
+        nickname:
+          type: string
+          minLength: 3
+          maxLength: 30
+          pattern: ^[A-Za-z0-9_-]+$
+          description: После strip(). Уникален без учёта регистра. Свой ник и смена регистра разрешены;
+            старый ник сразу освобождается. Частота смены не ограничена.
+        firstName:
+          type:
+          - string
+          - 'null'
+          maxLength: 100
+          description: После strip(); пустое значение становится null. Хотя бы одна буква; буквы разных
+            языков и относящиеся к ним знаки, внутренние обычные пробелы, дефис, апострофы U+0027/U+2019.
+            Без цифр, emoji, табуляций и переносов. Длина в Unicode code points, как VARCHAR(100).
+        lastName:
+          type:
+          - string
+          - 'null'
+          maxLength: 100
+          description: Те же правила нормализации, символов и длины, что у firstName.
+        bio:
+          type:
+          - string
+          - 'null'
+          maxLength: 500
+          description: После strip(); пустое значение становится null. Обычный текст, emoji и переносы
+            разрешены; HTML/Markdown не интерпретируются. Длина в Unicode code points, как VARCHAR(500).
+        dateOfBirth:
+          type:
+          - string
+          - 'null'
+          format: date
+          description: 'YYYY-MM-DD: от текущей даты UTC минус 150 лет до текущей даты UTC включительно.
+            Без сдвига timezone. Непреобразуемая дата — 400; вне диапазона — 422.'
+        timezone:
+          type: string
+          description: Обязательный существующий часовой пояс IANA, например Europe/Moscow или UTC.
+        visibility:
+          type: string
+          enum:
+          - PRIVATE
+          - PUBLIC
+          description: Только сохраняется. Неизвестное значение, регистр или тип — 400; null — 422.
+        version:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 9223372036854775807
+          description: Текущая сохранённая версия. Успешный PUT увеличивает её на один, даже если поля
+            не изменились.
+      description: Ровно восемь полей, без user_id, public_profile_id и служебных дат.
+    ProfileErrorResponse:
+      allOf:
+      - $ref: ./identity-auth-v1.yaml#/components/schemas/ErrorResponse
+      - type: object
+        properties:
+          error:
+            type: object
+            required:
+            - details
+  responses:
+    InvalidRequest:
+      description: Некорректный JSON, пустое тело PUT, отсутствующее/неизвестное поле, неверный тип, enum
+        или query string.
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/RequestId'
+        Cache-Control:
+          $ref: '#/components/headers/NoStore'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ProfileErrorResponse'
+          examples:
+            error:
+              value:
+                error:
+                  code: invalid_request
+                  message: Check the request format.
+                  details: []
+                  requestId: da6add51-47f8-4603-a9ce-17e440a8da64
+    Unauthorized:
+      description: Отказ JWT/CheckSession Gateway либо повреждённый используемый контекст Accounts.
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/RequestId'
+        Cache-Control:
+          $ref: '#/components/headers/NoStore'
+        WWW-Authenticate:
+          schema:
+            type: string
+            const: Bearer
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ProfileErrorResponse'
+          examples:
+            error:
+              value:
+                error:
+                  code: invalid_access_token
+                  message: Authentication required.
+                  details: []
+                  requestId: da6add51-47f8-4603-a9ce-17e440a8da64
+    UnsupportedMediaType:
+      description: PUT принимает application/json. Content-Encoding не изменяется в Spec 014.
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/RequestId'
+        Cache-Control:
+          $ref: '#/components/headers/NoStore'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ProfileErrorResponse'
+          examples:
+            error:
+              value:
+                error:
+                  code: unsupported_media_type
+                  message: Content type is not supported.
+                  details: []
+                  requestId: da6add51-47f8-4603-a9ce-17e440a8da64
+    ValidationError:
+      description: 'Нарушения значений после нормализации, все найденные field/code. Коды: required, invalid_length,
+        invalid_format, invalid_value, out_of_range. Отсутствующее JSON-поле — 400.'
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/RequestId'
+        Cache-Control:
+          $ref: '#/components/headers/NoStore'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ProfileErrorResponse'
+          examples:
+            error:
+              value:
+                error:
+                  code: validation_error
+                  message: Check the submitted data.
+                  details:
+                  - field: nickname
+                    code: invalid_length
+                  - field: timezone
+                    code: invalid_value
+                  requestId: da6add51-47f8-4603-a9ce-17e440a8da64
+    Conflict:
+      description: Устаревшая версия — profile_version_conflict; конфликт индекса user_profiles_nickname_unique
+        — nickname_already_taken. Весь UPDATE откатывается.
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/RequestId'
+        Cache-Control:
+          $ref: '#/components/headers/NoStore'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ProfileErrorResponse'
+          examples:
+            error:
+              value:
+                error:
+                  code: profile_version_conflict
+                  message: Profile has changed. Reload it before saving.
+                  details: []
+                  requestId: da6add51-47f8-4603-a9ce-17e440a8da64
+            nicknameTaken:
+              value:
+                error:
+                  code: nickname_already_taken
+                  message: Nickname is already taken.
+                  details: []
+                  requestId: da6add51-47f8-4603-a9ce-17e440a8da64
+    Unavailable:
+      description: Профиль отсутствует или недоступна его БД. GET/PUT не создают профиль.
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/RequestId'
+        Cache-Control:
+          $ref: '#/components/headers/NoStore'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ProfileErrorResponse'
+          examples:
+            error:
+              value:
+                error:
+                  code: profile_unavailable
+                  message: Profile is temporarily unavailable.
+                  details: []
+                  requestId: da6add51-47f8-4603-a9ce-17e440a8da64
+    InternalError:
+      description: Непредвиденный сбой; без SQL, stack trace и персональных данных.
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/RequestId'
+        Cache-Control:
+          $ref: '#/components/headers/NoStore'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ProfileErrorResponse'
+          examples:
+            error:
+              value:
+                error:
+                  code: internal_error
+                  message: Unexpected server error.
+                  details: []
+                  requestId: da6add51-47f8-4603-a9ce-17e440a8da64

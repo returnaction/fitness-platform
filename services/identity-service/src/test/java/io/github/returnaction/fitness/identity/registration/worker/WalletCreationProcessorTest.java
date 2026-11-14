@@ -32,8 +32,7 @@ class WalletCreationProcessorTest {
 
     @Test
     void retriesUnavailableAndBlocksPermissionFailure() {
-        doThrow(Status.UNAVAILABLE.asRuntimeException(), Status.PERMISSION_DENIED.asRuntimeException())
-                .when(client)
+        doThrow(Status.UNAVAILABLE.asRuntimeException(), Status.PERMISSION_DENIED.asRuntimeException()).when(client)
                 .createWalletIfAbsent(any(), eq(lease.operationId()), eq(lease.userId()));
         processor.process(lease);
         processor.process(lease);
@@ -43,8 +42,7 @@ class WalletCreationProcessorTest {
 
     @Test
     void retriesTimedOutCallAndMarksReadyAfterSuccessfulRepeat() {
-        doThrow(Status.DEADLINE_EXCEEDED.asRuntimeException())
-                .doNothing()
+        doThrow(Status.DEADLINE_EXCEEDED.asRuntimeException()).doNothing()
                 .when(client)
                 .createWalletIfAbsent(any(), eq(lease.operationId()), eq(lease.userId()));
         processor.process(lease);
@@ -58,8 +56,7 @@ class WalletCreationProcessorTest {
     @EnumSource(value = Status.Code.class, names = {"UNAVAILABLE", "DEADLINE_EXCEEDED", "RESOURCE_EXHAUSTED", "ABORTED",
             "INTERNAL"})
     void retriesTransientGrpcErrors(Status.Code code) {
-        doThrow(code.toStatus().asRuntimeException())
-                .when(client)
+        doThrow(code.toStatus().asRuntimeException()).when(client)
                 .createWalletIfAbsent(any(), eq(lease.operationId()), eq(lease.userId()));
         processor.process(lease);
         verify(repository).recordFailure(lease, true, "COINS_" + code.name());
@@ -70,8 +67,7 @@ class WalletCreationProcessorTest {
     @EnumSource(value = Status.Code.class, names = {"INVALID_ARGUMENT", "PERMISSION_DENIED", "UNAUTHENTICATED",
             "FAILED_PRECONDITION"})
     void blocksPermanentGrpcErrors(Status.Code code) {
-        doThrow(code.toStatus().asRuntimeException())
-                .when(client)
+        doThrow(code.toStatus().asRuntimeException()).when(client)
                 .createWalletIfAbsent(any(), eq(lease.operationId()), eq(lease.userId()));
         processor.process(lease);
         verify(repository).recordFailure(lease, false, "COINS_" + code.name());
@@ -80,8 +76,7 @@ class WalletCreationProcessorTest {
 
     @Test
     void blocksInvalidServiceResponse() {
-        doThrow(new IllegalStateException("invalid response"))
-                .when(client)
+        doThrow(new IllegalStateException("invalid response")).when(client)
                 .createWalletIfAbsent(any(), eq(lease.operationId()), eq(lease.userId()));
         processor.process(lease);
         verify(repository).recordFailure(lease, false, "COINS_INVALID_RESPONSE");
