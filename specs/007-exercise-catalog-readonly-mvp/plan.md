@@ -1,7 +1,7 @@
 # План реализации: read-only MVP каталога упражнений
 
 > **Спецификация:** [spec.md](spec.md)  
-> **Статус:** draft  
+> **Статус:** in-progress
 > **Связанные документы system-design:** [модель Catalog](../../system-design/services/exercise-catalog/57-exercise-catalog-service.md), [снимок задания](../../system-design/services/exercise-catalog/49-task-metric-contract.md), [расписание Challenge](../../system-design/services/challenge/60-challenge-schedule-and-access.md), [инженерные стандарты](../../docs/engineering-standards.md)
 
 ## Краткое решение

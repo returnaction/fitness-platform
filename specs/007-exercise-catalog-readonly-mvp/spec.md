@@ -1,6 +1,6 @@
 # Read-only MVP каталога упражнений
 
-> **Статус:** draft
+> **Статус:** in-progress
 > **Номер:** 007
 > **Связанные документы:** [контракт Catalog](../../system-design/services/exercise-catalog/57-exercise-catalog-service.md), [снимок задания](../../system-design/services/exercise-catalog/49-task-metric-contract.md), [подготовка PostgreSQL](../../docs/database-setup.md), [конституция](../constitution.md)
 > **Заменяет / заменена:** —

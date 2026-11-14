@@ -13,8 +13,7 @@ verification records; they do not authorize new work.
 
 - **Specification:** `specs/007-exercise-catalog-readonly-mvp/`.
 - **Branch:** `52-exercise-catalog-service`, created from the current `main`.
-- **Status:** `draft` — selected by the user 2026-11-17; implementation has not
-  started.
+- **Status:** `in-progress` — activated by the user 2026-11-17.
 - **Goal and acceptance criteria:** [spec.md](specs/007-exercise-catalog-readonly-mvp/spec.md).
 - **Included scope:** separate read-only Exercise Catalog database and service,
   Liquibase schema and approved seed data, read-only REST through Gateway, and
