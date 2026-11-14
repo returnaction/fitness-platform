@@ -1,0 +1,171 @@
+openapi: 3.1.0
+info:
+  title: Fitness Coins own-wallet API
+  version: 1.0.0
+  description: >-
+    Согласованный контракт Spec 017; runtime ещё не реализован.
+    Coins владеет балансом. Gateway проверяет JWT и CheckSession.
+    Coins извлекает sub и claims без повторной проверки подписи или сессии,
+    доверяя локальному пути через Gateway; это не удостоверяет прямого HTTP caller.
+    userId от вызывающей стороны не принимается. Query string запрещён.
+    GET только читает кошелёк: не создаёт его, не начисляет монеты.
+    Повтор безопасен, Idempotency-Key не требуется; каждый ответ — текущий снимок.
+    Общие транспортные ошибки Gateway описаны в ../gateway-v1.md.
+servers:
+  - url: http://127.0.0.1:8088
+    description: Local Gateway
+paths:
+  /api/v1/coins/me:
+    get:
+      tags: [Coins]
+      operationId: getOwnWalletBalance
+      summary: Прочитать свой баланс
+      description: >-
+        Оба баланса читаются из одного кошелька владельца sub.
+        Gateway создаёт собственный X-Request-Id и передаёт его в Coins;
+        этот UUID возвращается в заголовке ответа и error.requestId.
+        Отсутствие кошелька — нарушение инварианта, а не нулевой баланс.
+      security:
+        - BearerAccess: []
+      responses:
+        '200':
+          description: Доступный и зарезервированный баланс в целых виртуальных монетах.
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WalletBalanceResponse'
+              example: {availableBalance: 10, lockedBalance: 20}
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+components:
+  securitySchemes:
+    BearerAccess:
+      $ref: './identity-auth-v1.yaml#/components/securitySchemes/BearerAccess'
+  headers:
+    RequestId:
+      schema: {type: string, format: uuid}
+    NoStore:
+      description: Ответ не сохраняется в кэшах.
+      schema: {type: string, const: no-store}
+  schemas:
+    WalletBalanceResponse:
+      type: object
+      additionalProperties: false
+      required: [availableBalance, lockedBalance]
+      properties:
+        availableBalance:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 9223372036854775807
+        lockedBalance:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 9223372036854775807
+    WalletErrorResponse:
+      allOf:
+        - $ref: './identity-auth-v1.yaml#/components/schemas/ErrorResponse'
+        - type: object
+          properties:
+            error:
+              type: object
+              required: [details]
+              description: details всегда присутствует; без деталей — пустой массив.
+  responses:
+    InvalidRequest:
+      description: Некорректный запрос, включая query string.
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/RequestId'
+        Cache-Control:
+          $ref: '#/components/headers/NoStore'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/WalletErrorResponse'
+          examples:
+            invalid_request:
+              value:
+                error:
+                  code: invalid_request
+                  message: Check the request format.
+                  details: []
+                  requestId: da6add51-47f8-4603-a9ce-17e440a8da64
+    Unauthorized:
+      description: Отказ JWT/CheckSession Gateway или некорректный Bearer/UUID sub в Coins.
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/RequestId'
+        Cache-Control:
+          $ref: '#/components/headers/NoStore'
+        WWW-Authenticate:
+          schema: {type: string, const: Bearer}
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/WalletErrorResponse'
+          examples:
+            invalid_access_token:
+              value:
+                error:
+                  code: invalid_access_token
+                  message: Authentication required.
+                  details: []
+                  requestId: da6add51-47f8-4603-a9ce-17e440a8da64
+    InternalError:
+      description: Отсутствующий кошелёк — wallet_invariant_violation; иной непредвиденный сбой — internal_error. SQL, токены и персональные данные не раскрываются.
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/RequestId'
+        Cache-Control:
+          $ref: '#/components/headers/NoStore'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/WalletErrorResponse'
+          examples:
+            wallet_invariant_violation:
+              value:
+                error:
+                  code: wallet_invariant_violation
+                  message: Wallet is unavailable.
+                  details: []
+                  requestId: da6add51-47f8-4603-a9ce-17e440a8da64
+            internal_error:
+              value:
+                error:
+                  code: internal_error
+                  message: Unexpected server error.
+                  details: []
+                  requestId: da6add51-47f8-4603-a9ce-17e440a8da64
+    Unavailable:
+      description: Временная ошибка БД или транзакции Coins — coins_unavailable. Ошибки самого Gateway, включая identity_unavailable, сохраняют свои коды.
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/RequestId'
+        Cache-Control:
+          $ref: '#/components/headers/NoStore'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/WalletErrorResponse'
+          examples:
+            coins_unavailable:
+              value:
+                error:
+                  code: coins_unavailable
+                  message: Wallet is temporarily unavailable.
+                  details: []
+                  requestId: da6add51-47f8-4603-a9ce-17e440a8da64

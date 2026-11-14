@@ -15,6 +15,8 @@
 
 Текущие контракты:
 
+- [Coins own-wallet REST API v1](openapi/coins-wallet-v1.yaml) — GET баланса Spec 017; runtime ещё не реализован;
+
 - [Accounts own-profile REST API v1](openapi/accounts-profile-v1.yaml) — согласованный GET/PUT своего профиля Spec 014; runtime ещё не реализован;
 - [Gateway REST API v1](openapi/gateway-v1.yaml) — ссылки на контракты владельцев;
 
@@ -79,6 +81,8 @@ Identity, Accounts и Coins подключают его как Maven dependency;
     <version>${project.version}</version>
 </dependency>
 
+```
+
 ## Проверка OpenAPI
 
 Инструменты закреплены в `openapi/requirements-validation.txt`.
@@ -87,6 +91,7 @@ Identity, Accounts и Coins подключают его как Maven dependency;
 ```powershell
 python -m pip install -r contracts/openapi/requirements-validation.txt
 python -m openapi_spec_validator contracts/openapi/accounts-profile-v1.yaml
+python -m openapi_spec_validator contracts/openapi/coins-wallet-v1.yaml
 python -m openapi_spec_validator contracts/openapi/gateway-v1.yaml
 python -m openapi_spec_validator contracts/openapi/identity-auth-v1.yaml
 ```
