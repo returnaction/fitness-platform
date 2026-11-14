@@ -8,3 +8,6 @@ databaseChangeLog:
   - include:
       file: changes/003-create-catalog-variations.yaml
       relativeToChangelogFile: true
+  - include:
+      file: changes/004-seed-initial-exercise-catalog.yaml
+      relativeToChangelogFile: true
