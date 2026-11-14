@@ -31,6 +31,10 @@ class ExerciseCatalogServiceApplicationTest {
     private io.github.returnaction.fitness.exercisecatalog.catalog.service.ExerciseListService
             exerciseListService;
 
+    @MockitoBean
+    private io.github.returnaction.fitness.exercisecatalog.catalog.service.ExerciseDetailService
+            exerciseDetailService;
+
     @LocalServerPort
     private int port;
 

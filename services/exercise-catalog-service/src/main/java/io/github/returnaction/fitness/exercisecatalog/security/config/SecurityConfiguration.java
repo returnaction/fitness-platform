@@ -18,6 +18,8 @@ class SecurityConfiguration {
                 .permitAll()
                 .requestMatchers("/api/v1/exercises")
                 .permitAll()
+                .requestMatchers("/api/v1/exercises/*")
+                .permitAll()
                 .anyRequest()
                 .denyAll())
                 .build();
