@@ -12,6 +12,12 @@
 - доступ роли только к её собственной базе и схеме `public`.
 
 
+При первом локальном запуске сначала подготовьте окружение по шагу 4.1
+в [«Локальном запуске»](../LOCAL-SETUP.md). Затем выполните шаги 1–5 ниже для
+каждого нужного сервиса с локальной БД. Для запуска сервисов вернитесь к
+шагам 4.3–4.4 в «Локальном запуске». Шаг 6 ниже используется для проверки
+после запуска.
+
 ## Identity Service
 
 **База:** `fitness_identity`
@@ -33,7 +39,7 @@ CREATE ROLE fitness_identity_app
   NOCREATEDB
   NOCREATEROLE
   NOINHERIT
-  PASSWORD '<длинный-уникальный-пароль>';
+  PASSWORD 'postgres';
 ```
 
 ### 2. Создать базу данных
@@ -70,18 +76,11 @@ GRANT USAGE, CREATE ON SCHEMA public TO fitness_identity_app;
 
 ### 4. Настроить сервис
 
-В папке `services/identity-service` скопируйте `.env.example` и назовите копию
-`.env`. Исходный `.env.example` оставьте на месте.
-
-Откройте `.env` и обновите указанные строки, сохранив остальные настройки.
-В `DATABASE_PASSWORD` впишите пароль роли из шага 1.
-
-```properties
-DATABASE_URL=jdbc:postgresql://localhost:5432/fitness_identity
-DATABASE_USERNAME=fitness_identity_app
-DATABASE_PASSWORD=<пароль из шага 1>
-SERVER_PORT=8080
-```
+1. Откройте `services/identity-service/.env`, созданный при
+   [подготовке окружения](../LOCAL-SETUP.md).
+2. Найдите существующую строку `DATABASE_PASSWORD=replace_with_local_password`.
+3. В этой же строке замените значение после `=` на пароль роли
+   `fitness_identity_app`, который задали на шаге 1. Сохраните файл.
 
 ### 5. Проверить базу и роль в DBeaver
 
@@ -165,7 +164,7 @@ CREATE ROLE fitness_accounts_app
   NOCREATEDB
   NOCREATEROLE
   NOINHERIT
-  PASSWORD '<длинный-уникальный-пароль>';
+  PASSWORD 'postgres';
 ```
 
 ### 2. Создать базу данных
@@ -202,16 +201,14 @@ GRANT USAGE, CREATE ON SCHEMA public TO fitness_accounts_app;
 
 ### 4. Настроить сервис
 
-В папке `services/accounts-service` скопируйте `.env.example` и назовите копию
-`.env`. Исходный `.env.example` оставьте на месте.
-
-Откройте `.env` и обновите указанные строки, сохранив остальные настройки.
+После подготовки окружения по инструкции [«Локальный запуск»](../LOCAL-SETUP.md)
+откройте `services/accounts-service/.env` и проверьте указанные строки.
 В `DATABASE_PASSWORD` впишите пароль роли из шага 1.
 
 ```properties
 DATABASE_URL=jdbc:postgresql://localhost:5432/fitness_accounts
 DATABASE_USERNAME=fitness_accounts_app
-DATABASE_PASSWORD=<пароль из шага 1>
+DATABASE_PASSWORD=postgres
 SERVER_PORT=8081
 ```
 
@@ -296,7 +293,7 @@ CREATE ROLE fitness_coins_app
   NOCREATEDB
   NOCREATEROLE
   NOINHERIT
-  PASSWORD '<длинный-уникальный-пароль>';
+  PASSWORD 'postgres';
 ```
 
 ### 2. Создать базу данных
@@ -333,16 +330,14 @@ GRANT USAGE, CREATE ON SCHEMA public TO fitness_coins_app;
 
 ### 4. Настроить сервис
 
-В папке `services/coins-service` скопируйте `.env.example` и назовите копию
-`.env`. Исходный `.env.example` оставьте на месте.
-
-Откройте `.env` и обновите указанные строки, сохранив остальные настройки.
+После подготовки окружения по инструкции [«Локальный запуск»](../LOCAL-SETUP.md)
+откройте `services/coins-service/.env` и проверьте указанные строки.
 В `DATABASE_PASSWORD` впишите пароль роли из шага 1.
 
 ```properties
 DATABASE_URL=jdbc:postgresql://localhost:5432/fitness_coins
 DATABASE_USERNAME=fitness_coins_app
-DATABASE_PASSWORD=<пароль из шага 1>
+DATABASE_PASSWORD=postgres
 SERVER_PORT=8082
 ```
 
@@ -427,7 +422,7 @@ CREATE ROLE fitness_exercise_catalog_app
   NOCREATEDB
   NOCREATEROLE
   NOINHERIT
-  PASSWORD '<длинный-уникальный-пароль>';
+  PASSWORD 'postgres';
 ```
 
 ### 2. Создать базу данных
@@ -473,7 +468,7 @@ GRANT USAGE, CREATE ON SCHEMA public TO fitness_exercise_catalog_app;
 ```properties
 DATABASE_URL=jdbc:postgresql://localhost:5432/fitness_exercise_catalog
 DATABASE_USERNAME=fitness_exercise_catalog_app
-DATABASE_PASSWORD=<пароль из шага 1>
+DATABASE_PASSWORD=postgres
 SERVER_PORT=8086
 ```
 
