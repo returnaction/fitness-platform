@@ -15,7 +15,7 @@
 
 Текущие контракты:
 
-- [Coins own-wallet REST API v1](openapi/coins-wallet-v1.yaml) — GET баланса Spec 017; runtime ещё не реализован;
+- [Coins own-wallet REST API v1](openapi/coins-wallet-v1.yaml) — GET баланса Spec 017; реализован и проверен локально;
 
 - [Accounts own-profile REST API v1](openapi/accounts-profile-v1.yaml) — согласованный GET/PUT своего профиля Spec 014; runtime ещё не реализован;
 - [Gateway REST API v1](openapi/gateway-v1.yaml) — ссылки на контракты владельцев;

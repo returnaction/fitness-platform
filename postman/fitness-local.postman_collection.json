@@ -1,7 +1,7 @@
 {
   "info": {
-    "name": "Fitness Platform — локальная авторизация и профиль",
-    "description": "Auth и профиль через Gateway: регистрация, вход, refresh, просмотр и обновление профиля, выход и проверка отзыва. Реальные секреты не экспортировать. Недоступность Identity проверяется отдельно.",
+    "name": "Fitness Platform — локальная авторизация, профиль и Coins",
+    "description": "Auth, профиль и баланс Coins через Gateway: регистрация, вход, refresh, просмотр и обновление профиля, просмотр баланса, выход и проверка отзыва. Реальные секреты не экспортировать. Недоступность Identity проверяется отдельно.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
