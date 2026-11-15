@@ -10,6 +10,7 @@
     </parent>
 
     <artifactId>gateway-service</artifactId>
+    <version>0.1.1</version>
     <name>Gateway Service</name>
 
     <dependencyManagement>
@@ -67,7 +68,7 @@
         <dependency>
             <groupId>io.github.returnaction.fitness</groupId>
             <artifactId>fitness-grpc-contracts</artifactId>
-            <version>${project.version}</version>
+            <version>0.1.1</version>
         </dependency>
         <dependency>
             <groupId>io.grpc</groupId>

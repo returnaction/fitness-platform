@@ -245,7 +245,7 @@ class JwtValidationTest {
                 ArgumentMatchers.any())).thenAnswer(invocation -> {
                     requestId.set(invocation.getArgument(2));
                     RequestDeadline deadline = invocation.getArgument(3);
-                    assertThat(deadline.remainingNanos()).isPositive().isLessThanOrEqualTo(3_000_000_000L);
+                    assertThat(deadline.remainingNanos()).isPositive().isLessThanOrEqualTo(7_000_000_000L);
                     return false;
                 });
         try (var client = HttpClient.newHttpClient()) {

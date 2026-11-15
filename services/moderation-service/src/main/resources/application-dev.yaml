@@ -1,0 +1,10 @@
+# Тестовый сервер: значения находятся только в закрытом файле на VPS,
+# который Docker Compose монтирует внутрь контейнера.
+spring:
+  config:
+    import: optional:file:/run/fitness-platform/secrets/moderation.env[.properties]
+
+# Контейнер доступен другим контейнерам только через Docker-сеть.
+# Внешний доступ к этому сервису Compose не публикует.
+server:
+  address: 0.0.0.0
