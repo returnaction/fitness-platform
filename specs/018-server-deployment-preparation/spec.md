@@ -1,6 +1,6 @@
 # Подготовка односерверной dev-выкладки
 
-> **Статус:** in-progress
+> **Статус:** implemented
 > **Номер:** 018
 > **Ветка:** `47-server-deployment-preparation`
 > **Связанные решения:** [decisions.md](decisions.md)
@@ -22,7 +22,7 @@ Ubuntu, а GitHub Actions доставляет версии сервисов и�
   для всех текущих сервисов; первый Compose-набор: Gateway, Identity, Accounts
   и Coins.
 - Генерация и подключение server-only mTLS/JWT-материалов.
-- GitHub Actions → private GHCR → SSH-доставка на VPS.
+- GitHub Actions → public GHCR → SSH-доставка на VPS.
 - Чистая Ubuntu 24.04, Docker, PostgreSQL 17, UFW, SSH, DBeaver SSH-туннель.
 - Подготовка баз, ролей и первого поэтапного запуска.
 
@@ -53,7 +53,7 @@ Ubuntu, а GitHub Actions доставляет версии сервисов и�
 **Дано:** у сервиса увеличена собственная версия в `pom.xml`, тесты и сборка
 успешны.
 **Когда:** изменение merge-ится в `main`.
-**Тогда:** GitHub Actions публикует exact-version image в private GHCR, копирует
+**Тогда:** GitHub Actions публикует exact-version image в public GHCR, копирует
 `compose.yaml` на VPS и обновляет только этот сервис; остальные контейнеры не
 перезапускаются.
 
@@ -88,18 +88,22 @@ Ubuntu, а GitHub Actions доставляет версии сервисов и�
 
 ## Критерии готовности
 
-- [ ] Первый набор сервисов имеет независимые версии и воспроизводимые images.
-- [ ] Server Compose не содержит секретов, публикует только gateway и задаёт
+- [x] Первый набор сервисов имеет независимые версии и воспроизводимые images.
+- [x] Server Compose не содержит секретов, публикует только gateway и задаёт
   health-check, restart и log rotation.
-- [ ] CI выпускает только сервис с увеличенной версией после его успешных
+- [x] CI выпускает только сервис с увеличенной версией после его успешных
   проверок.
-- [ ] Ubuntu VPS подготовлен согласно согласованной схеме без лишних runtime.
-- [ ] PostgreSQL доступен владельцу через DBeaver SSH-туннель и сервисам только
+- [x] Ubuntu VPS подготовлен согласно согласованной схеме без лишних runtime.
+- [x] PostgreSQL доступен владельцу через DBeaver SSH-туннель и сервисам только
   через внутренний путь Docker.
-- [ ] Первый запуск Accounts → Coins → Identity → Gateway подтверждён
-  health-check, Liquibase и ручной проверкой с телефона.
+- [x] Первый запуск Accounts → Coins → Identity → Gateway подтверждён
+  health-check, Liquibase и HTTP-проверками с компьютера.
 
-## Открытые вопросы
+Проверка с телефона исключена владельцем из объёма. Серверные критерии
+выполнены; ограничения доказательств описаны в [verification.md](verification.md).
+Инструкция для последующих выпусков — [deployment/README.md](../../deployment/README.md).
+
+## Отложенные решения
 
 - Точные лимиты Docker/JVM RAM определить по первому реальному запуску.
 - Время и формат последующей ротации mTLS-сертификатов после 90 дней.
