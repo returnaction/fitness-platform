@@ -97,7 +97,10 @@ OpenSSL 3.6. Локальные `secrets/` и `.env` созданы эквива
 При проверке 503 обнаружен и исправлен дефект: `@Transactional(readOnly = true)`
 на `WalletQueryService` открывал транзакцию до входа в метод, из-за чего ошибка
 соединения возвращалась как `500 internal_error`. Аннотация удалена; `findById`
-остаётся read-only транзакцией Spring Data.
+остаётся read-only транзакцией Spring Data. Дополнительно в Coins заданы
+`spring.datasource.hikari.connection-timeout: 3000` и `validation-timeout: 1000`:
+в обычной конфигурации `503 coins_unavailable` пришёл за 3.07s, до deadline
+Gateway 7s, без тестовых override.
 
 Ограничение: одноразовый e2e-сценарий
 `services/gateway-service/src/test/python/verify_gateway_e2e.py` не завершил
@@ -114,7 +117,7 @@ OpenSSL 3.6. Локальные `secrets/` и `.env` созданы эквива
 | GET без сессии | 401 | PASS T005.3 |
 | Запрос чужого баланса | недоступен | PASS T005.3 |
 | Отсутствие кошелька активного пользователя | 500 `wallet_invariant_violation` | PASS T005.4 |
-| Временная ошибка БД/транзакции Coins | 503 `coins_unavailable` | PASS T005.4 после исправления транзакции |
+| Временная ошибка БД/транзакции Coins | 503 `coins_unavailable` | PASS T005.4 в обычной конфигурации, 3.07s |
 | Некорректный токен или `sub` | 401 `invalid_access_token` | PASS T004.11/T005.3 |
 | Ответы Coins | `Cache-Control: no-store` | PASS T004.11/T005.2–T005.4 |
 | Контракты Coins/Gateway | owner OpenAPI + Gateway `$ref`, без дублирования схем | PASS T002 |
