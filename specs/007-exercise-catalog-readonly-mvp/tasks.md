@@ -1,7 +1,7 @@
 # Задачи: read-only MVP каталога упражнений
 
-> **Спецификация:** [spec.md](spec.md)  
-> **План:** [plan.md](plan.md)  
+> **Спецификация:** [spec.md](spec.md)
+> **План:** [plan.md](plan.md)
 > **Статус:** draft
 
 Одна задача — одна отдельная пронумерованная ветка и Pull Request. Junior не
@@ -15,7 +15,7 @@
 
 ## Основа сервиса и данные
 
-- [ ] **T004 — Подключить DataSource и Liquibase.** Добавить `.env.example`,
+- [x] **T004 — Подключить DataSource и Liquibase.** Добавить `.env.example`,
   local/test-конфигурацию и проверку запуска без секретов в Git.
 
 ### T005 — Создать миграцию `catalog_categories`
@@ -276,3 +276,4 @@ deadline/retry и то, как `challenge-service` удостоверяет се
 | Задача | Ветка | Pull Request | Статус |
 | --- | --- | --- | --- |
 | T003: подготовку PostgreSQL Catalog | `30-exercise-catalog-readonly-mvp` | — | Документация подготовлена, проверка ожидается |
+| T004: DataSource и Liquibase | `43-exercise-catalogue-service-initialdb` | [#45](https://github.com/returnaction/fitness-platform/pull/45) | Открыт, ждёт CI и ревью |

@@ -1,3 +1,7 @@
-# Тестовый сервер выбирает свободный порт автоматически.
+spring:
+  config:
+    import:
+      - classpath:test-environment.properties
+
 server:
   port: 0
