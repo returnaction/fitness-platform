@@ -1,4 +1,4 @@
-"""Specs 012/014: real auth/profile APIs, mTLS and disposable service databases.
+"""Specs 012/014/017: real auth/profile/coins APIs, mTLS and disposable service databases.
 
 Run after packaging Gateway, Identity, Accounts and Coins. Requires Docker and OpenSSL.
 Local .env files and user databases are never loaded.
@@ -60,10 +60,10 @@ def request(port, path, body=None, bearer=None, key=None, method="POST", extra_h
                 require(value["error"]["requestId"] == identifier, "HTTP/JSON request IDs differ")
                 require(set(value["error"]) == {"code", "message", "details", "requestId"}, "Unexpected error shape")
                 require(isinstance(value["error"]["details"], list), "Error details must be a list")
-            if path.startswith("/api/v1/accounts/me"):
+            if path.startswith("/api/v1/accounts/me") or path.startswith("/api/v1/coins/me"):
                 cache_directives = {item.strip().lower() for item in response.headers.get("Cache-Control", "").split(",")}
-                require("no-store" in cache_directives, "Profile response lacks no-store")
-                require(response.headers.get("Content-Type", "").startswith("application/json"), "Profile response is not JSON")
+                require("no-store" in cache_directives, "Protected response lacks no-store")
+                require(response.headers.get("Content-Type", "").startswith("application/json"), "Protected response is not JSON")
         collect_tokens(value)
         return response.status, value
 
@@ -148,6 +148,20 @@ def verify_profiles(port, token, expired, second_token, database_sql):
     count = database_sql("spec012_test_accounts", f"SELECT count(*) FROM user_profiles WHERE user_id = '{user_id}'")
     require(count == "0", "Missing profile was recreated")
     print("OK: profile GET/PUT/GET, normalization/null, owners, 400/401/409/415/422/503, DB outage/recovery, no-store", flush=True)
+
+
+def verify_coins_balance(port, token, database_sql):
+    """Spec 017 T005.2: Coins отдаёт владельцу оба баланса без кэширования."""
+    payload = token.split(".")[1]
+    user_id = str(uuid.UUID(json.loads(base64.urlsafe_b64decode(payload + "=" * (-len(payload) % 4)))["sub"]))
+    database_sql("spec012_test_coins",
+                 f"UPDATE coin_wallets SET available_balance = 10, locked_balance = 20 WHERE user_id = '{user_id}'")
+    status, balance = request(port, "/api/v1/coins/me", bearer=token, method="GET")
+    require(status == 200, "Coins balance GET failed")
+    require(balance == {"availableBalance": 10, "lockedBalance": 20}, "Coins balance mismatch")
+    require(isinstance(balance["availableBalance"], int) and isinstance(balance["lockedBalance"], int),
+            "Coins balances must be JSON integers")
+    print("OK: coins GET returns both balances with no-store", flush=True)
 
 
 def await_gateway(port, process):
@@ -265,6 +279,7 @@ def main():
             gateway = environment("gateway")
             gateway.update(MANAGEMENT_PORT=str(ports["management"]), IDENTITY_HTTP_BASE_URL=f"http://127.0.0.1:{ports['identity']}",
                            ACCOUNT_HTTP_BASE_URL=f"http://127.0.0.1:{ports['accounts']}",
+                           COINS_HTTP_BASE_URL=f"http://127.0.0.1:{ports['coins']}",
                            GATEWAY_JWKS_URL=f"http://127.0.0.1:{ports['identity']}/.well-known/jwks.json",
                            GATEWAY_JWT_ISSUER=identity["IDENTITY_JWT_ISSUER"], GATEWAY_JWT_AUDIENCE=identity["IDENTITY_JWT_AUDIENCE"],
                            IDENTITY_SESSION_PORT=str(ports["identity_grpc"]), GATEWAY_CERTIFICATE=str(directory / "gateway.crt"),
@@ -311,6 +326,7 @@ def main():
                                    "-v", "ON_ERROR_STOP=1", "-At", "-c", sql)
 
             verify_profiles(port, active["accessToken"], expired, other_session["accessToken"], database_sql)
+            verify_coins_balance(port, active["accessToken"], database_sql)
             require(request(port, "/api/v1/auth/logout-all", bearer=expired)[0] == 401, "Expired JWT was accepted")
             for bearer in (None, active["accessToken"], expired, "malformed"):
                 require(request(port, "/api/v1/auth/register", credentials, bearer, key)[0] == 201, "Public register rejected bearer")
