@@ -1,0 +1,9 @@
+# Тестовый сервер: значения находятся только в закрытом файле на VPS,
+# который Docker Compose монтирует внутрь контейнера.
+spring:
+  config:
+    import: optional:file:/run/fitness-platform/secrets/gateway.env[.properties]
+
+# Gateway — единственный сервис, чей HTTP-порт Compose опубликует наружу.
+server:
+  address: 0.0.0.0

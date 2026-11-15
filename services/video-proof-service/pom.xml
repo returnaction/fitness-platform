@@ -9,6 +9,7 @@
         <relativePath>../../pom.xml</relativePath>
     </parent>
     <artifactId>video-proof-service</artifactId>
+    <version>0.1.1</version>
     <name>VideoProof Service</name>
     <dependencies>
         <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-webmvc</artifactId></dependency>

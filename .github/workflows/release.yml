@@ -1,0 +1,136 @@
+name: Выпуск сервисов
+
+# Только main. Изменения без повышения версии ничего не выкатывают.
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+
+# Очередь целых выпусков: до 100 ожидающих, без замены предыдущего новым.
+concurrency:
+  group: fitness-dev-release
+  cancel-in-progress: false
+  queue: max
+
+env:
+  VPS_APP_DIR: /opt/fitness-platform
+
+jobs:
+  detect-release-candidates:
+    name: Найти новые версии
+    runs-on: ubuntu-latest
+    outputs:
+      candidates: ${{ steps.versions.outputs.candidates }}
+    steps:
+      - name: Скачать текущий main и его историю
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Проверить логику выпуска без реального Docker и SSH
+        run: |
+          bash -n deployment/scripts/deploy-release.sh
+          python3 deployment/scripts/test_release.py
+      # XML-парсер читает версию сервиса, а не библиотек. Python нужен только runner.
+      - name: Найти сервисы с повышенной версией
+        id: versions
+        env:
+          BASE_SHA: ${{ github.event.before }}
+        run: python3 deployment/scripts/release-candidates.py
+
+  # Сборки параллельны; выкладка ждёт успеха всех сборок.
+  test-build-and-publish:
+    name: Проверить и собрать ${{ matrix.candidate.service }}
+    needs: detect-release-candidates
+    if: needs.detect-release-candidates.outputs.candidates != '[]'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        candidate: ${{ fromJSON(needs.detect-release-candidates.outputs.candidates) }}
+    steps:
+      - name: Скачать исходный код
+        uses: actions/checkout@v7
+      - name: Установить Temurin JDK 25
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '25.0.5'
+          cache: maven
+      # Если тесты падают, образ этого сервиса не публикуется.
+      - name: Проверить Maven-сборку и тесты сервиса
+        run: >-
+          bash ./mvnw --batch-mode --no-transfer-progress
+          -pl services/${{ matrix.candidate.service }} -am verify
+      - name: Настроить Docker Buildx
+        uses: docker/setup-buildx-action@v4
+      - name: Войти в GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      # Точный tag из pom.xml, без latest и runtime-секретов.
+      - name: Собрать и загрузить Docker image в GHCR
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ./services/${{ matrix.candidate.service }}/Dockerfile
+          push: true
+          tags: ghcr.io/returnaction/fitness-${{ matrix.candidate.service }}:${{ matrix.candidate.version }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.version=${{ matrix.candidate.version }}
+
+  # Одна job на весь выпуск: никакой matrix для запуска на VPS.
+  deploy-to-vps:
+    name: Последовательно выложить сервисы
+    needs: [detect-release-candidates, test-build-and-publish]
+    if: >-
+      needs.detect-release-candidates.outputs.candidates != '[]' &&
+      vars.VPS_DEPLOY_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Скачать Compose и скрипт выкладки
+        uses: actions/checkout@v7
+      - name: Подготовить SSH-доступ к VPS
+        env:
+          VPS_SSH_PRIVATE_KEY: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+          VPS_SSH_KNOWN_HOSTS: ${{ secrets.VPS_SSH_KNOWN_HOSTS }}
+        run: |
+          set -Eeuo pipefail
+          test -n "$VPS_SSH_PRIVATE_KEY"
+          test -n "$VPS_SSH_KNOWN_HOSTS"
+          install -d -m 700 "$HOME/.ssh"
+          printf '%s\n' "$VPS_SSH_PRIVATE_KEY" > "$HOME/.ssh/id_ed25519"
+          printf '%s\n' "$VPS_SSH_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/id_ed25519" "$HOME/.ssh/known_hosts"
+      # Сначала файлы попадают в отдельный каталог попытки, затем скрипт берёт lock.
+      - name: Передать файлы и выполнить выпуск по порядку
+        env:
+          CANDIDATES: ${{ needs.detect-release-candidates.outputs.candidates }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_SSH_USER: ${{ secrets.VPS_SSH_USER }}
+        run: |
+          set -Eeuo pipefail
+          test -n "$VPS_HOST"
+          test -n "$VPS_SSH_USER"
+          release_dir="${VPS_APP_DIR}/.release-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          ssh_options=(-i "$HOME/.ssh/id_ed25519" -o BatchMode=yes -o StrictHostKeyChecking=yes)
+          target="${VPS_SSH_USER}@${VPS_HOST}"
+          # jq сохраняет порядок Accounts → Coins → Identity → Gateway.
+          printf '%s' "$CANDIDATES" | jq -r '.[] | [.service, .version] | @tsv' > candidates.tsv
+          ssh "${ssh_options[@]}" "$target" "mkdir -m 700 '${release_dir}'"
+          cleanup() {
+            ssh "${ssh_options[@]}" "$target" \
+              "rm -f '${release_dir}/compose.yaml' '${release_dir}/deploy-release.sh' '${release_dir}/candidates.tsv'; rmdir '${release_dir}'" || true
+          }
+          trap cleanup EXIT
+          scp "${ssh_options[@]}" deployment/compose.yaml deployment/scripts/deploy-release.sh \
+            candidates.tsv "${target}:${release_dir}/"
+          # При ошибке любого сервиса скрипт останавливает весь выпуск.
+          ssh "${ssh_options[@]}" "$target" \
+            "bash '${release_dir}/deploy-release.sh' '${VPS_APP_DIR}' '${release_dir}' '${GITHUB_RUN_NUMBER}'"
