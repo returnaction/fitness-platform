@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import io.github.returnaction.fitness.gateway.configuration.properties.UpstreamProperties;
+import io.github.returnaction.fitness.gateway.routing.GatewayRoute;
 import io.github.returnaction.fitness.gateway.routing.GatewayRouteCatalog;
 import io.github.returnaction.fitness.gateway.routing.GatewayRouteValidator;
 import io.github.returnaction.fitness.gateway.routing.RouteAccessPolicy;
@@ -36,6 +37,12 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import tools.jackson.databind.ObjectMapper;
 
+/**
+ * Проверяет валидацию маршрутов и policy доступа Gateway.
+ *
+ * <p>Spec 017 T003.3: ожидания каталога расширены для
+ * {@code GET /api/v1/coins/me}.</p>
+ */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("test")
 class RouteValidationTest {
@@ -138,17 +145,19 @@ class RouteValidationTest {
                         UpstreamId.COINS, new UpstreamProperties.Settings(URI.create("http://localhost:3"))));
         var routes = GatewayRouteCatalog.routes();
         GatewayRouteValidator.validate(routes, upstreams);
-        assertThatThrownBy(() -> GatewayRouteValidator.validate(routes,
-                new UpstreamProperties(Map.of(UpstreamId.IDENTITY,
-                        new UpstreamProperties.Settings(URI.create("http://localhost:1"))))))
+        var missingAccountUpstreams = new UpstreamProperties(Map.of(UpstreamId.IDENTITY,
+                new UpstreamProperties.Settings(URI.create("http://localhost:1"))));
+        assertThatThrownBy(() -> GatewayRouteValidator.validate(routes, missingAccountUpstreams))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("ACCOUNT");
-        assertThatThrownBy(() -> GatewayRouteValidator.validate(List.of(), upstreams))
+        var emptyRoutes = List.<GatewayRoute>of();
+        assertThatThrownBy(() -> GatewayRouteValidator.validate(emptyRoutes, upstreams))
                 .isInstanceOf(IllegalStateException.class);
-        assertThatThrownBy(
-                () -> GatewayRouteValidator.validate(List.of(routes.getFirst(), routes.getFirst()), upstreams))
+        var duplicatedRoutes = List.of(routes.getFirst(), routes.getFirst());
+        assertThatThrownBy(() -> GatewayRouteValidator.validate(duplicatedRoutes, upstreams))
                 .isInstanceOf(IllegalStateException.class);
-        assertThatThrownBy(() -> GatewayRouteValidator.validate(routes, new UpstreamProperties(Map.of())))
+        var emptyUpstreams = new UpstreamProperties(Map.of());
+        assertThatThrownBy(() -> GatewayRouteValidator.validate(routes, emptyUpstreams))
                 .isInstanceOf(IllegalStateException.class);
     }
 

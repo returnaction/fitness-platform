@@ -6,13 +6,15 @@ import io.github.returnaction.fitness.gateway.timeout.RequestDeadline;
 import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicReference;
 import org.mockito.ArgumentMatchers;
-import org.mockito.Mockito;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.net.URI;
@@ -50,6 +52,12 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 
+/**
+ * Проверяет JWT, CheckSession и проксирование каталога Gateway.
+ *
+ * <p>Spec 017 T003.4–T003.5: добавлены проверки маршрута Coins
+ * (forwarding Bearer, канонический X-Request-Id, статус и тело ответа).</p>
+ */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("test")
 class JwtValidationTest {
@@ -154,22 +162,26 @@ class JwtValidationTest {
         for (String name : List.of("sub", "sid", "jti", "iat", "exp", "iss", "aud")) {
             var absent = claims();
             absent.remove(name);
-            assertThatThrownBy(() -> decoder.decode(sign(absent))).as("missing " + name)
+            var absentToken = sign(absent);
+            assertThatThrownBy(() -> decoder.decode(absentToken)).as("missing " + name)
                     .isInstanceOf(JwtException.class);
             var invalid = claims();
             invalid.put(name, Map.of("invalid", true));
-            assertThatThrownBy(() -> decoder.decode(sign(invalid))).as("type " + name).isInstanceOf(JwtException.class);
+            var invalidToken = sign(invalid);
+            assertThatThrownBy(() -> decoder.decode(invalidToken)).as("type " + name).isInstanceOf(JwtException.class);
         }
         for (Object roles : List.of("USER", List.of(1), Arrays.asList("USER", null))) {
             var invalid = claims();
             invalid.put("roles", roles);
-            assertThatThrownBy(() -> decoder.decode(sign(invalid))).isInstanceOf(JwtException.class);
+            var token = sign(invalid);
+            assertThatThrownBy(() -> decoder.decode(token)).isInstanceOf(JwtException.class);
         }
         for (String field : List.of("sub", "sid", "jti")) {
             for (String value : List.of("1-1-1-1-1", "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA", "bad")) {
                 var invalid = claims();
                 invalid.put(field, value);
-                assertThatThrownBy(() -> decoder.decode(sign(invalid))).isInstanceOf(JwtException.class);
+                var token = sign(invalid);
+                assertThatThrownBy(() -> decoder.decode(token)).isInstanceOf(JwtException.class);
             }
         }
     }
@@ -183,21 +195,27 @@ class JwtValidationTest {
                 .entrySet()) {
             var invalid = claims();
             invalid.put(entry.getKey(), entry.getValue());
-            assertThatThrownBy(() -> decoder.decode(sign(invalid))).isInstanceOf(JwtException.class);
+            var token = sign(invalid);
+            assertThatThrownBy(() -> decoder.decode(token)).isInstanceOf(JwtException.class);
         }
         for (long expiry : List.of(NOW.getEpochSecond(), NOW.minusSeconds(1).getEpochSecond())) {
             var invalid = claims();
             invalid.put("iat", NOW.minusSeconds(10).getEpochSecond());
             invalid.put("exp", expiry);
-            assertThatThrownBy(() -> decoder.decode(sign(invalid))).isInstanceOf(JwtException.class);
+            var token = sign(invalid);
+            assertThatThrownBy(() -> decoder.decode(token)).isInstanceOf(JwtException.class);
         }
-        assertThatThrownBy(() -> decoder.decode(sign(claims(), key(), "trusted"))).isInstanceOf(JwtException.class);
-        assertThatThrownBy(() -> decoder.decode(sign(claims(), KEY, "unknown"))).isInstanceOf(JwtException.class);
-        assertThatThrownBy(() -> decoder.decode(sign(claims(), KEY, null))).isInstanceOf(JwtException.class);
+        var wrongIssuer = sign(claims(), key(), "trusted");
+        assertThatThrownBy(() -> decoder.decode(wrongIssuer)).isInstanceOf(JwtException.class);
+        var unknownKid = sign(claims(), KEY, "unknown");
+        assertThatThrownBy(() -> decoder.decode(unknownKid)).isInstanceOf(JwtException.class);
+        var missingKid = sign(claims(), KEY, null);
+        assertThatThrownBy(() -> decoder.decode(missingKid)).isInstanceOf(JwtException.class);
         var hs = new JWSObject(new JWSHeader.Builder(JWSAlgorithm.HS256).keyID("trusted").build(),
                 new Payload(claims()));
         hs.sign(new MACSigner(new byte[32]));
-        assertThatThrownBy(() -> decoder.decode(hs.serialize())).isInstanceOf(JwtException.class);
+        var hsToken = hs.serialize();
+        assertThatThrownBy(() -> decoder.decode(hsToken)).isInstanceOf(JwtException.class);
     }
 
     @Test
@@ -230,7 +248,7 @@ class JwtValidationTest {
             assertThat(invalid.statusCode()).isEqualTo(401);
             assertThat(invalid.body()).contains("invalid_access_token", "requestId");
             assertThat(invalid.headers().firstValue("WWW-Authenticate")).contains("Bearer");
-            Mockito.verifyNoInteractions(sessions);
+            verifyNoInteractions(sessions);
             assertThat(UPSTREAM.calls.get()).isZero();
             var valid = request(client, "/api/v1/auth/logout-all", sign(claims()));
             assertThat(valid.statusCode()).isEqualTo(200);
@@ -321,7 +339,7 @@ class JwtValidationTest {
         assertThat(UPSTREAM.calls.get()).isEqualTo(5);
         assertThat(ACCOUNTS.calls.get()).isEqualTo(2);
         assertThat(COINS.calls.get()).isEqualTo(1);
-        verify(sessions, Mockito.times(4)).isActive(ArgumentMatchers.any(), ArgumentMatchers.any(),
+        verify(sessions, times(4)).isActive(ArgumentMatchers.any(), ArgumentMatchers.any(),
                 ArgumentMatchers.any(), ArgumentMatchers.any());
     }
 
@@ -379,7 +397,7 @@ class JwtValidationTest {
                 assertThat(profileRequest(client, method, "bad").statusCode()).isEqualTo(401);
                 verify(sessions, never()).isActive(ArgumentMatchers.any(), ArgumentMatchers.any(),
                         ArgumentMatchers.any(), ArgumentMatchers.any());
-                Mockito.doReturn(false)
+                doReturn(false)
                         .when(sessions)
                         .isActive(ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any(),
                                 ArgumentMatchers.any());

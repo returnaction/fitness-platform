@@ -11,6 +11,12 @@ import static org.springframework.http.HttpMethod.GET;
 import static org.springframework.http.HttpMethod.POST;
 import static org.springframework.http.HttpMethod.PUT;
 
+/**
+ * Каталог разрешённых операций Gateway.
+ *
+ * <p>Spec 017 T003.3: добавлен защищённый маршрут
+ * {@code GET /api/v1/coins/me → COINS, AUTHENTICATED}.</p>
+ */
 public final class GatewayRouteCatalog {
 
     private static final List<GatewayRoute> ROUTES = List.of(

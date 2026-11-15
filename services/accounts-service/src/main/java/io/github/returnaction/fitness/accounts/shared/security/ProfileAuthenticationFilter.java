@@ -53,7 +53,7 @@ public class ProfileAuthenticationFilter extends OncePerRequestFilter {
             SecurityContextHolder.clearContext();
             securityExceptionHandler.commence(request, response, exception);
             return;
-        } catch (ParseException | IllegalArgumentException exception) {
+        } catch (ParseException | IllegalArgumentException _) {
             SecurityContextHolder.clearContext();
             securityExceptionHandler.commence(request, response,
                     new BadCredentialsException("Invalid authentication context."));
