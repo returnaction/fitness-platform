@@ -81,6 +81,10 @@ server does not make separate servers fault tolerant.
 
 ## How to Work
 
+- Before changing deployment files or preparing a release, read
+  [the deployment guide](deployment/README.md). Follow its existing-service
+  and new-service checklists, and update it when the deployment mechanism changes.
+  This guide does not authorize commit, push, merge, deploy or database migrations.
 - Follow the shared [engineering standards](docs/engineering-standards.md),
   including the Clean Code rules, when writing or changing service code.
 - Act as an experienced backend developer: before making changes, inspect the

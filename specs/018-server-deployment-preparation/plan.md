@@ -1,7 +1,7 @@
 # План реализации: подготовка односерверной dev-выкладки
 
 > **Спецификация:** [spec.md](spec.md)
-> **Статус:** in-progress
+> **Статус:** implemented
 > **Решения:** [decisions.md](decisions.md)
 
 ## Краткое решение
@@ -9,7 +9,7 @@
 VPS остаётся одним dev-сервером. PostgreSQL 17 устанавливается напрямую в
 Ubuntu. Выпускаемые Java-сервисы и будущая Kafka работают в Docker Compose.
 GitHub Actions тестирует выпущенный сервис, публикует его exact-version image
-в private GHCR и по SSH обновляет только этот контейнер.
+в public GHCR и по SSH обновляет только этот контейнер.
 
 ## Этапы
 
@@ -18,7 +18,7 @@ GitHub Actions тестирует выпущенный сервис, публи�
    `0.1.0-SNAPSHOT`; проверить dev-конфигурацию и `.env.example`.
 2. **Server Compose и секреты.** Добавить versioned Compose без секретов,
    server secret layout, Bash-генератор mTLS/JWT и dump/log policy.
-3. **GitHub delivery.** Настроить GitHub Actions, private GHCR, exact image
+3. **GitHub delivery.** Настроить GitHub Actions, public GHCR, exact image
    tags, service-scoped tests, SSH-доставку, health-check и cleanup.
 4. **Чистый VPS.** После отдельного разрешения переустановить Ubuntu и
    подготовить SSH, UFW, Docker, PostgreSQL, DBeaver access, directories и
@@ -71,7 +71,7 @@ GitHub Actions тестирует выпущенный сервис, публи�
 - Проверка `docker compose config`, image tags и отсутствия секретов в Git.
 - Проверка SSH, UFW, DBeaver tunnel, SCRAM authentication и запрета public
   `5432` после подготовки VPS.
-- Проверка Liquibase changelog, health-check и мобильного gateway сценария.
+- Проверка Liquibase changelog, health-check и HTTP-сценария через Gateway.
 
 ## Риски и решения
 
