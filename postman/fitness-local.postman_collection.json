@@ -612,6 +612,42 @@
           ]
         }
       ]
+    },
+    {
+      "name": "Coins",
+      "description": "Перед запросом выполните вход или регистрацию в папке «Авторизация», чтобы получить access_token. Запрос идёт через Gateway; токены и секреты в коллекцию не добавляются.",
+      "item": [
+        {
+          "name": "1. Просмотр своего баланса",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/coins/me",
+            "description": "Возвращает доступный и зарезервированный баланс владельца из sub проверенного Bearer. Чужой баланс получить нельзя; query string запрещён."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('No store', () => pm.expect(pm.response.headers.get('Cache-Control')).to.include('no-store'));",
+                  "const body = pm.response.json();",
+                  "pm.test('Only balance fields', () => pm.expect(Object.keys(body).sort()).to.eql(['availableBalance', 'lockedBalance']));",
+                  "pm.test('Balances are integers', () => { pm.expect(body.availableBalance).to.be.a('number'); pm.expect(body.lockedBalance).to.be.a('number'); pm.expect(Number.isInteger(body.availableBalance)).to.be.true; pm.expect(Number.isInteger(body.lockedBalance)).to.be.true; });",
+                  "pm.test('Balances are non-negative', () => { pm.expect(body.availableBalance).to.be.at.least(0); pm.expect(body.lockedBalance).to.be.at.least(0); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
     }
   ]
 }
