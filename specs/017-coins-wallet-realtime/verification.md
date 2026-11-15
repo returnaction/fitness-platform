@@ -1,7 +1,7 @@
 # Проверка Spec 017 — 2026-11-14
 
-> **Статус:** T001–T004 выполнены и проверены; T005.1–T005.4 подтверждены
-> локальным запуском; T005.5 записан; Postman ожидает.
+> **Статус:** T001–T006 выполнены; локальная сквозная проверка и итоговые
+> проверки пройдены; контейнерный e2e заблокирован средой.
 
 ## T001 — 2026-11-14
 
@@ -118,11 +118,13 @@ OpenSSL 3.6. Локальные `secrets/` и `.env` созданы эквива
 | Некорректный токен или `sub` | 401 `invalid_access_token` | PASS T004.11/T005.3 |
 | Ответы Coins | `Cache-Control: no-store` | PASS T004.11/T005.2–T005.4 |
 | Контракты Coins/Gateway | owner OpenAPI + Gateway `$ref`, без дублирования схем | PASS T002 |
-| Postman-коллекция | авторизованный GET баланса через Gateway и проверки 200 | ожидает T005.6 |
+| Postman-коллекция | авторизованный GET баланса через Gateway и проверки 200 | PASS T005.6, JSON валиден |
 | coins-service | Maven verify | PASS T004.12 |
 | gateway-service | Maven verify | PASS T003.6 |
 | Markdown-ссылки | scripts/verify-markdown-links.ps1 | PASS T001 |
-| Whitespace | git diff --check | PASS T001 |
+| Whitespace | git diff --check | PASS T006 |
+| Итоговый verify Gateway/Coins | Maven verify, SpotBugs | PASS T006: 48 + 26 тестов |
+| Markdown-ссылки повторно | локальные ссылки | PASS T006: 173 файла |
 
 ## Границы проверки
 
