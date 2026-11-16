@@ -1,13 +1,9 @@
 package io.github.returnaction.fitness.coins.dailyreward.service;
 
 import io.github.returnaction.fitness.coins.dailyreward.dto.DailyRewardClaimResponse;
-import io.github.returnaction.fitness.coins.dailyreward.exception.InvalidIdempotencyKeyException;
 import io.github.returnaction.fitness.coins.dailyreward.repository.DailyRewardRequestRepository;
 import io.github.returnaction.fitness.coins.shared.persistence.ConnectionFailures;
 import io.github.returnaction.fitness.coins.wallet.exception.CoinsUnavailableException;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.Objects;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -36,7 +32,7 @@ public class DailyRewardClaimService {
     public DailyRewardClaimResponse claim(UUID userId, String rawIdempotencyKey) {
 
         Objects.requireNonNull(userId, "userId");
-        byte[] keyDigest = digest(rawIdempotencyKey);
+        byte[] keyDigest = DailyRewardIdempotencyKey.digest(rawIdempotencyKey);
 
         try {
             var existingRequest = requests.findByUserIdAndKeyDigest(userId, keyDigest);
@@ -56,26 +52,5 @@ public class DailyRewardClaimService {
         }
 
         return transactionService.claim(userId, keyDigest);
-    }
-
-    private byte[] digest(String rawIdempotencyKey) {
-        if (rawIdempotencyKey == null) {
-            throw new InvalidIdempotencyKeyException();
-        }
-        UUID key;
-        try {
-            key = UUID.fromString(rawIdempotencyKey);
-        } catch (IllegalArgumentException exception) {
-            throw new InvalidIdempotencyKeyException();
-        }
-        if (!key.toString().equalsIgnoreCase(rawIdempotencyKey)) {
-            throw new InvalidIdempotencyKeyException();
-        }
-        try {
-            return MessageDigest.getInstance("SHA-256")
-                .digest(key.toString().getBytes(StandardCharsets.UTF_8));
-        } catch (NoSuchAlgorithmException exception) {
-            throw new IllegalStateException("SHA-256 is unavailable", exception);
-        }
     }
 }

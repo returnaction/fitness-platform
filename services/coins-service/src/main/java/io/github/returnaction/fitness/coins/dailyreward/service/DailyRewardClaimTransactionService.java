@@ -83,12 +83,10 @@ public class DailyRewardClaimTransactionService {
 
             if (nextClaimAt != null && !DailyRewardSchedule.isAvailable(now, nextClaimAt)) {
                 DailyRewardClaimEntity lastClaim = latestClaim.orElseThrow();
-                var response = new DailyRewardClaimResponse(
-                    0,
+                var response = DailyRewardClaimResponse.alreadyClaimed(
                     wallet.getAvailableBalance(),
                     wallet.getLockedBalance(),
                     lastClaim.getClaimDate(),
-                    true,
                     nextClaimAt,
                     now
                 );
@@ -97,13 +95,10 @@ public class DailyRewardClaimTransactionService {
             }
 
             return grant(userId, keyDigest, wallet, now);
-        } catch (PessimisticLockingFailureException exception) {
+        } catch (PessimisticLockingFailureException | DataAccessResourceFailureException |
+                 TransientDataAccessResourceException | QueryTimeoutException exception) {
             throw new CoinsUnavailableException(exception);
-        } catch (DataAccessResourceFailureException
-                 | TransientDataAccessResourceException
-                 | QueryTimeoutException exception) {
-            throw new CoinsUnavailableException(exception);
-        } catch (JpaSystemException exception) {
+        }  catch (JpaSystemException exception) {
             if (ConnectionFailures.causedByConnectionFailure(exception)
                     || LockFailures.causedByLockConflict(exception)) {
                 throw new CoinsUnavailableException(exception);
@@ -137,12 +132,11 @@ public class DailyRewardClaimTransactionService {
         claims.save(new DailyRewardClaimEntity(claimId, userId, claimDate, now, amount, ledgerEntryId));
 
         Instant nextClaimAt = DailyRewardSchedule.nextClaimAt(claimDate, now);
-        var response = new DailyRewardClaimResponse(
+        var response = DailyRewardClaimResponse.granted(
             amount,
             wallet.getAvailableBalance(),
             wallet.getLockedBalance(),
             claimDate,
-            false,
             nextClaimAt,
             now
         );

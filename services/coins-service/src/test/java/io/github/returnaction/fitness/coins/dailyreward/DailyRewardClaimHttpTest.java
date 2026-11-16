@@ -276,7 +276,7 @@ class DailyRewardClaimHttpTest {
             locked.countDown();
             release.await(10, TimeUnit.SECONDS);
             connection.rollback();
-        } catch (Exception exception) {
+        } catch (Exception _) {
             locked.countDown();
         }
     }
@@ -295,7 +295,7 @@ class DailyRewardClaimHttpTest {
     }
 
     private void createWallet(UUID userId, long availableBalance) {
-        transactions.executeWithoutResult(status -> {
+        transactions.executeWithoutResult(_ -> {
             wallets.insertIfAbsent(userId);
             entityManager.createNativeQuery("""
                     UPDATE coin_wallets

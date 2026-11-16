@@ -3,6 +3,7 @@ package io.github.returnaction.fitness.coins.dailyreward.service;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.returnaction.fitness.coins.dailyreward.config.DailyRewardProperties;
 import io.github.returnaction.fitness.coins.dailyreward.dto.DailyRewardStatusResponse;
+import io.github.returnaction.fitness.coins.dailyreward.entity.DailyRewardClaimEntity;
 import io.github.returnaction.fitness.coins.dailyreward.repository.DailyRewardClaimRepository;
 import io.github.returnaction.fitness.coins.shared.persistence.ConnectionFailures;
 import io.github.returnaction.fitness.coins.wallet.exception.CoinsUnavailableException;
@@ -46,7 +47,7 @@ public class DailyRewardQueryService {
             return new DailyRewardStatusResponse(
                 available,
                 properties.amount(),
-                latestClaim.map(claim -> claim.getClaimDate()).orElse(null),
+                latestClaim.map(DailyRewardClaimEntity::getClaimDate).orElse(null),
                 available ? null : nextClaimAt,
                 now,
                 wallet.getAvailableBalance(),

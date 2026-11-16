@@ -105,4 +105,5 @@ java -jar services/gateway-service/target/gateway-service-0.1.0-SNAPSHOT.jar --s
 Для шагов выше достаточно `initialize-local-env.ps1`.
 
 - `verify-registration-e2e.py` проверяет сценарий регистрации.
+- `verify-daily-reward-e2e.py` проверяет ежедневную награду через реальные Gateway, Identity, Accounts и Coins с временным PostgreSQL.
 - `verify-markdown-links.ps1` проверяет ссылки в документации.

@@ -14,4 +14,37 @@ public record DailyRewardClaimResponse(
     Instant nextClaimAt,
     Instant serverTime
 ) {
+
+    public static DailyRewardClaimResponse granted(long amount,
+                                                   long availableBalance,
+                                                   long lockedBalance,
+                                                   LocalDate claimedForDate,
+                                                   Instant nextClaimAt,
+                                                   Instant serverTime) {
+        return new DailyRewardClaimResponse(
+            amount,
+            availableBalance,
+            lockedBalance,
+            claimedForDate,
+            false,
+            nextClaimAt,
+            serverTime
+        );
+    }
+
+    public static DailyRewardClaimResponse alreadyClaimed(long availableBalance,
+                                                          long lockedBalance,
+                                                          LocalDate claimedForDate,
+                                                          Instant nextClaimAt,
+                                                          Instant serverTime) {
+        return new DailyRewardClaimResponse(
+            0,
+            availableBalance,
+            lockedBalance,
+            claimedForDate,
+            true,
+            nextClaimAt,
+            serverTime
+        );
+    }
 }
