@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-
 import '../auth/account_screen.dart';
+import '../home/home_screen.dart';
 import '../profile/profile_screen.dart';
 
 class AppShellScreen extends StatefulWidget {
@@ -15,19 +15,21 @@ class _AppShellScreenState extends State<AppShellScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    body: _selectedIndex == 2
-        ? const ProfileScreen()
-        : const AccountScreen(),
+    body: switch (_selectedIndex) {
+      0 => const HomeScreen(),
+      2 => const ProfileScreen(),
+      _ => const AccountScreen(),
+    },
     bottomNavigationBar: NavigationBar(
       selectedIndex: _selectedIndex,
       onDestinationSelected: (index) {
-        if (index == 2 && _selectedIndex != index) {
+        if (index != 1 && _selectedIndex != index) {
           setState(() => _selectedIndex = index);
         }
       },
       destinations: const [
         NavigationDestination(
-          icon: Icon(Icons.home_outlined), label: 'Home', enabled: false,
+          icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home), label: 'Home',
         ),
         NavigationDestination(
           icon: Icon(Icons.emoji_events_outlined), label: 'Challenges', enabled: false,

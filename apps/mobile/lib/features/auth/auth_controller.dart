@@ -5,6 +5,7 @@ import 'package:uuid/uuid.dart';
 import '../../core/network/identity_api_client.dart';
 import '../../core/security/token_storage.dart';
 import '../profile/profile_store.dart';
+import '../home/wallet_store.dart';
 import 'auth_repository.dart';
 import 'session_operation_coordinator.dart';
 
@@ -19,18 +20,28 @@ final identityApiClientProvider = Provider<IdentityApiClient>(
 );
 
 final authRepositoryProvider = Provider<AuthRepository>(
-  (ref) => AuthRepository(
+  (ref) {
+    final profileStore = ref.watch(profileStoreProvider);
+    final walletStore = ref.watch(walletStoreProvider);
+    return AuthRepository(
     ref.watch(identityApiClientProvider),
     ref.watch(tokenStorageProvider),
     ref.watch(sessionOperationCoordinatorProvider),
-    invalidateSessionData: ref.watch(profileStoreProvider).invalidate,
-    clearSessionData: ref.watch(profileStoreProvider).clear,
+    invalidateSessionData: () {
+      profileStore.invalidate();
+      walletStore.invalidate();
+    },
+    clearSessionData: () => Future.wait([
+      profileStore.clear(),
+      walletStore.clear(),
+    ]),
     onRequestSessionFailure: (result, generation) {
       if (ref.mounted) {
         ref.read(authControllerProvider.notifier).handleRequestSessionFailure(result, generation);
       }
     },
-  ),
+    );
+  },
 );
 
 final sessionOperationCoordinatorProvider =

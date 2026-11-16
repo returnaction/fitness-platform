@@ -62,6 +62,5 @@ specs/
 
 ## Текущий статус
 
-Активная спецификация: [018-server-deployment-preparation](018-server-deployment-preparation/spec.md)
-(`in-progress`). Пользователь авторизовал только частичное выполнение T001;
-остальная реализация требует отдельной команды.
+Активная спецификация не выбрана. Последняя завершённая:
+[019-mobile-home-balance](019-mobile-home-balance/spec.md) (`implemented`).
