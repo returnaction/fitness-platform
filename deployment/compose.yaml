@@ -1,0 +1,172 @@
+# Первый dev-набор: Accounts → Coins → Identity → Gateway.
+# Настоящие env-файлы и crypto-файлы находятся только на VPS в /opt.
+services:
+  accounts-service:
+    image: ${ACCOUNTS_IMAGE:?Set ACCOUNTS_IMAGE in compose.env}
+    restart: unless-stopped
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    volumes:
+      - type: bind
+        source: /opt/fitness-platform/secrets/accounts.env
+        target: /run/fitness-platform/secrets/accounts.env
+        read_only: true
+        bind: { create_host_path: false }
+      - { type: bind, source: /opt/fitness-platform/crypto/ca.crt, target: /run/fitness-platform/crypto/ca.crt, read_only: true, bind: { create_host_path: false } }
+      - { type: bind, source: /opt/fitness-platform/crypto/accounts-server.crt, target: /run/fitness-platform/crypto/accounts-server.crt, read_only: true, bind: { create_host_path: false } }
+      - { type: bind, source: /opt/fitness-platform/crypto/accounts-server-pkcs8.key, target: /run/fitness-platform/crypto/accounts-server-pkcs8.key, read_only: true, bind: { create_host_path: false } }
+      - type: bind
+        source: /opt/fitness-platform/runtime/accounts/dumps
+        target: /var/fitness/dumps
+        bind: { create_host_path: false }
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      JAVA_TOOL_OPTIONS: >-
+        -XX:+HeapDumpOnOutOfMemoryError
+        -XX:HeapDumpPath=/var/fitness/dumps
+        -XX:ErrorFile=/var/fitness/dumps/hs_err_pid%p.log
+    healthcheck:
+      test: [ CMD-SHELL, curl --fail --silent --show-error http://127.0.0.1:8081/actuator/health/readiness ]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 60s
+    logging:
+      driver: local
+      options:
+        max-size: 10m
+        max-file: '2'
+    networks: [ fitness-internal ]
+
+  coins-service:
+    image: ${COINS_IMAGE:?Set COINS_IMAGE in compose.env}
+    restart: unless-stopped
+    depends_on:
+      accounts-service:
+        condition: service_healthy
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    volumes:
+      - type: bind
+        source: /opt/fitness-platform/secrets/coins.env
+        target: /run/fitness-platform/secrets/coins.env
+        read_only: true
+        bind: { create_host_path: false }
+      - { type: bind, source: /opt/fitness-platform/crypto/ca.crt, target: /run/fitness-platform/crypto/ca.crt, read_only: true, bind: { create_host_path: false } }
+      - { type: bind, source: /opt/fitness-platform/crypto/coins-server.crt, target: /run/fitness-platform/crypto/coins-server.crt, read_only: true, bind: { create_host_path: false } }
+      - { type: bind, source: /opt/fitness-platform/crypto/coins-server-pkcs8.key, target: /run/fitness-platform/crypto/coins-server-pkcs8.key, read_only: true, bind: { create_host_path: false } }
+      - type: bind
+        source: /opt/fitness-platform/runtime/coins/dumps
+        target: /var/fitness/dumps
+        bind: { create_host_path: false }
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      JAVA_TOOL_OPTIONS: >-
+        -XX:+HeapDumpOnOutOfMemoryError
+        -XX:HeapDumpPath=/var/fitness/dumps
+        -XX:ErrorFile=/var/fitness/dumps/hs_err_pid%p.log
+    healthcheck:
+      test: [ CMD-SHELL, curl --fail --silent --show-error http://127.0.0.1:8082/actuator/health/readiness ]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 60s
+    logging:
+      driver: local
+      options:
+        max-size: 10m
+        max-file: '2'
+    networks: [ fitness-internal ]
+
+  identity-service:
+    image: ${IDENTITY_IMAGE:?Set IDENTITY_IMAGE in compose.env}
+    restart: unless-stopped
+    depends_on:
+      accounts-service:
+        condition: service_healthy
+      coins-service:
+        condition: service_healthy
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    volumes:
+      - type: bind
+        source: /opt/fitness-platform/secrets/identity.env
+        target: /run/fitness-platform/secrets/identity.env
+        read_only: true
+        bind: { create_host_path: false }
+      - { type: bind, source: /opt/fitness-platform/crypto/ca.crt, target: /run/fitness-platform/crypto/ca.crt, read_only: true, bind: { create_host_path: false } }
+      - { type: bind, source: /opt/fitness-platform/crypto/identity-server.crt, target: /run/fitness-platform/crypto/identity-server.crt, read_only: true, bind: { create_host_path: false } }
+      - { type: bind, source: /opt/fitness-platform/crypto/identity-server-pkcs8.key, target: /run/fitness-platform/crypto/identity-server-pkcs8.key, read_only: true, bind: { create_host_path: false } }
+      - { type: bind, source: /opt/fitness-platform/crypto/identity-client.crt, target: /run/fitness-platform/crypto/identity-client.crt, read_only: true, bind: { create_host_path: false } }
+      - { type: bind, source: /opt/fitness-platform/crypto/identity-client-pkcs8.key, target: /run/fitness-platform/crypto/identity-client-pkcs8.key, read_only: true, bind: { create_host_path: false } }
+      - { type: bind, source: /opt/fitness-platform/crypto/identity-jwt-private.pem, target: /run/fitness-platform/crypto/identity-jwt-private.pem, read_only: true, bind: { create_host_path: false } }
+      - { type: bind, source: /opt/fitness-platform/crypto/identity-jwt-public.pem, target: /run/fitness-platform/crypto/identity-jwt-public.pem, read_only: true, bind: { create_host_path: false } }
+      - type: bind
+        source: /opt/fitness-platform/runtime/identity/dumps
+        target: /var/fitness/dumps
+        bind: { create_host_path: false }
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      JAVA_TOOL_OPTIONS: >-
+        -XX:+HeapDumpOnOutOfMemoryError
+        -XX:HeapDumpPath=/var/fitness/dumps
+        -XX:ErrorFile=/var/fitness/dumps/hs_err_pid%p.log
+    healthcheck:
+      test: [ CMD-SHELL, curl --fail --silent --show-error http://127.0.0.1:9080/actuator/health/readiness ]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 60s
+    logging:
+      driver: local
+      options:
+        max-size: 10m
+        max-file: '2'
+    networks: [ fitness-internal ]
+
+  gateway-service:
+    image: ${GATEWAY_IMAGE:?Set GATEWAY_IMAGE in compose.env}
+    restart: unless-stopped
+    depends_on:
+      identity-service:
+        condition: service_healthy
+    ports:
+      - '8088:8088'
+    volumes:
+      - type: bind
+        source: /opt/fitness-platform/secrets/gateway.env
+        target: /run/fitness-platform/secrets/gateway.env
+        read_only: true
+        bind: { create_host_path: false }
+      - { type: bind, source: /opt/fitness-platform/crypto/ca.crt, target: /run/fitness-platform/crypto/ca.crt, read_only: true, bind: { create_host_path: false } }
+      - { type: bind, source: /opt/fitness-platform/crypto/gateway-client.crt, target: /run/fitness-platform/crypto/gateway-client.crt, read_only: true, bind: { create_host_path: false } }
+      - { type: bind, source: /opt/fitness-platform/crypto/gateway-client-pkcs8.key, target: /run/fitness-platform/crypto/gateway-client-pkcs8.key, read_only: true, bind: { create_host_path: false } }
+      - type: bind
+        source: /opt/fitness-platform/runtime/gateway/dumps
+        target: /var/fitness/dumps
+        bind: { create_host_path: false }
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      JAVA_TOOL_OPTIONS: >-
+        -XX:+HeapDumpOnOutOfMemoryError
+        -XX:HeapDumpPath=/var/fitness/dumps
+        -XX:ErrorFile=/var/fitness/dumps/hs_err_pid%p.log
+    healthcheck:
+      test: [ CMD-SHELL, curl --fail --silent --show-error http://127.0.0.1:9088/actuator/health/readiness ]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 60s
+    logging:
+      driver: local
+      options:
+        max-size: 10m
+        max-file: '2'
+    networks: [ fitness-internal ]
+
+networks:
+  fitness-internal:
+    # Создаётся при подготовке VPS: 172.30.0.0/24, bridge br-fitness.
+    # Постоянная подсеть используется в PostgreSQL pg_hba.conf и UFW.
+    external: true
+    name: fitness-internal

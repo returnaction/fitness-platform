@@ -78,10 +78,28 @@ Identity, Accounts и Coins подключают его как Maven dependency;
 <dependency>
     <groupId>io.github.returnaction.fitness</groupId>
     <artifactId>fitness-grpc-contracts</artifactId>
-    <version>${project.version}</version>
+    <version>0.1.1</version>
 </dependency>
 
 ```
+
+## Версии gRPC-контрактов
+
+У `grpc-contracts` своя независимая версия. Сервис всегда указывает точную
+версию контрактов, которые он использует; `${project.version}` и `latest` для
+этой зависимости использовать нельзя.
+
+Если изменили `.proto`:
+
+1. Повысить версию `contracts/grpc-contracts/pom.xml`.
+2. В каждом сервисе, которому нужны изменённые контракты, явно поставить эту
+   новую версию `fitness-grpc-contracts` в его `pom.xml`.
+3. Повысить собственную версию каждого такого сервиса: его готовый JAR и
+   Docker image изменились.
+
+Если сервису новые контракты не нужны, его версию и `pom.xml` менять не надо.
+Это правило одинаково для локальной Maven-сборки и для Docker image, который
+потом выкладывается на VPS.
 
 ## Проверка OpenAPI
 

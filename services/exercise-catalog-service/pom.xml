@@ -9,6 +9,7 @@
         <relativePath>../../pom.xml</relativePath>
     </parent>
     <artifactId>exercise-catalog-service</artifactId>
+    <version>0.1.1</version>
     <name>ExerciseCatalog Service</name>
     <dependencies>
         <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-webmvc</artifactId></dependency>

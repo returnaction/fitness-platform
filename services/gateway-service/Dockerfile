@@ -17,7 +17,12 @@ COPY services/notifications-service/pom.xml services/notifications-service/pom.x
 RUN bash ./mvnw --batch-mode --no-transfer-progress -pl services/gateway-service -am package -DskipTests
 
 FROM eclipse-temurin:25.0.5_8-jre
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && mkdir -p /run/fitness-platform/secrets /run/fitness-platform/crypto /var/fitness/dumps \
+    && chown -R 10001:10001 /run/fitness-platform /var/fitness
 WORKDIR /app
-COPY --from=build /workspace/services/gateway-service/target/gateway-service-0.1.0-SNAPSHOT.jar app.jar
+COPY --from=build /workspace/services/gateway-service/target/gateway-service-*.jar app.jar
 USER 10001
 ENTRYPOINT ["java", "-jar", "app.jar"]
