@@ -136,7 +136,7 @@ class DailyRewardClaimHttpTest {
     void rejectsNewKeyDuringUnavailablePeriodWithoutGranting() throws Exception {
         UUID owner = UUID.randomUUID();
         createWallet(owner, 10);
-        createClaim(owner, LocalDate.parse("2026-11-16"), NOW.minusSeconds(3600), 10);
+        createClaim(owner, LocalDate.parse("2026-11-16"), NOW.minusSeconds(3600));
 
         var response = post(token(owner), UUID.randomUUID().toString(), "");
 
@@ -157,7 +157,7 @@ class DailyRewardClaimHttpTest {
     void grantsNextRewardAfterTwentyFourHours() throws Exception {
         UUID owner = UUID.randomUUID();
         createWallet(owner, 10);
-        createClaim(owner, LocalDate.parse("2026-11-15"), NOW.minusSeconds(25 * 3600), 10);
+        createClaim(owner, LocalDate.parse("2026-11-15"), NOW.minusSeconds(25 * 3600));
 
         var response = post(token(owner), UUID.randomUUID().toString(), "");
 
@@ -274,7 +274,14 @@ class DailyRewardClaimHttpTest {
                 statement.executeQuery().close();
             }
             locked.countDown();
-            release.await(10, TimeUnit.SECONDS);
+            try {
+                if (!release.await(10, TimeUnit.SECONDS)) {
+                    return;
+                }
+            } catch (InterruptedException _) {
+                Thread.currentThread().interrupt();
+                return;
+            }
             connection.rollback();
         } catch (Exception _) {
             locked.countDown();
@@ -308,23 +315,23 @@ class DailyRewardClaimHttpTest {
         });
     }
 
-    private void createClaim(UUID userId, LocalDate claimDate, Instant claimedAt, long amount) {
+    private void createClaim(UUID userId, LocalDate claimDate, Instant claimedAt) {
         UUID claimId = UUID.randomUUID();
         UUID ledgerId = UUID.randomUUID();
         ledgerEntries.save(new LedgerEntryEntity(ledgerId, userId, claimId, 0,
-            LedgerEntryType.DAILY_REWARD, amount, 0, null, null, claimedAt));
-        claims.save(new DailyRewardClaimEntity(claimId, userId, claimDate, claimedAt, amount, ledgerId));
+            LedgerEntryType.DAILY_REWARD, 10, 0, null, null, claimedAt));
+        claims.save(new DailyRewardClaimEntity(claimId, userId, claimDate, claimedAt, 10, ledgerId));
     }
 
     private long count(String table, UUID userId) {
-        return transactions.execute(status -> ((Number) entityManager.createNativeQuery(
+        return transactions.execute(_ -> ((Number) entityManager.createNativeQuery(
                 "SELECT count(*) FROM " + table + " WHERE user_id = :id")
             .setParameter("id", userId)
             .getSingleResult()).longValue());
     }
 
     private long balance(UUID userId) {
-        return transactions.execute(status -> ((Number) entityManager.createNativeQuery(
+        return transactions.execute(_ -> ((Number) entityManager.createNativeQuery(
                 "SELECT available_balance FROM coin_wallets WHERE user_id = :id")
             .setParameter("id", userId)
             .getSingleResult()).longValue());

@@ -81,7 +81,7 @@ class DailyRewardPersistenceTest {
         Instant next = Instant.parse("2026-11-17T12:34:56Z");
         LocalDate claimDate = LocalDate.parse("2026-11-16");
 
-        transactions.executeWithoutResult(status -> wallets.insertIfAbsent(userId));
+        transactions.executeWithoutResult(_ -> wallets.insertIfAbsent(userId));
 
         ledgerEntries.save(new LedgerEntryEntity(ledgerId, userId, claimId, 0, LedgerEntryType.DAILY_REWARD,
             10, 0, null, null, now));
@@ -97,7 +97,7 @@ class DailyRewardPersistenceTest {
         assertThat(stored.getOutcome()).isEqualTo(DailyRewardOutcome.GRANTED);
         assertThat(stored.getClaimId()).isEqualTo(claimId);
 
-        transactions.executeWithoutResult(status -> {
+        transactions.executeWithoutResult(_ -> {
             Object[] row = (Object[]) entityManager.createNativeQuery("""
                     SELECT jsonb_typeof(response_snapshot),
                            response_snapshot ->> 'claimedAmount',
@@ -119,11 +119,11 @@ class DailyRewardPersistenceTest {
         UUID ledgerId = UUID.randomUUID();
         Instant now = Instant.parse("2026-11-16T12:34:56Z");
 
-        transactions.executeWithoutResult(status -> wallets.insertIfAbsent(userId));
+        transactions.executeWithoutResult(_ -> wallets.insertIfAbsent(userId));
         ledgerEntries.save(new LedgerEntryEntity(ledgerId, userId, UUID.randomUUID(), 0,
             LedgerEntryType.DAILY_REWARD, 10, 0, null, null, now));
 
-        assertThatThrownBy(() -> transactions.executeWithoutResult(status ->
+        assertThatThrownBy(() -> transactions.executeWithoutResult(_ ->
             entityManager.createNativeQuery("""
                     UPDATE coin_ledger_entries
                     SET available_delta = 11

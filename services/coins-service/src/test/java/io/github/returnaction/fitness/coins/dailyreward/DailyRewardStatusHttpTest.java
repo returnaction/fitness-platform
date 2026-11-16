@@ -91,7 +91,7 @@ class DailyRewardStatusHttpTest {
     @Test
     void returnsAvailableRewardAndBalanceWithoutCaching() throws Exception {
         UUID owner = UUID.randomUUID();
-        createWallet(owner, 5, 0);
+        createWallet(owner, 5);
 
         var response = get(token(owner), "");
 
@@ -111,8 +111,8 @@ class DailyRewardStatusHttpTest {
     void returnsNextClaimTimeAndLastClaimDateAfterClaim() throws Exception {
         UUID owner = UUID.randomUUID();
         Instant claimedAt = NOW.minusSeconds(3600);
-        createWallet(owner, 10, 0);
-        createClaim(owner, LocalDate.parse("2026-11-16"), claimedAt, 10);
+        createWallet(owner, 10);
+        createClaim(owner, LocalDate.parse("2026-11-16"), claimedAt);
 
         var response = get(token(owner), "");
 
@@ -147,27 +147,26 @@ class DailyRewardStatusHttpTest {
         assertError(response, 500, "wallet_invariant_violation");
     }
 
-    private void createWallet(UUID userId, long availableBalance, long lockedBalance) {
-        transactions.executeWithoutResult(status -> {
+    private void createWallet(UUID userId, long availableBalance) {
+        transactions.executeWithoutResult(_ -> {
             wallets.insertIfAbsent(userId);
             entityManager.createNativeQuery("""
                     UPDATE coin_wallets
-                    SET available_balance = :available, locked_balance = :locked
+                    SET available_balance = :available
                     WHERE user_id = :id
                     """)
                 .setParameter("available", availableBalance)
-                .setParameter("locked", lockedBalance)
                 .setParameter("id", userId)
                 .executeUpdate();
         });
     }
 
-    private void createClaim(UUID userId, LocalDate claimDate, Instant claimedAt, long amount) {
+    private void createClaim(UUID userId, LocalDate claimDate, Instant claimedAt) {
         UUID claimId = UUID.randomUUID();
         UUID ledgerId = UUID.randomUUID();
         ledgerEntries.save(new LedgerEntryEntity(ledgerId, userId, claimId, 0,
-            LedgerEntryType.DAILY_REWARD, amount, 0, null, null, claimedAt));
-        claims.save(new DailyRewardClaimEntity(claimId, userId, claimDate, claimedAt, amount, ledgerId));
+            LedgerEntryType.DAILY_REWARD, 10, 0, null, null, claimedAt));
+        claims.save(new DailyRewardClaimEntity(claimId, userId, claimDate, claimedAt, 10, ledgerId));
     }
 
     private HttpResponse<String> get(String bearer, String query) throws Exception {
@@ -184,11 +183,11 @@ class DailyRewardStatusHttpTest {
     }
 
     private String token(UUID userId) throws Exception {
-        var claims = new JWTClaimsSet.Builder()
+        var jwtClaims = new JWTClaimsSet.Builder()
             .subject(userId.toString())
             .claim("sid", UUID.randomUUID().toString())
             .build();
-        var token = new SignedJWT(new JWSHeader(JWSAlgorithm.HS256), claims);
+        var token = new SignedJWT(new JWSHeader(JWSAlgorithm.HS256), jwtClaims);
         token.sign(new MACSigner(new byte[32]));
         return token.serialize();
     }
