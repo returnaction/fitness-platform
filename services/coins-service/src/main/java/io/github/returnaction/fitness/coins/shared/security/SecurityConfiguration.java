@@ -31,7 +31,14 @@ public class SecurityConfiguration {
                     "/actuator/info",
                     "/actuator/prometheus")
                 .permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/v1/coins/me")
+                .requestMatchers(HttpMethod.GET,
+                 "/api/v1/coins/me")
+                .authenticated()
+                .requestMatchers(HttpMethod.GET,
+                 "/api/v1/coins/daily-reward/status")
+                .authenticated()
+                .requestMatchers(HttpMethod.POST,
+                 "/api/v1/coins/daily-reward/claim")
                 .authenticated()
                 .anyRequest()
                 .denyAll())

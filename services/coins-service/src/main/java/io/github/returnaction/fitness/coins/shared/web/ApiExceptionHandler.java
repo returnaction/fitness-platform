@@ -1,5 +1,6 @@
 package io.github.returnaction.fitness.coins.shared.web;
 
+import io.github.returnaction.fitness.coins.dailyreward.exception.InvalidIdempotencyKeyException;
 import io.github.returnaction.fitness.coins.wallet.exception.CoinsUnavailableException;
 import io.github.returnaction.fitness.coins.wallet.exception.WalletInvariantViolationException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -10,6 +11,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
+import org.springframework.transaction.CannotCreateTransactionException;
 import org.springframework.web.HttpMediaTypeNotAcceptableException;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
@@ -31,7 +33,8 @@ public class ApiExceptionHandler {
         {
             HttpMessageNotReadableException.class,
             MethodArgumentTypeMismatchException.class,
-            InvalidRequestException.class
+            InvalidRequestException.class,
+            InvalidIdempotencyKeyException.class
         })
     ResponseEntity<ApiErrorResponse> handleInvalidRequest(HttpServletRequest request) {
         return response(HttpStatus.BAD_REQUEST, "invalid_request", "Check the request format.", List.of(), request);
@@ -108,8 +111,15 @@ public class ApiExceptionHandler {
 
         log.warn("Wallet temporarily unavailable, request_id={}, reason={}", requestId(request), reason);
 
-        return response(HttpStatus.SERVICE_UNAVAILABLE, "coins_unavailable", "Wallet is temporarily unavailable.",
-            List.of(), request);
+        return unavailableResponse(request);
+    }
+
+    @ExceptionHandler(CannotCreateTransactionException.class)
+    ResponseEntity<ApiErrorResponse> handleCannotCreateTransaction(HttpServletRequest request) {
+
+        log.warn("Database transaction could not be created, request_id={}", requestId(request));
+
+        return unavailableResponse(request);
     }
 
     @ExceptionHandler(Exception.class)
@@ -142,6 +152,14 @@ public class ApiExceptionHandler {
         return ResponseEntity.status(status)
             .header(HttpHeaders.CACHE_CONTROL, NO_STORE)
             .body(errorBody(code, message, details, request));
+    }
+
+    private ResponseEntity<ApiErrorResponse> unavailableResponse(HttpServletRequest request) {
+
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+            .header(HttpHeaders.CACHE_CONTROL, NO_STORE)
+            .header(HttpHeaders.RETRY_AFTER, "1")
+            .body(errorBody("coins_unavailable", "Wallet is temporarily unavailable.", List.of(), request));
     }
 
     private ApiErrorResponse errorBody(String code,

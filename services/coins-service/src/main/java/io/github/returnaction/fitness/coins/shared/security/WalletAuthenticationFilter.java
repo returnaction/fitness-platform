@@ -33,10 +33,9 @@ public class WalletAuthenticationFilter extends OncePerRequestFilter {
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = request.getRequestURI().substring(request.getContextPath().length());
 
-        boolean walletPath = "/api/v1/coins/me".equals(path);
-        boolean walletMethod = "GET".equals(request.getMethod());
-
-        return !(walletPath && walletMethod);
+        // Фильтр извлекает sub для всех путей Coins; доступ к операциям
+        // ограничивает SecurityConfiguration.
+        return !path.startsWith("/api/v1/coins/");
     }
 
     @Override

@@ -4,6 +4,7 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import io.github.returnaction.fitness.coins.wallet.exception.WalletInvariantViolationException;
 import java.time.Instant;
 import java.util.UUID;
 import lombok.AccessLevel;
@@ -34,4 +35,20 @@ public class WalletEntity {
 
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
+
+    /**
+     * Начисляет доступные монеты и обновляет время изменения.
+     * Переполнение BIGINT — нарушение инварианта, а не отрицательный баланс.
+     */
+    public void creditAvailable(long amount, Instant now) {
+        if (amount <= 0) {
+            throw new IllegalArgumentException("amount must be positive");
+        }
+        try {
+            availableBalance = Math.addExact(availableBalance, amount);
+        } catch (ArithmeticException exception) {
+            throw new WalletInvariantViolationException();
+        }
+        updatedAt = now;
+    }
 }

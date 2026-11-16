@@ -7,14 +7,14 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 /**
  * Подключает проверки HTTP-запросов Coins.
  *
- * <p>Spec 017 T004.7/T004.9: регистрирует {@link WalletRequestInterceptor}
- * для пути {@code /api/v1/coins/me}.</p>
+ * <p>Регистрирует {@link WalletRequestInterceptor} для всех HTTP-путей Coins:
+ * баланс, статус и получение ежедневной награды.</p>
  */
 @Configuration
 public class WalletWebConfiguration implements WebMvcConfigurer {
 
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
-        registry.addInterceptor(new WalletRequestInterceptor()).addPathPatterns("/api/v1/coins/me");
+        registry.addInterceptor(new WalletRequestInterceptor()).addPathPatterns("/api/v1/coins/**");
     }
 }

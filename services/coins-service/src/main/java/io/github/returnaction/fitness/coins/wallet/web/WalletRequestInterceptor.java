@@ -16,7 +16,7 @@ public final class WalletRequestInterceptor implements HandlerInterceptor {
                              @NonNull Object handler) {
 
         String path = request.getRequestURI().substring(request.getContextPath().length());
-        if ("/api/v1/coins/me".equals(path) && "GET".equals(request.getMethod())) {
+        if (path.startsWith("/api/v1/coins/")) {
             response.setHeader(HttpHeaders.CACHE_CONTROL, "no-store");
             if (request.getQueryString() != null) {
                 throw new InvalidRequestException();
