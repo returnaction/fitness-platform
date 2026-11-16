@@ -1,0 +1,10 @@
+databaseChangeLog:
+  - changeSet:
+      id: 002-create-daily-reward
+      author: returnaction
+      dbms: postgresql
+      changes:
+        - sqlFile:
+            path: 002-create-daily-reward.sql
+            relativeToChangelogFile: true
+            stripComments: false
