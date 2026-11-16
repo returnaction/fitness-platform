@@ -2,6 +2,7 @@ package io.github.returnaction.fitness.accounts.shared.security;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.jspecify.annotations.NonNull;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpHeaders;
 import org.springframework.security.access.AccessDeniedException;
@@ -12,8 +13,22 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerExceptionResolver;
 
 /**
- * Delegates security failures to the same MVC error handlers used by
- * controllers.
+ * Передаёт ошибки Spring Security в общий ApiExceptionHandler,
+ * чтобы клиент получал единый JSON-формат ошибки.
+ *
+ * <p>Ошибка в фильтре возникает до контроллера, поэтому фильтр
+ * или Spring Security явно вызывают этот обработчик:
+ * <ul>
+ *   <li>{@code commence()} — пользователь не аутентифицирован, ответ 401.</li>
+ *   <li>{@code handle()} — пользователю запрещён доступ, ответ 403.</li>
+ * </ul>
+ *
+ * <p>Устанавливает {@code Cache-Control: no-store} и передаёт исключение
+ * через HandlerExceptionResolver в ApiExceptionHandler.
+ * Тот формирует HTTP-статус и JSON ошибки.
+ *
+ * <p>Если ответ уже отправлен — ничего не меняет.
+ * Если исключение не удалось обработать — возвращает статус 500.
  */
 @Component
 public class SecurityExceptionHandler implements AuthenticationEntryPoint, AccessDeniedHandler {
@@ -25,12 +40,17 @@ public class SecurityExceptionHandler implements AuthenticationEntryPoint, Acces
     }
 
     @Override
-    public void commence(HttpServletRequest request, HttpServletResponse response, AuthenticationException exception) {
+    public void commence(@NonNull HttpServletRequest request,
+                         @NonNull HttpServletResponse response,
+                         @NonNull AuthenticationException exception) {
         resolve(request, response, exception);
     }
 
     @Override
-    public void handle(HttpServletRequest request, HttpServletResponse response, AccessDeniedException exception) {
+    public void handle(@NonNull HttpServletRequest request,
+                       @NonNull HttpServletResponse response,
+                       @NonNull AccessDeniedException exception) {
+
         resolve(request, response, exception);
     }
 

@@ -3,7 +3,6 @@ package io.github.returnaction.fitness.coins.shared.web;
 import io.github.returnaction.fitness.coins.wallet.exception.CoinsUnavailableException;
 import io.github.returnaction.fitness.coins.wallet.exception.WalletInvariantViolationException;
 import jakarta.servlet.http.HttpServletRequest;
-import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -19,22 +18,21 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
-/**
- * Единый HTTP-обработчик ошибок Coins.
- *
- * <p>Spec 017 T004.9: возвращает 401 {@code invalid_access_token},
- * 500 {@code wallet_invariant_violation}, 503 {@code coins_unavailable},
- * 500 {@code internal_error} и стандартные HTTP-ошибки Accounts;
- * все ответы содержат {@code Cache-Control: no-store}.</p>
- */
+import java.util.List;
+
+
 @Slf4j
 @RestControllerAdvice
 public class ApiExceptionHandler {
 
     private static final String NO_STORE = "no-store";
 
-    @ExceptionHandler({HttpMessageNotReadableException.class, MethodArgumentTypeMismatchException.class,
-            InvalidRequestException.class})
+    @ExceptionHandler(
+        {
+            HttpMessageNotReadableException.class,
+            MethodArgumentTypeMismatchException.class,
+            InvalidRequestException.class
+        })
     ResponseEntity<ApiErrorResponse> handleInvalidRequest(HttpServletRequest request) {
         return response(HttpStatus.BAD_REQUEST, "invalid_request", "Check the request format.", List.of(), request);
     }
@@ -43,53 +41,53 @@ public class ApiExceptionHandler {
     ResponseEntity<ApiErrorResponse> handleValidation(MethodArgumentNotValidException exception,
                                                       HttpServletRequest request) {
         var details = exception.getBindingResult()
-                .getFieldErrors()
-                .stream()
-                .map(field -> new ApiErrorResponse.ErrorDetail(field.getField(), validationCode(field.getCode())))
-                .toList();
+            .getFieldErrors()
+            .stream()
+            .map(field -> new ApiErrorResponse.ErrorDetail(field.getField(), validationCode(field.getCode())))
+            .toList();
         return response(HttpStatus.UNPROCESSABLE_CONTENT, "validation_error", "Check the submitted data.", details,
-                request);
+            request);
     }
 
     @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
     ResponseEntity<ApiErrorResponse> handleUnsupportedMediaType(HttpMediaTypeNotSupportedException exception,
                                                                 HttpServletRequest request) {
         return ResponseEntity.status(HttpStatus.UNSUPPORTED_MEDIA_TYPE)
-                .headers(exception.getHeaders())
-                .header(HttpHeaders.CACHE_CONTROL, NO_STORE)
-                .body(errorBody("unsupported_media_type", "Content type is not supported.", List.of(), request));
+            .headers(exception.getHeaders())
+            .header(HttpHeaders.CACHE_CONTROL, NO_STORE)
+            .body(errorBody("unsupported_media_type", "Content type is not supported.", List.of(), request));
     }
 
     @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
     ResponseEntity<ApiErrorResponse> handleMethodNotAllowed(HttpRequestMethodNotSupportedException exception,
                                                             HttpServletRequest request) {
         return ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED)
-                .headers(exception.getHeaders())
-                .header(HttpHeaders.CACHE_CONTROL, NO_STORE)
-                .body(errorBody("method_not_allowed", "HTTP method is not supported.", List.of(), request));
+            .headers(exception.getHeaders())
+            .header(HttpHeaders.CACHE_CONTROL, NO_STORE)
+            .body(errorBody("method_not_allowed", "HTTP method is not supported.", List.of(), request));
     }
 
     @ExceptionHandler(HttpMediaTypeNotAcceptableException.class)
     ResponseEntity<Void> handleNotAcceptable() {
         return ResponseEntity.status(HttpStatus.NOT_ACCEPTABLE)
-                .header(HttpHeaders.CACHE_CONTROL, NO_STORE)
-                .build();
+            .header(HttpHeaders.CACHE_CONTROL, NO_STORE)
+            .build();
     }
 
     @ExceptionHandler(AuthenticationException.class)
     ResponseEntity<ApiErrorResponse> handleAuthentication(HttpServletRequest request) {
 
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                .header(HttpHeaders.WWW_AUTHENTICATE, "Bearer")
-                .header(HttpHeaders.CACHE_CONTROL, NO_STORE)
-                .body(errorBody("invalid_access_token", "Authentication required.", List.of(), request));
+            .header(HttpHeaders.WWW_AUTHENTICATE, "Bearer")
+            .header(HttpHeaders.CACHE_CONTROL, NO_STORE)
+            .body(errorBody("invalid_access_token", "Authentication required.", List.of(), request));
     }
 
     @ExceptionHandler(AccessDeniedException.class)
     ResponseEntity<ApiErrorResponse> handleAccessDenied(HttpServletRequest request) {
         return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                .header(HttpHeaders.CACHE_CONTROL, NO_STORE)
-                .body(errorBody("access_denied", "Access denied.", List.of(), request));
+            .header(HttpHeaders.CACHE_CONTROL, NO_STORE)
+            .body(errorBody("access_denied", "Access denied.", List.of(), request));
     }
 
     @ExceptionHandler(WalletInvariantViolationException.class)
@@ -98,7 +96,7 @@ public class ApiExceptionHandler {
         log.error("Wallet invariant violated, request_id={}", requestId(request));
 
         return response(HttpStatus.INTERNAL_SERVER_ERROR, "wallet_invariant_violation", "Wallet is unavailable.",
-                List.of(), request);
+            List.of(), request);
     }
 
     @ExceptionHandler(CoinsUnavailableException.class)
@@ -111,17 +109,17 @@ public class ApiExceptionHandler {
         log.warn("Wallet temporarily unavailable, request_id={}, reason={}", requestId(request), reason);
 
         return response(HttpStatus.SERVICE_UNAVAILABLE, "coins_unavailable", "Wallet is temporarily unavailable.",
-                List.of(), request);
+            List.of(), request);
     }
 
     @ExceptionHandler(Exception.class)
     ResponseEntity<ApiErrorResponse> handleUnexpected(Exception exception, HttpServletRequest request) {
 
         log.error("Unhandled request failure, request_id={}, error_type={}",
-                requestId(request), exception.getClass().getName());
+            requestId(request), exception.getClass().getName());
 
         return response(HttpStatus.INTERNAL_SERVER_ERROR, "internal_error", "Unexpected server error.", List.of(),
-                request);
+            request);
     }
 
     private String validationCode(String constraint) {
@@ -142,8 +140,8 @@ public class ApiExceptionHandler {
                                                       HttpServletRequest request) {
 
         return ResponseEntity.status(status)
-                .header(HttpHeaders.CACHE_CONTROL, NO_STORE)
-                .body(errorBody(code, message, details, request));
+            .header(HttpHeaders.CACHE_CONTROL, NO_STORE)
+            .body(errorBody(code, message, details, request));
     }
 
     private ApiErrorResponse errorBody(String code,

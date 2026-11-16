@@ -12,14 +12,7 @@ import org.springframework.security.web.access.AccessDeniedHandler;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerExceptionResolver;
 
-/**
- * Delegates security failures to the same MVC error handlers used by
- * controllers.
- *
- * <p>Spec 017 T004.2: применяется в Coins для ошибок
- * {@link WalletAuthenticationFilter}; выставляет {@code Cache-Control: no-store}
- * и передаёт исключение в общий обработчик ошибок.</p>
- */
+
 @Component
 public class SecurityExceptionHandler implements AuthenticationEntryPoint, AccessDeniedHandler {
 
@@ -33,6 +26,7 @@ public class SecurityExceptionHandler implements AuthenticationEntryPoint, Acces
     public void commence(@NonNull HttpServletRequest request,
                          @NonNull HttpServletResponse response,
                          @NonNull AuthenticationException exception) {
+
         resolve(request, response, exception);
     }
 
@@ -44,6 +38,7 @@ public class SecurityExceptionHandler implements AuthenticationEntryPoint, Acces
     }
 
     private void resolve(HttpServletRequest request, HttpServletResponse response, Exception exception) {
+
         if (response.isCommitted()) {
             return;
         }
