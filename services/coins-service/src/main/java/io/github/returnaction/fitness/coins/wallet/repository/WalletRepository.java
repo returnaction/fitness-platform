@@ -21,5 +21,5 @@ public interface WalletRepository extends JpaRepository<WalletEntity, UUID> {
             INSERT INTO coin_wallets (user_id) VALUES (:userId)
             ON CONFLICT (user_id) DO NOTHING
             """, nativeQuery = true)
-    void insertIfAbsent(@Param("userId") UUID userId);
+    int insertIfAbsent(@Param("userId") UUID userId);
 }
