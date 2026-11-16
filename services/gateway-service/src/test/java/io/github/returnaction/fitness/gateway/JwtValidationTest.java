@@ -89,7 +89,7 @@ class JwtValidationTest {
     private JwksInitializer keys;
     @MockitoBean
     private Clock clock;
-    @MockitoSpyBean
+    @MockitoSpyBean(name = "jwtDecoder")
     private JwtDecoder decoder;
     @LocalServerPort
     private int port;
@@ -188,10 +188,12 @@ class JwtValidationTest {
 
     @Test
     void rejectsInvalidTimeIssuerAudienceAndSignature() throws Exception {
-        for (var entry : Map
-                .<String, Object>of("iat", NOW.plusSeconds(1).getEpochSecond(), "exp",
-                        NOW.plusSeconds(901).getEpochSecond(), "nbf", NOW.plusSeconds(1).getEpochSecond(), "iss",
-                        "wrong", "aud", List.of("wrong"))
+        for (var entry : Map.of(
+                "iat", NOW.plusSeconds(1).getEpochSecond(),
+                "exp", NOW.plusSeconds(901).getEpochSecond(),
+                "nbf", NOW.plusSeconds(1).getEpochSecond(),
+                "iss", "wrong",
+                "aud", List.of("wrong"))
                 .entrySet()) {
             var invalid = claims();
             invalid.put(entry.getKey(), entry.getValue());
