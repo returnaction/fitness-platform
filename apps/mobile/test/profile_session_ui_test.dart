@@ -11,6 +11,7 @@ import 'package:fitness_app/features/auth/auth_repository.dart';
 import 'package:fitness_app/features/auth/model/session_tokens.dart';
 import 'package:fitness_app/features/profile/edit_profile_screen.dart';
 import 'package:fitness_app/features/profile/profile_store.dart';
+import 'package:fitness_app/features/home/wallet_store.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -26,12 +27,13 @@ void main() {
       identityApiClientProvider.overrideWithValue(IdentityApiClient(dio)),
       tokenStorageProvider.overrideWithValue(setup.tokens),
       profileStoreProvider.overrideWithValue(setup.profileStore),
+      walletStoreProvider.overrideWithValue(setup.walletStore),
     ]);
     addTearDown(() { setup.container.dispose(); setup.profileStore.dispose(); dio.close(); });
     await tester.pumpWidget(UncontrolledProviderScope(
       container: setup.container, child: const FitnessApp()));
     await tester.pumpAndSettle();
-    expect(find.text('You are signed in'), findsOneWidget);
+    expect(find.text('Your fitness journey'), findsOneWidget);
     return setup;
   }
 
@@ -127,7 +129,7 @@ void main() {
       .handleRequestSessionFailure(SessionRestoreResult.guest, oldGeneration);
     setup.api.pendingPut!.complete(setup.api.failure(401, 'invalid_access_token'));
     await tester.pumpAndSettle();
-    expect(find.text('You are signed in'), findsOneWidget);
+    expect(find.text('Your fitness journey'), findsOneWidget);
     expect(find.text('Profile updated'), findsNothing);
     expect(find.textContaining('Could not confirm profile update'), findsNothing);
     await tester.tap(find.text('Profile'));
@@ -143,6 +145,7 @@ void main() {
 class Setup {
   final disk = Disk();
   final api = Adapter();
+  late final walletStore = WalletStore(disk);
   late final tokens = TokenStorage(disk);
   late final profileStore = ProfileStore(disk);
   late ProviderContainer container;

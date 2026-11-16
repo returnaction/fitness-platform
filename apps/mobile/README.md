@@ -143,3 +143,19 @@ closing scope: registration can display an error despite creating the account;
 Gateway's 3-second deadline conflicts with Identity's longer preparation/wait.
 This has not been fixed; the user will track it separately. Profile completion
 does not claim successful registration verification.
+
+## Home wallet (Spec 019)
+
+After sign-in, Home is the active first tab. Its AppBar reads the current wallet
+through Gateway endpoint `GET /api/v1/coins/me` and shows available and locked
+virtual coins separately. Home uses a Riverpod `FutureProvider`, as did the
+legacy client: it starts one request when observed and pull-to-refresh or the
+reload icon invalidates it for a fresh request. Live updates, daily reward and
+wallet operations are not part of this screen.
+
+## Saved sign-in accounts (Spec 019)
+
+After a successful registration or sign-in, the app stores the entered email
+and password in Android secure storage. The Sign in form lists up to five saved
+accounts; choosing one fills both fields, and the user can remove an individual
+entry. Logout clears the active session but deliberately keeps this local list.

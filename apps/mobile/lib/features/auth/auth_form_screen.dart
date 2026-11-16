@@ -5,6 +5,7 @@ import '../../app/fitness_app.dart';
 import '../../core/network/identity_api_error.dart';
 import '../../core/security/token_storage.dart';
 import 'auth_controller.dart';
+import 'saved_account_store.dart';
 
 class AuthFormScreen extends ConsumerStatefulWidget {
   const AuthFormScreen({
@@ -48,6 +49,7 @@ class _AuthFormScreenState extends ConsumerState<AuthFormScreen> {
   Widget build(BuildContext context) {
     final auth = ref.watch(authControllerProvider);
     final loading = auth.isLoading;
+    final savedAccounts = widget.isRegistration ? null : ref.watch(savedAccountsProvider);
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
@@ -64,6 +66,26 @@ class _AuthFormScreenState extends ConsumerState<AuthFormScreen> {
             padding: const EdgeInsets.all(24),
             children: [
               const SizedBox(height: 24),
+              if (savedAccounts case AsyncData(:final value) when value.isNotEmpty) ...[
+                const Text('Saved accounts'),
+                for (final account in value)
+                  ListTile(
+                    title: Text(account.email),
+                    onTap: loading ? null : () => setState(() {
+                      _email.text = account.email;
+                      _password.text = account.password;
+                    }),
+                    trailing: IconButton(
+                      icon: const Icon(Icons.delete_outline),
+                      tooltip: 'Remove saved account',
+                      onPressed: loading ? null : () async {
+                        await ref.read(savedAccountStoreProvider).remove(account.email);
+                        ref.invalidate(savedAccountsProvider);
+                      },
+                    ),
+                  ),
+                const Divider(),
+              ],
               Text(
                 widget.isRegistration ? 'Create your account' : 'Welcome back',
                 style: Theme.of(context).textTheme.headlineSmall,
@@ -181,6 +203,8 @@ class _AuthFormScreenState extends ConsumerState<AuthFormScreen> {
       } else {
         await controller.login(email: _email.text, password: _password.text);
       }
+      await ref.read(savedAccountStoreProvider).save(_email.text, _password.text);
+      ref.invalidate(savedAccountsProvider);
       if (mounted) {
         Navigator.of(context).popUntil((route) => route.isFirst);
       }

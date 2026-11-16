@@ -66,7 +66,7 @@ void main() {
       await openLogoutAll(tester);
       await tester.tap(find.text('Cancel'));
       await tester.pumpAndSettle();
-      expect(find.text('You are signed in'), findsOneWidget);
+      expect(find.text('Your fitness journey'), findsOneWidget);
       expect(api.logoutCalls, 0);
       expect(store.value, isNotNull);
       await openLogoutAll(tester);
@@ -108,7 +108,7 @@ void main() {
           await tester.tap(find.text('Try again'));
           await tester.pumpAndSettle();
           expect(api.calls, 2);
-          expect(find.text('You are signed in'), findsOneWidget);
+          expect(find.text('Your fitness journey'), findsOneWidget);
         }
       },
     );
@@ -132,7 +132,7 @@ void main() {
       find.text('Could not save your session securely. Please try again.'),
       findsOneWidget,
     );
-    expect(find.text('You are signed in'), findsNothing);
+    expect(find.text('Your fitness journey'), findsNothing);
     expect(store.value, isNull);
     expect(tester.takeException(), isNull);
   });
