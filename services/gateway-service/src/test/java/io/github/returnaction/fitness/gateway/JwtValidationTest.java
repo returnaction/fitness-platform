@@ -293,11 +293,12 @@ class JwtValidationTest {
         try (var client = HttpClient.newHttpClient()) {
             for (var route : GatewayRouteCatalog.routes()) {
                 boolean accountsRoute = route.path().equals("/api/v1/accounts/me");
-                boolean coinsRoute = route.path().equals("/api/v1/coins/me");
+                boolean coinsRoute = route.path().startsWith("/api/v1/coins/");
                 var target = accountsRoute ? ACCOUNTS : coinsRoute ? COINS : UPSTREAM;
                 var other = accountsRoute ? UPSTREAM : ACCOUNTS;
                 int otherCalls = other.calls.get();
-                String requestBody = route.method().name().equals("GET") ? "" : body;
+                String requestBody = route.method().name().equals("GET")
+                        || route.path().equals("/api/v1/coins/daily-reward/claim") ? "" : body;
                 var outgoing = HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + route.path()))
                         .header("Authorization", "Bearer " + token)
                         .header("Content-Type", "application/json")
@@ -338,8 +339,8 @@ class JwtValidationTest {
         }
         assertThat(UPSTREAM.calls.get()).isEqualTo(5);
         assertThat(ACCOUNTS.calls.get()).isEqualTo(2);
-        assertThat(COINS.calls.get()).isEqualTo(1);
-        verify(sessions, times(4)).isActive(ArgumentMatchers.any(), ArgumentMatchers.any(),
+        assertThat(COINS.calls.get()).isEqualTo(3);
+        verify(sessions, times(6)).isActive(ArgumentMatchers.any(), ArgumentMatchers.any(),
                 ArgumentMatchers.any(), ArgumentMatchers.any());
     }
 

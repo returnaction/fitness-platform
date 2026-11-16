@@ -73,8 +73,10 @@ class RouteValidationTest {
                 assertError(client, "POST", "/unknown?x=1", bearer, 404, "not_found");
                 assertError(client, "OPTIONS", "/unknown", bearer, 404, "not_found");
                 for (var route : GatewayRouteCatalog.routes()) {
-                    String unsupportedMethod = route.path().startsWith("/api/v1/accounts/me")
-                            || route.path().startsWith("/api/v1/coins/me") ? "POST" : "GET";
+                    String unsupportedMethod = switch (route.path()) {
+                        case "/api/v1/accounts/me", "/api/v1/coins/me", "/api/v1/coins/daily-reward/status" -> "POST";
+                        default -> "GET";
+                    };
                     assertError(client, unsupportedMethod, route.path() + "?x=1", bearer, 405, "method_not_allowed");
                     assertError(client, "OPTIONS", route.path(), bearer, 405, "method_not_allowed");
                     assertError(client, "HEAD", route.path(), bearer, 405, null);
@@ -117,7 +119,7 @@ class RouteValidationTest {
 
     @Test
     void policyMatchesOnlyCatalogOperationsAndProtectedRouteStaysClosed() throws Exception {
-        assertThat(GatewayRouteCatalog.routes()).hasSize(8);
+        assertThat(GatewayRouteCatalog.routes()).hasSize(10);
         try (var client = HttpClient.newHttpClient()) {
             for (var route : GatewayRouteCatalog.routes()) {
                 var request = new MockHttpServletRequest(route.method().name(), route.path());
@@ -176,7 +178,8 @@ class RouteValidationTest {
         assertThat(response.headers().firstValue("Access-Control-Allow-Methods")).isEmpty();
         if (status == 405) {
             String expected = path.startsWith("/api/v1/accounts/me") ? "GET, PUT"
-                    : path.startsWith("/api/v1/coins/me") ? "GET" : "POST";
+                    : path.startsWith("/api/v1/coins/me")
+                    || path.startsWith("/api/v1/coins/daily-reward/status") ? "GET" : "POST";
             assertThat(response.headers().firstValue("Allow")).contains(expected);
         }
         String id = response.headers().firstValue("X-Request-Id").orElseThrow();

@@ -1,12 +1,12 @@
 openapi: 3.1.0
 info:
   title: Fitness Gateway API
-  version: 1.0.0
+  version: 1.1.0
   description: >-
     Identity owns the referenced auth operations. Gateway additionally enforces
     the limits and transport errors in ../gateway-v1.md. Accounts owns the own-profile
-    operations added by Spec 014. Coins owns the wallet operation specified by
-    Spec 017. No other paths are public.
+    operations added by Spec 014. Coins owns the wallet and daily-reward operations
+    specified by Spec 017 and the daily-reward contract. No other paths are public.
 servers:
   - url: http://127.0.0.1:8088
     description: Local development only
@@ -32,14 +32,27 @@ paths:
     $ref: './accounts-profile-v1.yaml#/paths/~1api~1v1~1accounts~1me'
   /api/v1/coins/me:
     $ref: './coins-wallet-v1.yaml#/paths/~1api~1v1~1coins~1me'
+  /api/v1/coins/daily-reward/status:
+    $ref: './coins-wallet-v1.yaml#/paths/~1api~1v1~1coins~1daily-reward~1status'
+  /api/v1/coins/daily-reward/claim:
+    $ref: './coins-wallet-v1.yaml#/paths/~1api~1v1~1coins~1daily-reward~1claim'
 components:
   securitySchemes:
     BearerAccess:
       $ref: './identity-auth-v1.yaml#/components/securitySchemes/BearerAccess'
 x-gateway-policy:
-  protected-paths: [/api/v1/auth/logout-all, /api/v1/accounts/me, /api/v1/coins/me]
+  protected-paths:
+    - /api/v1/auth/logout-all
+    - /api/v1/accounts/me
+    - /api/v1/coins/me
+    - /api/v1/coins/daily-reward/status
+    - /api/v1/coins/daily-reward/claim
   upstream-errors:
     /api/v1/coins/me:
+      '503': coins_unavailable
+    /api/v1/coins/daily-reward/status:
+      '503': coins_unavailable
+    /api/v1/coins/daily-reward/claim:
       '503': coins_unavailable
   session-check: grpc-mtls-every-request
   retries: 0

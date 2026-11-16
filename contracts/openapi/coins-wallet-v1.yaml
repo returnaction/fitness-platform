@@ -1,15 +1,15 @@
 openapi: 3.1.0
 info:
   title: Fitness Coins own-wallet API
-  version: 1.0.0
+  version: 1.1.0
   description: >-
-    Контракт Spec 017; runtime реализован и проверен локально через Gateway.
-    Coins владеет балансом. Gateway проверяет JWT и CheckSession.
+    Контракт Spec 017 и daily reward; runtime реализован и проверен локально.
+    Coins владеет балансом и ежедневной наградой. Gateway проверяет JWT и CheckSession.
     Coins извлекает sub и claims без повторной проверки подписи или сессии,
     доверяя локальному пути через Gateway; это не удостоверяет прямого HTTP caller.
     userId от вызывающей стороны не принимается. Query string запрещён.
-    GET только читает кошелёк: не создаёт его, не начисляет монеты.
-    Повтор безопасен, Idempotency-Key не требуется; каждый ответ — текущий снимок.
+    GET только читает кошелёк и claim: не создаёт кошелёк и не начисляет монеты.
+    Повтор безопасен; для claim обязателен Idempotency-Key.
     Общие транспортные ошибки Gateway описаны в ../gateway-v1.md.
 servers:
   - url: http://127.0.0.1:8088
@@ -48,6 +48,121 @@ paths:
           $ref: '#/components/responses/InternalError'
         '503':
           $ref: '#/components/responses/Unavailable'
+  /api/v1/coins/daily-reward/status:
+    get:
+      tags: [Coins]
+      operationId: getDailyRewardStatus
+      summary: Статус ежедневной награды и баланс
+      description: >-
+        Возвращает доступность награды, сумму, дату последнего получения,
+        время следующей доступности, серверное время и текущий баланс.
+        nextClaimAt отсутствует (null), когда награда доступна.
+        Правило: следующий календарный день UTC и не менее 24 часов
+        с предыдущего получения; пропущенные дни не накапливаются.
+      security:
+        - BearerAccess: []
+      responses:
+        '200':
+          description: Статус награды и баланс владельца sub.
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DailyRewardStatusResponse'
+              examples:
+                available:
+                  value:
+                    available: true
+                    amount: 10
+                    claimedForDate: null
+                    nextClaimAt: null
+                    serverTime: '2026-11-16T12:34:56Z'
+                    availableBalance: 10
+                    lockedBalance: 0
+                unavailable:
+                  value:
+                    available: false
+                    amount: 10
+                    claimedForDate: '2026-11-16'
+                    nextClaimAt: '2026-11-17T12:34:56Z'
+                    serverTime: '2026-11-16T13:00:00Z'
+                    availableBalance: 20
+                    lockedBalance: 0
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /api/v1/coins/daily-reward/claim:
+    post:
+      tags: [Coins]
+      operationId: claimDailyReward
+      summary: Получить ежедневную награду
+      description: >-
+        Начисляет 10 монет, если наступил новый календарный день UTC и прошло
+        не менее 24 часов с предыдущего получения. Тело не требуется.
+        Idempotency-Key обязателен и уникален для одного намерения.
+        Повтор того же ключа возвращает сохранённый снимок, даже после начала
+        нового периода. Новый ключ в недоступный период возвращает
+        alreadyClaimed=true и claimedAmount=0 без начисления.
+        Ответ содержит актуальный на момент операции баланс; отдельный GET
+        для обновления баланса после claim не требуется.
+      security:
+        - BearerAccess: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          description: Канонический UUID v4 на одно нажатие; при повторе используйте тот же ключ.
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Результат начисления или сохранённый результат повтора.
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DailyRewardClaimResponse'
+              examples:
+                granted:
+                  value:
+                    claimedAmount: 10
+                    availableBalance: 20
+                    lockedBalance: 0
+                    claimedForDate: '2026-11-16'
+                    alreadyClaimed: false
+                    nextClaimAt: '2026-11-17T12:34:56Z'
+                    serverTime: '2026-11-16T12:34:56Z'
+                already_claimed:
+                  value:
+                    claimedAmount: 0
+                    availableBalance: 20
+                    lockedBalance: 0
+                    claimedForDate: '2026-11-16'
+                    alreadyClaimed: true
+                    nextClaimAt: '2026-11-17T12:34:56Z'
+                    serverTime: '2026-11-16T13:00:00Z'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
 components:
   securitySchemes:
     BearerAccess:
@@ -58,6 +173,9 @@ components:
     NoStore:
       description: Ответ не сохраняется в кэшах.
       schema: {type: string, const: no-store}
+    RetryAfter:
+      description: Через сколько секунд повторить временно недоступную операцию.
+      schema: {type: integer, minimum: 1}
   schemas:
     WalletBalanceResponse:
       type: object
@@ -83,6 +201,79 @@ components:
               type: object
               required: [details]
               description: details всегда присутствует; без деталей — пустой массив.
+    DailyRewardStatusResponse:
+      type: object
+      additionalProperties: false
+      required:
+        [available, amount, claimedForDate, nextClaimAt, serverTime, availableBalance, lockedBalance]
+      properties:
+        available:
+          type: boolean
+          description: true, если награду можно получить сейчас.
+        amount:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 9223372036854775807
+        claimedForDate:
+          description: Дата последнего получения по UTC; null, если награда ещё не получена.
+          oneOf:
+            - type: string
+              format: date
+            - type: 'null'
+        nextClaimAt:
+          description: Момент следующей доступности; null, если награда доступна.
+          oneOf:
+            - type: string
+              format: date-time
+            - type: 'null'
+        serverTime:
+          type: string
+          format: date-time
+        availableBalance:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 9223372036854775807
+        lockedBalance:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 9223372036854775807
+    DailyRewardClaimResponse:
+      type: object
+      additionalProperties: false
+      required:
+        [claimedAmount, availableBalance, lockedBalance, claimedForDate, alreadyClaimed,
+         nextClaimAt, serverTime]
+      properties:
+        claimedAmount:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 9223372036854775807
+          description: 0 при alreadyClaimed=true.
+        availableBalance:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 9223372036854775807
+        lockedBalance:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 9223372036854775807
+        claimedForDate:
+          type: string
+          format: date
+        alreadyClaimed:
+          type: boolean
+        nextClaimAt:
+          type: string
+          format: date-time
+        serverTime:
+          type: string
+          format: date-time
   responses:
     InvalidRequest:
       description: Некорректный запрос, включая query string.
@@ -151,12 +342,14 @@ components:
                   details: []
                   requestId: da6add51-47f8-4603-a9ce-17e440a8da64
     Unavailable:
-      description: Временная ошибка БД или транзакции Coins — coins_unavailable. Ошибки самого Gateway, включая identity_unavailable, сохраняют свои коды.
+      description: Временная ошибка БД, транзакции Coins или занятость кошелька — coins_unavailable. Ошибки самого Gateway, включая identity_unavailable, сохраняют свои коды.
       headers:
         X-Request-Id:
           $ref: '#/components/headers/RequestId'
         Cache-Control:
           $ref: '#/components/headers/NoStore'
+        Retry-After:
+          $ref: '#/components/headers/RetryAfter'
       content:
         application/json:
           schema:
