@@ -22,14 +22,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
-/**
- * Extracts the user context already checked by Gateway; does not verify the
- * HTTP caller or JWT signature.
- *
- * <p>Spec 017 T004.2: читает forwarded Bearer JWT для {@code GET /api/v1/coins/me},
- * кладёт UUID {@code sub} в {@code SecurityContext}, очищает контекст после
- * запроса и передаёт ошибки в {@link SecurityExceptionHandler}.</p>
- */
+
 @RequiredArgsConstructor
 public class WalletAuthenticationFilter extends OncePerRequestFilter {
 

@@ -9,6 +9,28 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
+/**
+ * Настраивает проверку доступа к HTTP API Accounts.
+ *
+ * <p>Подключает ProfileAuthenticationFilter:
+ * <ul>
+ *   <li>Извлекает пользователя и роли из Bearer-токена.</li>
+ *   <li>Помещает их в SecurityContext.</li>
+ * </ul>
+ *
+ * <p>Подпись токена и активность сессии проверяет Gateway.
+ *
+ * <p>Правила доступа:
+ * <ul>
+ *   <li>GET и PUT /api/v1/accounts/me — только для аутентифицированного пользователя.</li>
+ *   <li>Перечисленные actuator endpoints — без аутентификации.</li>
+ *   <li>Все остальные запросы запрещены.</li>
+ * </ul>
+ *
+ * <p>Стандартные способы входа и хранение аутентификации в HTTP-сессии отключены.
+ *
+ * <p>Ошибки аутентификации и доступа передаются в SecurityExceptionHandler.
+ */
 @Configuration
 public class SecurityConfiguration {
 

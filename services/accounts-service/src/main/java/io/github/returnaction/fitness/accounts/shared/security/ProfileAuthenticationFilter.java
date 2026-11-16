@@ -7,6 +7,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import org.jspecify.annotations.NonNull;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.GrantedAuthority;
@@ -22,8 +23,23 @@ import java.util.Set;
 import java.util.UUID;
 
 /**
- * Extracts the user context already checked by Gateway; does not verify the
- * HTTP caller or JWT signature.
+ * Определяет текущего пользователя для GET и PUT /api/v1/accounts/me.
+ *
+ * <p>Перед вызовом контроллера:
+ * <ul>
+ *   <li>Читает Bearer-токен из заголовка Authorization.</li>
+ *   <li>Извлекает UUID пользователя из sub и роли из roles.</li>
+ *   <li>Помещает пользователя и известные роли в SecurityContext,
+ *       чтобы контроллер мог получить UUID через {@code @AuthenticationPrincipal}.</li>
+ * </ul>
+ *
+ * <p>Подпись, срок действия токена и активность сессии проверяет Gateway.
+ * Этот фильтр только извлекает данные и проверяет их формат.
+ *
+ * <p>Если токен отсутствует или данные некорректны, передаёт ошибку
+ * в SecurityExceptionHandler для ответа 401.
+ *
+ * <p>После обработки запроса очищает SecurityContext, в том числе при ошибке.
  */
 @RequiredArgsConstructor
 public class ProfileAuthenticationFilter extends OncePerRequestFilter {
@@ -42,8 +58,9 @@ public class ProfileAuthenticationFilter extends OncePerRequestFilter {
     }
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
-        FilterChain filterChain) throws ServletException, IOException {
+    protected void doFilterInternal(@NonNull HttpServletRequest request,
+                                    @NonNull HttpServletResponse response,
+                                    @NonNull FilterChain filterChain) throws ServletException, IOException {
 
         UsernamePasswordAuthenticationToken authentication;
 
@@ -53,7 +70,7 @@ public class ProfileAuthenticationFilter extends OncePerRequestFilter {
             SecurityContextHolder.clearContext();
             securityExceptionHandler.commence(request, response, exception);
             return;
-        } catch (ParseException | IllegalArgumentException _) {
+        } catch (ParseException | IllegalArgumentException exception) {
             SecurityContextHolder.clearContext();
             securityExceptionHandler.commence(request, response,
                     new BadCredentialsException("Invalid authentication context."));

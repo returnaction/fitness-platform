@@ -58,12 +58,12 @@ JWKS загружается при старте из конфигурации; �
 Подробности локального запуска — в [README Gateway](../services/gateway-service/README.md).
 
 CheckSession выполняется каждый раз, без кеша и без автоматических повторов,
-по mTLS с URI SAN `spiffe://fitness.local/gateway-service`; deadline — остаток общего бюджета запроса Gateway (3s).
+по mTLS с URI SAN `spiffe://fitness.local/gateway-service`; deadline — остаток общего бюджета запроса Gateway (7s).
 Соединение инициируется при запуске; отсутствие Identity не отключает защиту.
 INVALID — 401 invalid_access_token; сбой/неизвестный ответ — 503 identity_unavailable.
 Проверка до подтверждения logout может разрешить уже начатый запрос.
 
-Общий deadline Gateway — 3s, включая CheckSession, HTTP upstream и передачу ответа.
+Общий deadline Gateway — 7s, включая CheckSession, HTTP upstream и передачу ответа.
 При deadline HTTP-вызов отменяется; до начала ответа возвращается 504,
 после начала — соединение закрывается. Регистрация при необходимости повторяется
 клиентом с тем же Idempotency-Key. Автоматических повторов Gateway нет.

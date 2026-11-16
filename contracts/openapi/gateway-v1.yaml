@@ -6,7 +6,7 @@ info:
     Identity owns the referenced auth operations. Gateway additionally enforces
     the limits and transport errors in ../gateway-v1.md. Accounts owns the own-profile
     operations added by Spec 014. Coins owns the wallet operation specified by
-    Spec 017 (runtime pending). No other paths are public.
+    Spec 017. No other paths are public.
 servers:
   - url: http://127.0.0.1:8088
     description: Local development only
