@@ -15,7 +15,8 @@ class DailyRewardIdempotencyKeyTest {
             .isInstanceOf(InvalidIdempotencyKeyException.class);
         assertThatThrownBy(() -> DailyRewardIdempotencyKey.digest("not-a-uuid"))
             .isInstanceOf(InvalidIdempotencyKeyException.class);
-        assertThatThrownBy(() -> DailyRewardIdempotencyKey.digest("{" + UUID.randomUUID() + "}"))
+        String nonCanonicalKey = "{" + UUID.randomUUID() + "}";
+        assertThatThrownBy(() -> DailyRewardIdempotencyKey.digest(nonCanonicalKey))
             .isInstanceOf(InvalidIdempotencyKeyException.class);
     }
 

@@ -347,11 +347,11 @@ class DailyRewardClaimHttpTest {
     }
 
     private String token(UUID userId) throws Exception {
-        var claims = new JWTClaimsSet.Builder()
+        var jwtClaims = new JWTClaimsSet.Builder()
             .subject(userId.toString())
             .claim("sid", UUID.randomUUID().toString())
             .build();
-        var token = new SignedJWT(new JWSHeader(JWSAlgorithm.HS256), claims);
+        var token = new SignedJWT(new JWSHeader(JWSAlgorithm.HS256), jwtClaims);
         token.sign(new MACSigner(new byte[32]));
         return token.serialize();
     }

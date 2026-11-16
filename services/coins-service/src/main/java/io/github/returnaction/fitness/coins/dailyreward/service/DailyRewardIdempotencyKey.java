@@ -21,8 +21,8 @@ final class DailyRewardIdempotencyKey {
         try {
             return MessageDigest.getInstance(ALGORITHM)
                 .digest(key.toString().getBytes(StandardCharsets.UTF_8));
-        } catch (NoSuchAlgorithmException exception) {
-            throw new IllegalStateException(ALGORITHM + " is unavailable", exception);
+        } catch (NoSuchAlgorithmException _) {
+            throw new IllegalStateException(ALGORITHM + " is unavailable");
         }
     }
 
@@ -33,7 +33,7 @@ final class DailyRewardIdempotencyKey {
         UUID key;
         try {
             key = UUID.fromString(rawKey);
-        } catch (IllegalArgumentException exception) {
+        } catch (IllegalArgumentException _) {
             throw new InvalidIdempotencyKeyException();
         }
         if (!key.toString().equalsIgnoreCase(rawKey)) {
