@@ -1,6 +1,6 @@
 # План Spec 017
 
-> **Статус:** in-progress — реализация не начата.
+> **Статус:** completed — реализация и локальная сквозная проверка выполнены.
 > **Основание:** [spec.md](spec.md).
 > **Стандарты:** [engineering-standards](../../docs/engineering-standards.md).
 

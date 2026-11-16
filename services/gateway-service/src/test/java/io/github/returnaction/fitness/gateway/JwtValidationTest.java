@@ -6,13 +6,15 @@ import io.github.returnaction.fitness.gateway.timeout.RequestDeadline;
 import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicReference;
 import org.mockito.ArgumentMatchers;
-import org.mockito.Mockito;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.net.URI;
@@ -50,23 +52,32 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 
+/**
+ * Проверяет JWT, CheckSession и проксирование каталога Gateway.
+ *
+ * <p>Spec 017 T003.4–T003.5: добавлены проверки маршрута Coins
+ * (forwarding Bearer, канонический X-Request-Id, статус и тело ответа).</p>
+ */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("test")
 class JwtValidationTest {
 
     private static final TestUpstream UPSTREAM = new TestUpstream();
     private static final TestUpstream ACCOUNTS = new TestUpstream();
+    private static final TestUpstream COINS = new TestUpstream();
 
     @DynamicPropertySource
     static void upstream(DynamicPropertyRegistry registry) {
         registry.add("gateway.upstreams.services.IDENTITY.base-url", UPSTREAM::baseUrl);
         registry.add("gateway.upstreams.services.ACCOUNT.base-url", ACCOUNTS::baseUrl);
+        registry.add("gateway.upstreams.services.COINS.base-url", COINS::baseUrl);
     }
 
     @AfterAll
     static void stopUpstream() {
         UPSTREAM.close();
         ACCOUNTS.close();
+        COINS.close();
     }
 
     @MockitoBean
@@ -95,7 +106,9 @@ class JwtValidationTest {
     void configureTrustAndTime() {
         UPSTREAM.calls.set(0);
         ACCOUNTS.calls.set(0);
+        COINS.calls.set(0);
         ACCOUNTS.status.set(200);
+        COINS.status.set(200);
         UPSTREAM.status.set(200);
         when(sessions.isActive(ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any(),
                 ArgumentMatchers.any())).thenReturn(true);
@@ -149,22 +162,26 @@ class JwtValidationTest {
         for (String name : List.of("sub", "sid", "jti", "iat", "exp", "iss", "aud")) {
             var absent = claims();
             absent.remove(name);
-            assertThatThrownBy(() -> decoder.decode(sign(absent))).as("missing " + name)
+            var absentToken = sign(absent);
+            assertThatThrownBy(() -> decoder.decode(absentToken)).as("missing " + name)
                     .isInstanceOf(JwtException.class);
             var invalid = claims();
             invalid.put(name, Map.of("invalid", true));
-            assertThatThrownBy(() -> decoder.decode(sign(invalid))).as("type " + name).isInstanceOf(JwtException.class);
+            var invalidToken = sign(invalid);
+            assertThatThrownBy(() -> decoder.decode(invalidToken)).as("type " + name).isInstanceOf(JwtException.class);
         }
         for (Object roles : List.of("USER", List.of(1), Arrays.asList("USER", null))) {
             var invalid = claims();
             invalid.put("roles", roles);
-            assertThatThrownBy(() -> decoder.decode(sign(invalid))).isInstanceOf(JwtException.class);
+            var token = sign(invalid);
+            assertThatThrownBy(() -> decoder.decode(token)).isInstanceOf(JwtException.class);
         }
         for (String field : List.of("sub", "sid", "jti")) {
             for (String value : List.of("1-1-1-1-1", "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA", "bad")) {
                 var invalid = claims();
                 invalid.put(field, value);
-                assertThatThrownBy(() -> decoder.decode(sign(invalid))).isInstanceOf(JwtException.class);
+                var token = sign(invalid);
+                assertThatThrownBy(() -> decoder.decode(token)).isInstanceOf(JwtException.class);
             }
         }
     }
@@ -178,21 +195,27 @@ class JwtValidationTest {
                 .entrySet()) {
             var invalid = claims();
             invalid.put(entry.getKey(), entry.getValue());
-            assertThatThrownBy(() -> decoder.decode(sign(invalid))).isInstanceOf(JwtException.class);
+            var token = sign(invalid);
+            assertThatThrownBy(() -> decoder.decode(token)).isInstanceOf(JwtException.class);
         }
         for (long expiry : List.of(NOW.getEpochSecond(), NOW.minusSeconds(1).getEpochSecond())) {
             var invalid = claims();
             invalid.put("iat", NOW.minusSeconds(10).getEpochSecond());
             invalid.put("exp", expiry);
-            assertThatThrownBy(() -> decoder.decode(sign(invalid))).isInstanceOf(JwtException.class);
+            var token = sign(invalid);
+            assertThatThrownBy(() -> decoder.decode(token)).isInstanceOf(JwtException.class);
         }
-        assertThatThrownBy(() -> decoder.decode(sign(claims(), key(), "trusted"))).isInstanceOf(JwtException.class);
-        assertThatThrownBy(() -> decoder.decode(sign(claims(), KEY, "unknown"))).isInstanceOf(JwtException.class);
-        assertThatThrownBy(() -> decoder.decode(sign(claims(), KEY, null))).isInstanceOf(JwtException.class);
+        var wrongIssuer = sign(claims(), key(), "trusted");
+        assertThatThrownBy(() -> decoder.decode(wrongIssuer)).isInstanceOf(JwtException.class);
+        var unknownKid = sign(claims(), KEY, "unknown");
+        assertThatThrownBy(() -> decoder.decode(unknownKid)).isInstanceOf(JwtException.class);
+        var missingKid = sign(claims(), KEY, null);
+        assertThatThrownBy(() -> decoder.decode(missingKid)).isInstanceOf(JwtException.class);
         var hs = new JWSObject(new JWSHeader.Builder(JWSAlgorithm.HS256).keyID("trusted").build(),
                 new Payload(claims()));
         hs.sign(new MACSigner(new byte[32]));
-        assertThatThrownBy(() -> decoder.decode(hs.serialize())).isInstanceOf(JwtException.class);
+        var hsToken = hs.serialize();
+        assertThatThrownBy(() -> decoder.decode(hsToken)).isInstanceOf(JwtException.class);
     }
 
     @Test
@@ -225,7 +248,7 @@ class JwtValidationTest {
             assertThat(invalid.statusCode()).isEqualTo(401);
             assertThat(invalid.body()).contains("invalid_access_token", "requestId");
             assertThat(invalid.headers().firstValue("WWW-Authenticate")).contains("Bearer");
-            Mockito.verifyNoInteractions(sessions);
+            verifyNoInteractions(sessions);
             assertThat(UPSTREAM.calls.get()).isZero();
             var valid = request(client, "/api/v1/auth/logout-all", sign(claims()));
             assertThat(valid.statusCode()).isEqualTo(200);
@@ -270,7 +293,8 @@ class JwtValidationTest {
         try (var client = HttpClient.newHttpClient()) {
             for (var route : GatewayRouteCatalog.routes()) {
                 boolean accountsRoute = route.path().equals("/api/v1/accounts/me");
-                var target = accountsRoute ? ACCOUNTS : UPSTREAM;
+                boolean coinsRoute = route.path().equals("/api/v1/coins/me");
+                var target = accountsRoute ? ACCOUNTS : coinsRoute ? COINS : UPSTREAM;
                 var other = accountsRoute ? UPSTREAM : ACCOUNTS;
                 int otherCalls = other.calls.get();
                 String requestBody = route.method().name().equals("GET") ? "" : body;
@@ -314,7 +338,8 @@ class JwtValidationTest {
         }
         assertThat(UPSTREAM.calls.get()).isEqualTo(5);
         assertThat(ACCOUNTS.calls.get()).isEqualTo(2);
-        verify(sessions, Mockito.times(3)).isActive(ArgumentMatchers.any(), ArgumentMatchers.any(),
+        assertThat(COINS.calls.get()).isEqualTo(1);
+        verify(sessions, times(4)).isActive(ArgumentMatchers.any(), ArgumentMatchers.any(),
                 ArgumentMatchers.any(), ArgumentMatchers.any());
     }
 
@@ -372,7 +397,7 @@ class JwtValidationTest {
                 assertThat(profileRequest(client, method, "bad").statusCode()).isEqualTo(401);
                 verify(sessions, never()).isActive(ArgumentMatchers.any(), ArgumentMatchers.any(),
                         ArgumentMatchers.any(), ArgumentMatchers.any());
-                Mockito.doReturn(false)
+                doReturn(false)
                         .when(sessions)
                         .isActive(ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any(),
                                 ArgumentMatchers.any());
@@ -431,6 +456,84 @@ class JwtValidationTest {
             assertThat(generated).isNotEqualTo(id);
             assertThat(ACCOUNTS.received.get().header("X-Request-Id")).isEqualTo(generated);
         }
+    }
+
+    @Test
+    void coinsRouteRequiresJwtAndSessionAndForwardsBearerAndCanonicalRequestId() throws Exception {
+        try (var client = HttpClient.newHttpClient()) {
+            assertThat(coinsRequest(client, "").statusCode()).isEqualTo(401);
+            assertThat(coinsRequest(client, "bad").statusCode()).isEqualTo(401);
+            verify(sessions, never()).isActive(ArgumentMatchers.any(), ArgumentMatchers.any(),
+                    ArgumentMatchers.any(), ArgumentMatchers.any());
+            assertThat(COINS.calls.get()).isZero();
+
+            var claims = claims();
+            var user = UUID.fromString((String) claims.get("sub"));
+            var session = UUID.fromString((String) claims.get("sid"));
+            when(sessions.isActive(ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any(),
+                    ArgumentMatchers.any())).thenReturn(false);
+            var rejected = coinsRequest(client, sign(claims));
+            assertThat(rejected.statusCode()).isEqualTo(401);
+            assertThat(rejected.body()).contains("invalid_access_token");
+            verify(sessions).isActive(ArgumentMatchers.eq(user), ArgumentMatchers.eq(session),
+                    ArgumentMatchers.any(), ArgumentMatchers.any());
+            assertThat(COINS.calls.get()).isZero();
+            clearInvocations(sessions);
+
+            when(sessions.isActive(ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any(),
+                    ArgumentMatchers.any())).thenReturn(true);
+            String token = sign(claims);
+            String clientRequestId = UUID.randomUUID().toString();
+            var response = coinsRequest(client, token, clientRequestId);
+            assertThat(response.statusCode()).isEqualTo(200);
+            assertThat(COINS.calls.get()).isEqualTo(1);
+            verify(sessions).isActive(ArgumentMatchers.eq(user), ArgumentMatchers.eq(session),
+                    ArgumentMatchers.any(), ArgumentMatchers.any());
+            var received = COINS.received.get();
+            assertThat(received.header("Authorization")).isEqualTo("Bearer " + token);
+            String generated = response.headers().firstValue("X-Request-Id").orElseThrow();
+            assertThat(UUID.fromString(generated)).isNotNull();
+            assertThat(generated).isNotEqualTo(clientRequestId);
+            assertThat(received.header("X-Request-Id")).isEqualTo(generated);
+        }
+        assertThat(UPSTREAM.calls.get()).isZero();
+        assertThat(ACCOUNTS.calls.get()).isZero();
+    }
+
+    @Test
+    void coinsPreservesResponseStatusBodyAndGeneratedRequestId() throws Exception {
+        try (var client = HttpClient.newHttpClient()) {
+            for (int status : List.of(200, 401, 500, 503)) {
+                COINS.status.set(status);
+                var response = coinsRequest(client, sign(claims()));
+                assertThat(response.statusCode()).isEqualTo(status);
+                assertThat(response.body()).isEqualTo("{\"result\":\"unchanged\"}");
+                assertThat(response.headers().firstValue("Cache-Control")).contains("no-store");
+                String id = response.headers().firstValue("X-Request-Id").orElseThrow();
+                assertThat(UUID.fromString(id)).isNotNull();
+                var received = COINS.received.get();
+                assertThat(received.method()).isEqualTo("GET");
+                assertThat(received.path()).isEqualTo("/api/v1/coins/me");
+                assertThat(received.header("X-Request-Id")).isEqualTo(id);
+            }
+        }
+        assertThat(UPSTREAM.calls.get()).isZero();
+        assertThat(ACCOUNTS.calls.get()).isZero();
+    }
+
+    private HttpResponse<String> coinsRequest(HttpClient client, String token) throws Exception {
+        return coinsRequest(client, token, null);
+    }
+
+    private HttpResponse<String> coinsRequest(HttpClient client, String token, String clientRequestId) throws Exception {
+        var builder = HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + "/api/v1/coins/me")).GET();
+        if (!token.isEmpty()) {
+            builder.header("Authorization", "Bearer " + token);
+        }
+        if (clientRequestId != null) {
+            builder.header("X-Request-Id", clientRequestId);
+        }
+        return client.send(builder.build(), HttpResponse.BodyHandlers.ofString());
     }
 
     private HttpResponse<String> profileRequest(HttpClient client, String method, String token) throws Exception {

@@ -3,7 +3,7 @@ info:
   title: Fitness Coins own-wallet API
   version: 1.0.0
   description: >-
-    Согласованный контракт Spec 017; runtime ещё не реализован.
+    Контракт Spec 017; runtime реализован и проверен локально через Gateway.
     Coins владеет балансом. Gateway проверяет JWT и CheckSession.
     Coins извлекает sub и claims без повторной проверки подписи или сессии,
     доверяя локальному пути через Gateway; это не удостоверяет прямого HTTP caller.

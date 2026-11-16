@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import io.github.returnaction.fitness.gateway.configuration.properties.UpstreamProperties;
+import io.github.returnaction.fitness.gateway.routing.GatewayRoute;
 import io.github.returnaction.fitness.gateway.routing.GatewayRouteCatalog;
 import io.github.returnaction.fitness.gateway.routing.GatewayRouteValidator;
 import io.github.returnaction.fitness.gateway.routing.RouteAccessPolicy;
@@ -36,6 +37,12 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import tools.jackson.databind.ObjectMapper;
 
+/**
+ * Проверяет валидацию маршрутов и policy доступа Gateway.
+ *
+ * <p>Spec 017 T003.3: ожидания каталога расширены для
+ * {@code GET /api/v1/coins/me}.</p>
+ */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("test")
 class RouteValidationTest {
@@ -66,7 +73,8 @@ class RouteValidationTest {
                 assertError(client, "POST", "/unknown?x=1", bearer, 404, "not_found");
                 assertError(client, "OPTIONS", "/unknown", bearer, 404, "not_found");
                 for (var route : GatewayRouteCatalog.routes()) {
-                    String unsupportedMethod = route.path().equals("/api/v1/accounts/me") ? "POST" : "GET";
+                    String unsupportedMethod = route.path().startsWith("/api/v1/accounts/me")
+                            || route.path().startsWith("/api/v1/coins/me") ? "POST" : "GET";
                     assertError(client, unsupportedMethod, route.path() + "?x=1", bearer, 405, "method_not_allowed");
                     assertError(client, "OPTIONS", route.path(), bearer, 405, "method_not_allowed");
                     assertError(client, "HEAD", route.path(), bearer, 405, null);
@@ -109,7 +117,7 @@ class RouteValidationTest {
 
     @Test
     void policyMatchesOnlyCatalogOperationsAndProtectedRouteStaysClosed() throws Exception {
-        assertThat(GatewayRouteCatalog.routes()).hasSize(7);
+        assertThat(GatewayRouteCatalog.routes()).hasSize(8);
         try (var client = HttpClient.newHttpClient()) {
             for (var route : GatewayRouteCatalog.routes()) {
                 var request = new MockHttpServletRequest(route.method().name(), route.path());
@@ -133,20 +141,23 @@ class RouteValidationTest {
     void catalogValidationRejectsEmptyDuplicateAndMissingUpstream() {
         var upstreams = new UpstreamProperties(
                 Map.of(UpstreamId.IDENTITY, new UpstreamProperties.Settings(URI.create("http://localhost:1")),
-                        UpstreamId.ACCOUNT, new UpstreamProperties.Settings(URI.create("http://localhost:2"))));
+                        UpstreamId.ACCOUNT, new UpstreamProperties.Settings(URI.create("http://localhost:2")),
+                        UpstreamId.COINS, new UpstreamProperties.Settings(URI.create("http://localhost:3"))));
         var routes = GatewayRouteCatalog.routes();
         GatewayRouteValidator.validate(routes, upstreams);
-        assertThatThrownBy(() -> GatewayRouteValidator.validate(routes,
-                new UpstreamProperties(Map.of(UpstreamId.IDENTITY,
-                        new UpstreamProperties.Settings(URI.create("http://localhost:1"))))))
+        var missingAccountUpstreams = new UpstreamProperties(Map.of(UpstreamId.IDENTITY,
+                new UpstreamProperties.Settings(URI.create("http://localhost:1"))));
+        assertThatThrownBy(() -> GatewayRouteValidator.validate(routes, missingAccountUpstreams))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("ACCOUNT");
-        assertThatThrownBy(() -> GatewayRouteValidator.validate(List.of(), upstreams))
+        var emptyRoutes = List.<GatewayRoute>of();
+        assertThatThrownBy(() -> GatewayRouteValidator.validate(emptyRoutes, upstreams))
                 .isInstanceOf(IllegalStateException.class);
-        assertThatThrownBy(
-                () -> GatewayRouteValidator.validate(List.of(routes.getFirst(), routes.getFirst()), upstreams))
+        var duplicatedRoutes = List.of(routes.getFirst(), routes.getFirst());
+        assertThatThrownBy(() -> GatewayRouteValidator.validate(duplicatedRoutes, upstreams))
                 .isInstanceOf(IllegalStateException.class);
-        assertThatThrownBy(() -> GatewayRouteValidator.validate(routes, new UpstreamProperties(Map.of())))
+        var emptyUpstreams = new UpstreamProperties(Map.of());
+        assertThatThrownBy(() -> GatewayRouteValidator.validate(routes, emptyUpstreams))
                 .isInstanceOf(IllegalStateException.class);
     }
 
@@ -164,7 +175,8 @@ class RouteValidationTest {
         assertThat(response.headers().firstValue("Access-Control-Allow-Origin")).isEmpty();
         assertThat(response.headers().firstValue("Access-Control-Allow-Methods")).isEmpty();
         if (status == 405) {
-            String expected = path.startsWith("/api/v1/accounts/me") ? "GET, PUT" : "POST";
+            String expected = path.startsWith("/api/v1/accounts/me") ? "GET, PUT"
+                    : path.startsWith("/api/v1/coins/me") ? "GET" : "POST";
             assertThat(response.headers().firstValue("Allow")).contains(expected);
         }
         String id = response.headers().firstValue("X-Request-Id").orElseThrow();

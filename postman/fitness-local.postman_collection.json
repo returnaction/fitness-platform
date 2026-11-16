@@ -1,7 +1,7 @@
 {
   "info": {
-    "name": "Fitness Platform — локальная авторизация и профиль",
-    "description": "Auth и профиль через Gateway: регистрация, вход, refresh, просмотр и обновление профиля, выход и проверка отзыва. Реальные секреты не экспортировать. Недоступность Identity проверяется отдельно.",
+    "name": "Fitness Platform — локальная авторизация, профиль и Coins",
+    "description": "Auth, профиль и баланс Coins через Gateway: регистрация, вход, refresh, просмотр и обновление профиля, просмотр баланса, выход и проверка отзыва. Реальные секреты не экспортировать. Недоступность Identity проверяется отдельно.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -606,6 +606,53 @@
                   "if (pm.response.code === 200) {",
                   "  pm.collectionVariables.set('profile_update_body', pm.response.text());",
                   "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Coins",
+      "description": "Перед запросом выполните вход или регистрацию в папке «Авторизация», чтобы получить access_token. Запрос идёт через Gateway; токены и секреты в коллекцию не добавляются.",
+      "item": [
+        {
+          "name": "1. Просмотр своего баланса",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/coins/me",
+            "description": "Возвращает доступный и зарезервированный баланс владельца из sub проверенного Bearer. Чужой баланс получить нельзя; query string запрещён."
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.collectionVariables.get('access_token')) {",
+                  "  throw new Error('access_token is empty. Run Авторизация → 2. Вход or paste accessToken into collection variable access_token.');",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('No store', () => pm.expect(pm.response.headers.get('Cache-Control')).to.include('no-store'));",
+                  "const body = pm.response.json();",
+                  "pm.test('Only balance fields', () => pm.expect(Object.keys(body).sort()).to.eql(['availableBalance', 'lockedBalance']));",
+                  "pm.test('Balances are integers', () => { pm.expect(body.availableBalance).to.be.a('number'); pm.expect(body.lockedBalance).to.be.a('number'); pm.expect(Number.isInteger(body.availableBalance)).to.be.true; pm.expect(Number.isInteger(body.lockedBalance)).to.be.true; });",
+                  "pm.test('Balances are non-negative', () => { pm.expect(body.availableBalance).to.be.at.least(0); pm.expect(body.lockedBalance).to.be.at.least(0); });"
                 ]
               }
             }

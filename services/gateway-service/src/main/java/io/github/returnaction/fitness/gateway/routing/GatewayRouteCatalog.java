@@ -5,11 +5,18 @@ import java.util.List;
 import static io.github.returnaction.fitness.gateway.routing.RouteAccess.AUTHENTICATED;
 import static io.github.returnaction.fitness.gateway.routing.RouteAccess.PUBLIC;
 import static io.github.returnaction.fitness.gateway.routing.UpstreamId.ACCOUNT;
+import static io.github.returnaction.fitness.gateway.routing.UpstreamId.COINS;
 import static io.github.returnaction.fitness.gateway.routing.UpstreamId.IDENTITY;
 import static org.springframework.http.HttpMethod.GET;
 import static org.springframework.http.HttpMethod.POST;
 import static org.springframework.http.HttpMethod.PUT;
 
+/**
+ * Каталог разрешённых операций Gateway.
+ *
+ * <p>Spec 017 T003.3: добавлен защищённый маршрут
+ * {@code GET /api/v1/coins/me → COINS, AUTHENTICATED}.</p>
+ */
 public final class GatewayRouteCatalog {
 
     private static final List<GatewayRoute> ROUTES = List.of(
@@ -20,7 +27,9 @@ public final class GatewayRouteCatalog {
             new GatewayRoute(POST, "/api/v1/auth/logout-all", IDENTITY, AUTHENTICATED),
 
             new GatewayRoute(GET, "/api/v1/accounts/me", ACCOUNT, AUTHENTICATED),
-            new GatewayRoute(PUT, "/api/v1/accounts/me", ACCOUNT, AUTHENTICATED));
+            new GatewayRoute(PUT, "/api/v1/accounts/me", ACCOUNT, AUTHENTICATED),
+
+            new GatewayRoute(GET, "/api/v1/coins/me", COINS, AUTHENTICATED));
 
     private GatewayRouteCatalog() {
     }

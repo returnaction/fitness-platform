@@ -15,6 +15,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 
+/**
+ * Проверяет изолированную тестовую конфигурацию Gateway.
+ *
+ * <p>Spec 017: ожидание timeout согласовано с рабочим значением 7s.</p>
+ */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("test")
 class GatewayApplicationTest {
