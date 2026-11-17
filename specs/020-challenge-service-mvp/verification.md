@@ -636,3 +636,17 @@ Testcontainers-тесты требуют работающего Docker. Без D
 - После запуска Coins recovery worker перевёл возврат в `COMPLETED`; в Coins hold `RELEASED`, по одной операции `FREEZE`, `RELEASE`, `COMPLETE_CANCELLATION`, кошелёк вернулся к `availableBalance=10`, `lockedBalance=10`.
 - `git diff --check`: успешно. Проверка относительных Markdown-ссылок: ошибок нет.
 - Ограничение: недоступность Coins имитирована остановкой локального процесса; время recovery зависит от интервала worker 5 секунд. Deploy не менялся.
+
+### 2026-11-17 — T006.5, результат и settlement
+
+- Обнаружен и закрыт пробел: маршрут `GET /api/v1/challenges/{challengeId}/result` был в контракте и Gateway, но отсутствовал в Challenge. Добавлены `ChallengeResultQueryService` и `ChallengeResultResponse`; endpoint возвращает `PENDING`, `FINAL` или `CANCELLED`, `viewerOutcome` (`WON`/`LOST`/`DRAW`/`null`) и `winnersCount`.
+- `ChallengeReadRepository.findResult` читает результат, участие viewer и признак победителя без изменения данных.
+- Добавлен HTTP-тест в `ChallengeResultFlowIntegrationTest`: `PENDING → FINAL`, `viewerOutcome` для победителя, проигравшего и постороннего.
+- Через mTLS `FinalizeResult` зафиксирован `SINGLE_WINNER`; вызов выполнен клиентом с SAN `spiffe://fitness.local/result-source`.
+- `challenge.finished` опубликован из outbox; Coins рассчитал банк 20, сохранил allocation 20 `PAID`, перевёл оба hold в `SETTLED`, stake set — в `SETTLED`, settlement — в `COMPLETED`.
+- `GET /result` через Gateway: `status=FINAL`, `outcome=SINGLE_WINNER`, `viewerOutcome=WON`, `winnersCount=1`; `GET challenge`: `status=FINISHED`, `settlementStatus=COMPLETED`.
+- Кошельки: победитель `availableBalance=20`, `lockedBalance=10`; проигравший `availableBalance=10`, `lockedBalance=0`.
+- Повторная публикация того же `challenge.finished` в Kafka не изменила балансы: settlements 1, allocations 1, inbox 1.
+- `sh ./mvnw -B -ntp -pl services/challenge-service -am verify`: `BUILD SUCCESS`, challenge 73/73, SpotBugs 0.
+- `git diff --check`: успешно. Проверка относительных Markdown-ссылок: ошибок нет.
+- Ограничение: источник результата в локальной проверке — тестовый mTLS-клиент, production-источник ещё не определён. Deploy не менялся.

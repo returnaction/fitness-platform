@@ -2,6 +2,7 @@ package io.github.returnaction.fitness.challenge.controller;
 
 import io.github.returnaction.fitness.challenge.dto.CancelRequest;
 import io.github.returnaction.fitness.challenge.dto.ChallengeDetailsResponse;
+import io.github.returnaction.fitness.challenge.dto.ChallengeResultResponse;
 import io.github.returnaction.fitness.challenge.dto.CreateDraftRequest;
 import io.github.returnaction.fitness.challenge.dto.DraftResponse;
 import io.github.returnaction.fitness.challenge.dto.JoinRequest;
@@ -12,6 +13,7 @@ import io.github.returnaction.fitness.challenge.service.ChallengeDraftService;
 import io.github.returnaction.fitness.challenge.service.ChallengeJoinService;
 import io.github.returnaction.fitness.challenge.service.ChallengePublishService;
 import io.github.returnaction.fitness.challenge.service.ChallengeCancelService;
+import io.github.returnaction.fitness.challenge.service.ChallengeResultQueryService;
 import jakarta.validation.Valid;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -37,6 +39,7 @@ public class ChallengeController {
     private final ChallengePublishService publishService;
     private final ChallengeJoinService joinService;
     private final ChallengeCancelService cancelService;
+    private final ChallengeResultQueryService resultService;
 
     @PostMapping("/api/v1/challenges/drafts")
     public ResponseEntity<DraftResponse> createDraft(
@@ -113,5 +116,14 @@ public class ChallengeController {
         return ResponseEntity.ok()
                 .header(HttpHeaders.CACHE_CONTROL, NO_STORE)
                 .body(service.getOperation(userId, operationId));
+    }
+
+    @GetMapping("/api/v1/challenges/{challengeId}/result")
+    public ResponseEntity<ChallengeResultResponse> getResult(
+            @AuthenticationPrincipal UUID userId,
+            @PathVariable UUID challengeId) {
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CACHE_CONTROL, NO_STORE)
+                .body(resultService.getResult(userId, challengeId));
     }
 }

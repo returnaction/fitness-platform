@@ -50,6 +50,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
 @Testcontainers(disabledWithoutDocker = true)
@@ -156,6 +157,38 @@ class ChallengeResultFlowIntegrationTest {
         results.finalizeResult(request(fixture, UUID.randomUUID(), "SINGLE_WINNER",
                 List.of(UUID.randomUUID())), unknownWinner);
         assertEquals("WINNER_NOT_PARTICIPANT", reason(unknownWinner.error));
+    }
+
+    @Test
+    void readsPendingAndFinalResultThroughHttp() throws Exception {
+        Fixture fixture = activeChallenge();
+
+        var pending = send("GET", "/api/v1/challenges/" + fixture.challengeId() + "/result",
+                fixture.owner(), null, null);
+        assertEquals(200, pending.statusCode());
+        JsonNode pendingBody = mapper.readTree(pending.body());
+        assertEquals("PENDING", pendingBody.get("status").asString());
+        assertTrue(pendingBody.get("result").isNull());
+
+        UUID resultId = UUID.randomUUID();
+        finalize(fixture, resultId, "SINGLE_WINNER", List.of(fixture.owner()));
+
+        var owner = send("GET", "/api/v1/challenges/" + fixture.challengeId() + "/result",
+                fixture.owner(), null, null);
+        JsonNode ownerBody = mapper.readTree(owner.body());
+        assertEquals("FINAL", ownerBody.get("status").asString());
+        assertEquals(resultId.toString(), ownerBody.get("result").get("resultId").asString());
+        assertEquals("SINGLE_WINNER", ownerBody.get("result").get("outcome").asString());
+        assertEquals("WON", ownerBody.get("result").get("viewerOutcome").asString());
+        assertEquals(1, ownerBody.get("result").get("winnersCount").asInt());
+
+        var loser = send("GET", "/api/v1/challenges/" + fixture.challengeId() + "/result",
+                fixture.joiner(), null, null);
+        assertEquals("LOST", mapper.readTree(loser.body()).get("result").get("viewerOutcome").asString());
+
+        var stranger = send("GET", "/api/v1/challenges/" + fixture.challengeId() + "/result",
+                UUID.randomUUID(), null, null);
+        assertTrue(mapper.readTree(stranger.body()).get("result").get("viewerOutcome").isNull());
     }
 
     private FinalizeResultResponse finalize(Fixture fixture, UUID resultId, String outcome, List<UUID> winners) {
