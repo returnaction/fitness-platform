@@ -1,6 +1,7 @@
 package io.github.returnaction.fitness.coins.stake;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import lombok.Getter;
@@ -31,6 +32,13 @@ public class StakeRepository {
      * reserve и seal для одного challenge и совпадает с порядком блокировок Coins.
      */
     public String lockStakeSet(UUID challengeId) {
+        return lockStakeSetSnapshot(challengeId).state();
+    }
+
+    /**
+     * Блокирует строку набора и возвращает состояние и cancellation ID.
+     */
+    public StakeSetSnapshot lockStakeSetSnapshot(UUID challengeId) {
         var params = new MapSqlParameterSource(CHALLENGE_ID, challengeId);
         jdbc.update("""
                 INSERT INTO coin_stake_sets (challenge_id, state)
@@ -38,8 +46,14 @@ public class StakeRepository {
                 ON CONFLICT (challenge_id) DO NOTHING
                 """, params);
         return jdbc.queryForObject("""
-                SELECT state FROM coin_stake_sets WHERE challenge_id = :challengeId FOR UPDATE
-                """, params, String.class);
+                SELECT state, cancellation_id
+                FROM coin_stake_sets
+                WHERE challenge_id = :challengeId
+                FOR UPDATE
+                """, params,
+                (resultSet, rowNumber) -> new StakeSetSnapshot(
+                        resultSet.getString("state"),
+                        resultSet.getObject("cancellation_id", UUID.class)));
     }
 
     public Optional<OperationSnapshot> findOperation(String kind, UUID id) {
@@ -210,6 +224,39 @@ public class StakeRepository {
                 .addValue("digest", digest));
     }
 
+    public int markStakeSetDraining(UUID challengeId, UUID cancellationId) {
+        return jdbc.update("""
+                UPDATE coin_stake_sets
+                SET state = 'CANCEL_DRAINING',
+                    cancellation_id = :cancellationId,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE challenge_id = :challengeId AND state IN ('OPEN', 'SEALED')
+                """, new MapSqlParameterSource()
+                .addValue(CHALLENGE_ID, challengeId)
+                .addValue("cancellationId", cancellationId));
+    }
+
+    public int markStakeSetCancelled(UUID challengeId, UUID cancellationId) {
+        return jdbc.update("""
+                UPDATE coin_stake_sets
+                SET state = 'CANCELLED',
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE challenge_id = :challengeId
+                  AND state = 'CANCEL_DRAINING'
+                  AND cancellation_id = :cancellationId
+                """, new MapSqlParameterSource()
+                .addValue(CHALLENGE_ID, challengeId)
+                .addValue("cancellationId", cancellationId));
+    }
+
+    public long countActiveHolds(UUID challengeId) {
+        return Objects.requireNonNull(jdbc.queryForObject("""
+                SELECT count(*) FROM coin_holds
+                WHERE challenge_id = :challengeId AND status = 'ACTIVE'
+                """, new MapSqlParameterSource(CHALLENGE_ID, challengeId), Long.class),
+                "count query must return a value");
+    }
+
     public Optional<WalletBalances> lockWallet(UUID userId) {
         return jdbc.query("""
                 SELECT available_balance, locked_balance
@@ -334,6 +381,9 @@ public class StakeRepository {
     }
 
     public record BatchSnapshot(int batchNumber, String payloadDigestHex) {
+    }
+
+    public record StakeSetSnapshot(String state, UUID cancellationId) {
     }
 
     public static final class OperationSnapshot {

@@ -383,3 +383,15 @@ Testcontainers-тесты требуют работающего Docker. Без D
 - `sh ./mvnw -B -ntp -pl services/coins-service -am test`: `BUILD SUCCESS`, 66 тестов, 0 ошибок.
 - `git diff --check`: успешно. Проверка относительных Markdown-ссылок Python-скриптом: ошибок нет.
 - Ограничение: gRPC-методы seal — T004.9; freeze/complete — T005.5. Kafka и deploy не менялись.
+
+### 2026-11-17 — T005.5, отмена набора ставок
+
+- `StakeCancellationService.freeze` переводит набор из `OPEN`/`SEALED` в `CANCEL_DRAINING`, сохраняет `cancellation_id` и блокирует новые reserve; после `SETTLED` возвращает `StakeSetSettledException`.
+- `complete` требует `CANCEL_DRAINING` с тем же `cancellation_id`, проверяет отсутствие активных holds и фиксирует `CANCELLED`.
+- Повтор freeze/complete с теми же ID возвращает сохранённый результат; другой cancellation ID — `OperationIdConflictException`; complete без freeze — `StakeSetCancellationConflictException`; активные holds — `ActiveHoldsRemainException`.
+- `StakeRepository` дополнен `lockStakeSetSnapshot`, `markStakeSetDraining`, `markStakeSetCancelled`, `countActiveHolds`.
+- В `tasks.md` добавлена T005.10 — gRPC-сервер ставок Coins (включая `GetStakeOperation`); T004.9 теперь зависит от неё.
+- `StakeCancellationServiceIntegrationTest` на Testcontainers покрывает freeze/release/complete, блокировку нового reserve, активный hold, идемпотентность, чужой cancellation ID и complete без freeze.
+- `sh ./mvnw -B -ntp -pl services/coins-service -am test`: `BUILD SUCCESS`, 70 тестов, 0 ошибок.
+- `git diff --check`: успешно. Проверка относительных Markdown-ссылок Python-скриптом: ошибок нет.
+- Ограничение: gRPC-сервер ставок — T005.10; Kafka, settlement и deploy не менялись.
