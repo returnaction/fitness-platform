@@ -493,3 +493,16 @@ Testcontainers-тесты требуют работающего Docker. Без D
 - `sh ./mvnw -B -ntp -pl services/challenge-service -am test`: `BUILD SUCCESS`, contracts 5/5, challenge 58/58.
 - `git diff --check`: успешно. Проверка относительных Markdown-ссылок Python-скриптом: ошибок нет.
 - Ограничение: событие `challenge.finished` формируется в T004.16; реальный Kafka-брокер в тестах не поднимался. Deploy не менялся.
+
+### 2026-11-17 — T004.16, gRPC-результат
+
+- `ChallengeResultService.finalizeResult` одной транзакцией сохраняет `challenge_results`, победителей, winner digest, статусы участия, `FINISHED` и outbox `challenge.finished`.
+- `SINGLE_WINNER` требует одного победителя, `DRAW` — двух; `MULTIPLE_WINNERS` отклоняется `UNSUPPORTED_OUTCOME`; победители проверяются по участию и версии/digest закрытого набора.
+- Повтор по `resultId` с тем же payload возвращает сохранённый результат; другой payload — `RESULT_ID_CONFLICT`; другой result для challenge — `CHALLENGE_RESULT_EXISTS`.
+- `ListResultWinners` отдаёт победителей страницами; неизвестный результат — `RESULT_NOT_FOUND`.
+- `ChallengeResultGrpcService` публикует оба метода и маппит ошибки в gRPC `Status`/`ErrorInfo` (`challenge.fitness.internal`).
+- `ChallengeResultGrpcServer` включается свойством `challenge.result.grpc.enabled`, использует mTLS и проверяет SAN источника результата и `coins-service`; в тестах сервер отключён.
+- `ChallengeResultFlowIntegrationTest` покрывает SINGLE_WINNER/replay, DRAW, UNSUPPORTED_OUTCOME, RESULT_ID_CONFLICT, неверный набор, чужого победителя и `ListResultWinners`.
+- `sh ./mvnw -B -ntp -pl services/challenge-service -am test`: `BUILD SUCCESS`, contracts 5/5, challenge 62/62.
+- `git diff --check`: успешно. Проверка относительных Markdown-ссылок Python-скриптом: ошибок нет.
+- Ограничение: mTLS-сервер результата не проверен end-to-end; курсор списка победителей в MVP — UUID без HMAC. Kafka и deploy не менялись.

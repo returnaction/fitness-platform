@@ -60,3 +60,13 @@ challenge:
       private-key: ${CHALLENGE_GRPC_PRIVATE_KEY}
       trust-certificate: ${CHALLENGE_GRPC_TRUST_CERTIFICATE}
       deadline: 3s
+  result:
+    grpc:
+      enabled: ${CHALLENGE_RESULT_GRPC_ENABLED:true}
+      address: ${CHALLENGE_RESULT_GRPC_ADDRESS:0.0.0.0}
+      port: ${CHALLENGE_RESULT_GRPC_PORT:9094}
+      certificate: ${CHALLENGE_RESULT_GRPC_CERTIFICATE:}
+      private-key: ${CHALLENGE_RESULT_GRPC_PRIVATE_KEY:}
+      trust-certificate: ${CHALLENGE_RESULT_GRPC_TRUST_CERTIFICATE:}
+      result-source-san: ${CHALLENGE_RESULT_SOURCE_SAN:spiffe://fitness.local/result-source}
+      coins-san: ${COINS_SERVICE_SAN:spiffe://fitness.local/coins-service}

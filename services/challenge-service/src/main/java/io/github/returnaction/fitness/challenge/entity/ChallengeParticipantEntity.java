@@ -68,4 +68,18 @@ public class ChallengeParticipantEntity {
         version++;
         updatedAt = now;
     }
+
+    public void win(Instant now) {
+        status.requireTransitionTo(ParticipationStatus.WINNER);
+        status = ParticipationStatus.WINNER;
+        version++;
+        updatedAt = now;
+    }
+
+    public void complete(Instant now) {
+        status.requireTransitionTo(ParticipationStatus.COMPLETED);
+        status = ParticipationStatus.COMPLETED;
+        version++;
+        updatedAt = now;
+    }
 }

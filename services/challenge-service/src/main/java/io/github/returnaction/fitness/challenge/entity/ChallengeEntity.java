@@ -144,6 +144,13 @@ public class ChallengeEntity {
         updatedAt = now;
     }
 
+    public void finish(Instant now) {
+        status.requireTransitionTo(ChallengeStatus.FINISHED);
+        status = ChallengeStatus.FINISHED;
+        version++;
+        updatedAt = now;
+    }
+
     /**
      * Применяет частичное изменение черновика. Вызывается только после проверки
      * состояния, владельца и ожидаемой версии под блокировкой строки.
