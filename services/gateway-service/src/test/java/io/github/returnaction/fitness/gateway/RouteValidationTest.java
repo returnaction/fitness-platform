@@ -142,7 +142,8 @@ class RouteValidationTest {
         var upstreams = new UpstreamProperties(
                 Map.of(UpstreamId.IDENTITY, new UpstreamProperties.Settings(URI.create("http://localhost:1")),
                         UpstreamId.ACCOUNT, new UpstreamProperties.Settings(URI.create("http://localhost:2")),
-                        UpstreamId.COINS, new UpstreamProperties.Settings(URI.create("http://localhost:3"))));
+                        UpstreamId.COINS, new UpstreamProperties.Settings(URI.create("http://localhost:3")),
+                        UpstreamId.CHALLENGE, new UpstreamProperties.Settings(URI.create("http://localhost:4"))));
         var routes = GatewayRouteCatalog.routes();
         GatewayRouteValidator.validate(routes, upstreams);
         var missingAccountUpstreams = new UpstreamProperties(Map.of(UpstreamId.IDENTITY,

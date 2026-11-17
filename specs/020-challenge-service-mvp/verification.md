@@ -172,3 +172,14 @@ Testcontainers-тесты требуют работающего Docker. Без D
 - `contracts/README.md`: в индексе присутствуют `coins-stake-v1.proto` и `challenge-results-v1.proto`; в команды проверки OpenAPI добавлен `challenge-v1.yaml`.
 - `git diff --check`: успешно. Проверка относительных Markdown-ссылок Python-скриптом: ошибок нет.
 - Код сервисов, БД, Kafka, deployment, commit, push и deploy не выполнялись.
+
+### 2026-11-17 — T003.1, обязательный upstream Challenge
+
+- В `UpstreamId` добавлено значение `CHALLENGE`; в `UpstreamProperties` добавлена проверка `@AssertTrue`, требующая конфигурацию каждого известного upstream. Без записи `CHALLENGE` контекст Gateway не стартует с сообщением `Every known upstream must be configured`.
+- `application.yaml` содержит `CHALLENGE.base-url: ${CHALLENGE_HTTP_BASE_URL}`; без переменной окружения старт также невозможен из-за неразрешённого placeholder.
+- В `test-environment.properties` добавлен `CHALLENGE_HTTP_BASE_URL=http://127.0.0.1:1`, чтобы тесты запускались с обязательной конфигурацией.
+- `GatewayPropertiesTest`: валидная конфигурация со всеми четырьмя upstream принимается; конфигурация без `CHALLENGE` отклоняется с ожидаемым сообщением; неполная карта даёт `isEveryUpstreamConfigured() == false`.
+- `RouteValidationTest`: fixture полного набора upstream дополнен `CHALLENGE`; каталог маршрутов не менялся.
+- `sh ./mvnw -B -ntp -pl services/gateway-service -am test`: `BUILD SUCCESS`, 50 тестов, 0 ошибок.
+- `git diff --check`: успешно. Проверка относительных Markdown-ссылок Python-скриптом: ошибок нет.
+- Ограничение: `services/gateway-service/.env.example` и `deployment/env/gateway.env.example` ещё не содержат `CHALLENGE_HTTP_BASE_URL`; это задача T003.2. Маршруты Challenge ещё не добавлены (T003.3). БД, Kafka, deploy и commit не выполнялись.
