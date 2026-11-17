@@ -371,3 +371,15 @@ Testcontainers-тесты требуют работающего Docker. Без D
 - `sh ./mvnw -B -ntp -pl services/coins-service -am test`: `BUILD SUCCESS`, 60 тестов, 0 ошибок.
 - `git diff --check`: успешно. Проверка относительных Markdown-ссылок Python-скриптом: ошибок нет.
 - Ограничение: gRPC-метод `ReleaseStake` — T004.9; freeze/complete — T005.5. Kafka и deploy не менялись.
+
+### 2026-11-17 — T005.4, пакетный seal набора
+
+- `StakeSetService` реализует `BeginStakeSet`, `PutStakeBatch` и `FinalizeStakeSet` по контракту: Begin сохраняет ожидаемые count/digest, Put принимает пакеты 1–500, Finalize сверяет digest, count и активные holds.
+- Digest считается по строкам `hold_id,user_id,amount`, отсортированным по строковому `hold_id`, через `\n` без конечного перевода; проверяется 64 lowercase hex символа.
+- Все операции сериализуются блокировкой `coin_stake_sets`; повтор Begin/Put/Finalize безопасен, изменённый payload — `OperationIdConflictException`.
+- Новый reserve после `SEALED` запрещён (`StakeSetSealedException`); в `CANCEL_DRAINING`/`CANCELLED` — `StakeSetCancelledException`.
+- Дубли hold/user между пакетами отклоняются `DuplicateStakeEntryException`; несовпадение состава — `StakeSetMismatchException`; неполный набор — `StakeSetIncompleteException`.
+- `StakeSetServiceIntegrationTest` на Testcontainers покрывает успешный seal, replay, блокировку нового reserve, неполный набор, расхождение с holds, дубли/изменение пакета, повтор Begin и параллельный seal, размер пакета.
+- `sh ./mvnw -B -ntp -pl services/coins-service -am test`: `BUILD SUCCESS`, 66 тестов, 0 ошибок.
+- `git diff --check`: успешно. Проверка относительных Markdown-ссылок Python-скриптом: ошибок нет.
+- Ограничение: gRPC-методы seal — T004.9; freeze/complete — T005.5. Kafka и deploy не менялись.

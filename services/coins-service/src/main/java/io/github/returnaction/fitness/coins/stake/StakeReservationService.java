@@ -2,6 +2,8 @@ package io.github.returnaction.fitness.coins.stake;
 
 import io.github.returnaction.fitness.coins.stake.StakeRepository.OperationSnapshot;
 import io.github.returnaction.fitness.coins.stake.exception.OperationIdConflictException;
+import io.github.returnaction.fitness.coins.stake.exception.StakeSetCancelledException;
+import io.github.returnaction.fitness.coins.stake.exception.StakeSetSealedException;
 import io.github.returnaction.fitness.coins.stake.exception.WalletNotFoundException;
 import java.security.MessageDigest;
 import java.util.UUID;
@@ -25,13 +27,14 @@ public class StakeReservationService {
 
     @Transactional
     public ReserveStakeResult reserve(ReserveStakeCommand command) {
-        repository.lockStakeSet(command.challengeId());
+        String state = repository.lockStakeSet(command.challengeId());
 
         byte[] requestHash = requestHash(command);
         var existing = repository.findOperation(RESERVE_KIND, command.joinOperationId());
         if (existing.isPresent()) {
             return replay(existing.get(), requestHash);
         }
+        requireOpenForReserve(state);
 
         if (repository.findActiveHold(command.challengeId(), command.userId()).isPresent()) {
             return store(command, requestHash, new ReserveStakeResult(command.joinOperationId(),
@@ -74,5 +77,14 @@ public class StakeReservationService {
     private byte[] requestHash(ReserveStakeCommand command) {
         return RequestHash.sha256(command.joinOperationId() + "|" + command.userId() + "|"
                 + command.challengeId() + "|" + command.amount());
+    }
+
+    private void requireOpenForReserve(String state) {
+        if ("SEALED".equals(state) || "SETTLED".equals(state)) {
+            throw new StakeSetSealedException();
+        }
+        if ("CANCEL_DRAINING".equals(state) || "CANCELLED".equals(state)) {
+            throw new StakeSetCancelledException();
+        }
     }
 }

@@ -7,6 +7,7 @@ import io.github.returnaction.fitness.coins.stake.exception.OperationIdConflictE
 import io.github.returnaction.fitness.coins.stake.exception.WalletNotFoundException;
 import io.github.returnaction.fitness.coins.wallet.grpc.SecureGrpcServer;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -144,6 +145,7 @@ class ReserveStakeServiceIntegrationTest {
     }
 
     private long count(String sql, Object... args) {
-        return jdbc.queryForObject(sql, Long.class, args);
+        return Objects.requireNonNull(jdbc.queryForObject(sql, Long.class, args),
+                "count query must return a value");
     }
 }

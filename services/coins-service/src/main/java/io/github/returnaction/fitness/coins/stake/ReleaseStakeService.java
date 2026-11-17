@@ -29,12 +29,15 @@ public class ReleaseStakeService {
 
     @Transactional
     public ReleaseStakeResult release(ReleaseStakeCommand command) {
-        repository.lockStakeSet(command.challengeId());
+        String state = repository.lockStakeSet(command.challengeId());
 
         byte[] requestHash = requestHash(command);
         var existing = repository.findOperation(RELEASE_KIND, command.releaseOperationId());
         if (existing.isPresent()) {
             return replay(existing.get(), requestHash);
+        }
+        if ("SETTLED".equals(state) || "CANCELLED".equals(state)) {
+            throw new HoldNotReleasableException();
         }
 
         var hold = repository.lockHold(command.holdId()).orElseThrow(HoldNotFoundException::new);

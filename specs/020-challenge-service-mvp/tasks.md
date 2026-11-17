@@ -42,7 +42,7 @@
 - [x] T005.1 — Миграции Coins. Зависит от T002.2 и отдельного разрешения на миграции. Критерий: созданы таблицы holds, ledger, stake set, operations, sealed stakes, settlement, inbox/outbox; существующий кошелёк не изменён.
 - [x] T005.2 — ReserveStake. Зависит от T005.1. Критерий: одна транзакция обновляет available/locked, создаёт hold и ledger; идемпотентность по operation ID; исходы RESERVED, INSUFFICIENT_FUNDS, ACTIVE_HOLD_EXISTS, WALLET_NOT_FOUND.
 - [x] T005.3 — ReleaseStake. Зависит от T005.2. Критерий: hold освобождается ровно один раз, ledger-запись создаётся, повтор с тем же ID возвращает сохранённый исход, другой ID для освобождённого hold отклоняется.
-- [ ] T005.4 — Begin/Put/Finalize набора. Зависит от T005.3. Критерий: состояние набора сериализуется, пакеты 1–500, digest и активные holds сверяются, повтор безопасен, новый reserve после SEALED запрещён.
+- [x] T005.4 — Begin/Put/Finalize набора. Зависит от T005.3. Критерий: состояние набора сериализуется, пакеты 1–500, digest и активные holds сверяются, повтор безопасен, новый reserve после SEALED запрещён.
 - [ ] T005.5 — Freeze и CompleteStakeCancellation. Зависит от T005.4. Критерий: freeze запрещает новые резервы, complete не проходит при активном hold, повтор идемпотентен, состояние `CANCELLED` фиксируется.
 - [ ] T004.9 — gRPC-клиент Coins. Зависит от T005.2, T005.5. Критерий: mTLS, deadline меньше gateway 7s, классификация `UNAVAILABLE`/`DEADLINE_EXCEEDED` как неизвестного исхода, повторы по operation ID.
 - [ ] T004.10 — Publish. Зависит от T004.8, T004.9. Критерий: durable PUBLISH, резерв до `OPEN`, создатель `JOINED`, `200`/`202`, `409 insufficient_coins`/`stake_conflict`, черновик жив при отказе.
