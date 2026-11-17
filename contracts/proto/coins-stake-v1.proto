@@ -253,6 +253,8 @@ message CompleteStakeCancellationResponse {
 // INVALID_ARGUMENT     INVALID_ARGUMENT           Неверный UUID, amount <= 0,
 //                                                  batch вне 1..500, digest не
 //                                                  64 lowercase hex.
+// INVALID_ARGUMENT     DUPLICATE_STAKE_ENTRY      Повтор hold_id или user_id
+//                                                  между пакетами seal.
 // UNAUTHENTICATED      SERVICE_UNAUTHENTICATED    mTLS service identity не
 //                                                  подтверждена.
 // PERMISSION_DENIED    SERVICE_FORBIDDEN          Вызывающему не разрешены
@@ -277,6 +279,8 @@ message CompleteStakeCancellationResponse {
 // FAILED_PRECONDITION  STAKE_SET_CANCELLED        Новый reserve после freeze.
 // FAILED_PRECONDITION  STAKE_SET_SETTLED          Freeze после расчёта.
 // FAILED_PRECONDITION  ACTIVE_HOLDS_REMAIN        Complete при активных holds.
+// FAILED_PRECONDITION  CANCELLATION_CONFLICT      Complete без подходящего
+//                                                  freeze или чужой cancellation.
 // UNAVAILABLE          COINS_UNAVAILABLE           Временная недоступность.
 // DEADLINE_EXCEEDED    —                           Срок клиента истёк.
 // INTERNAL             INTERNAL_ERROR              Неожиданная ошибка без

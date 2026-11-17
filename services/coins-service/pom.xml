@@ -38,6 +38,11 @@
             <artifactId>grpc-netty-shaded</artifactId>
         </dependency>
         <dependency>
+            <groupId>com.google.api.grpc</groupId>
+            <artifactId>proto-google-common-protos</artifactId>
+            <version>${proto-google-common-protos.version}</version>
+        </dependency>
+        <dependency>
             <groupId>io.github.returnaction.fitness</groupId>
             <artifactId>fitness-grpc-contracts</artifactId>
             <version>0.1.2</version>

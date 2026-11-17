@@ -395,3 +395,15 @@ Testcontainers-тесты требуют работающего Docker. Без D
 - `sh ./mvnw -B -ntp -pl services/coins-service -am test`: `BUILD SUCCESS`, 70 тестов, 0 ошибок.
 - `git diff --check`: успешно. Проверка относительных Markdown-ссылок Python-скриптом: ошибок нет.
 - Ограничение: gRPC-сервер ставок — T005.10; Kafka, settlement и deploy не менялись.
+
+### 2026-11-17 — T005.10, gRPC-сервер ставок
+
+- `StakeGrpcService` публикует все 8 RPC контракта `coins-stake-v1.proto`: reserve/release, get operation, begin/put/finalize, freeze/complete.
+- `GetStakeOperation` читает сохранённый исход RESERVE/RELEASE через `StakeOperationQueryService`; неизвестная операция — `NOT_FOUND`.
+- `ChallengeAuthorizationInterceptor` разрешает методы только сертификату с SAN `spiffe://fitness.local/challenge-service`; подключён в `SecureGrpcServer` рядом с существующим Identity interceptor.
+- `StakeGrpcErrors` возвращает rich gRPC Status с `google.rpc.ErrorInfo` (`domain = coins.fitness.internal`): `WALLET_NOT_FOUND`, `HOLD_NOT_FOUND`, `OPERATION_NOT_FOUND`, `OPERATION_ID_CONFLICT`, `HOLD_NOT_RELEASABLE`, `HOLD_CHALLENGE_MISMATCH`, `STAKE_SET_*`, `ACTIVE_HOLDS_REMAIN`, `CANCELLATION_CONFLICT`, `DUPLICATE_STAKE_ENTRY`, `COINS_UNAVAILABLE`, `INTERNAL_ERROR`.
+- Добавлена зависимость `proto-google-common-protos` 2.64.1; причины `CANCELLATION_CONFLICT` и `DUPLICATE_STAKE_ENTRY` отражены в комментарии контракта.
+- Тесты: маппинг reserve/release/get operation и rich errors; SAN-проверка challenge/identity; end-to-end mTLS — challenge-сертификат получает `RESERVED`, identity-сертификат получает `PERMISSION_DENIED`.
+- `sh ./mvnw -B -ntp -pl services/coins-service -am test`: `BUILD SUCCESS`, 78 тестов, 0 ошибок.
+- `git diff --check`: успешно. Проверка относительных Markdown-ссылок Python-скриптом: ошибок нет.
+- Ограничение: клиент Challenge — T004.9; settlement/Kafka не менялись.

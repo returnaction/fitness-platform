@@ -1,5 +1,7 @@
 package io.github.returnaction.fitness.coins.wallet.grpc;
 
+import io.github.returnaction.fitness.coins.stake.grpc.ChallengeAuthorizationInterceptor;
+import io.github.returnaction.fitness.coins.stake.grpc.StakeGrpcService;
 import io.grpc.Server;
 import io.grpc.ServerInterceptors;
 import io.grpc.netty.shaded.io.grpc.netty.GrpcSslContexts;
@@ -22,7 +24,8 @@ public final class SecureGrpcServer implements SmartLifecycle {
     private final Server server;
     private volatile boolean running;
 
-    public SecureGrpcServer(WalletCreationGrpcService service, @Value("${coins.grpc.address}") String address,
+    public SecureGrpcServer(WalletCreationGrpcService walletCreationService, StakeGrpcService stakeService,
+        @Value("${coins.grpc.address}") String address,
         @Value("${coins.grpc.port}") int port, @Value("${coins.grpc.certificate}") String certificate,
         @Value("${coins.grpc.private-key}") String privateKey,
         @Value("${coins.grpc.trust-certificate}") String trustCertificate) throws IOException {
@@ -34,7 +37,8 @@ public final class SecureGrpcServer implements SmartLifecycle {
                         .trustManager(new File(trustCertificate))
                         .clientAuth(ClientAuth.REQUIRE)
                         .build())
-                .addService(ServerInterceptors.intercept(service, new IdentityAuthorizationInterceptor()))
+                .addService(ServerInterceptors.intercept(walletCreationService, new IdentityAuthorizationInterceptor()))
+                .addService(ServerInterceptors.intercept(stakeService, new ChallengeAuthorizationInterceptor()))
                 .build();
     }
 
@@ -55,7 +59,7 @@ public final class SecureGrpcServer implements SmartLifecycle {
             if (!server.awaitTermination(5, TimeUnit.SECONDS)) {
                 server.shutdownNow();
             }
-        } catch (InterruptedException exception) {
+        } catch (InterruptedException _) {
             server.shutdownNow();
             Thread.currentThread().interrupt();
         }
