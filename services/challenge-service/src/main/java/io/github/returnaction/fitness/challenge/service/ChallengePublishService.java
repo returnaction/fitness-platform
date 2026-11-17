@@ -22,6 +22,8 @@ import io.github.returnaction.fitness.challenge.repository.ChallengeRepository;
 import io.github.returnaction.fitness.challenge.shared.exception.BusinessConflictException;
 import io.github.returnaction.fitness.challenge.shared.exception.DomainValidationException;
 import io.github.returnaction.fitness.challenge.shared.exception.ResourceNotFoundException;
+import io.github.returnaction.fitness.contracts.coins.stake.v1.ReleaseReason;
+import io.github.returnaction.fitness.contracts.coins.stake.v1.ReleaseStakeRequest;
 import io.github.returnaction.fitness.contracts.coins.stake.v1.ReserveOutcome;
 import io.github.returnaction.fitness.contracts.coins.stake.v1.ReserveStakeRequest;
 import java.time.Instant;
@@ -86,7 +88,10 @@ public class ChallengePublishService {
                 throw new IllegalStateException("Unsupported reserve outcome");
             }
             UUID holdId = UUID.fromString(response.getHoldId());
-            confirm(userId, challengeId, prepared.operationId(), holdId);
+            String failure = confirm(userId, challengeId, prepared.operationId(), holdId);
+            if (failure != null) {
+                throw new BusinessConflictException(failure, "Challenge is not editable.");
+            }
             var body = new PublishCompletedResponse(challengeId, ChallengeStatus.OPEN,
                     ParticipationStatus.JOINED);
             idempotency.store(userId, "POST", path, key, fingerprint,
@@ -125,12 +130,21 @@ public class ChallengePublishService {
         });
     }
 
-    private void confirm(UUID userId, UUID challengeId, UUID operationId, UUID holdId) {
-        new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
+    private String confirm(UUID userId, UUID challengeId, UUID operationId, UUID holdId) {
+        return new TransactionTemplate(transactionManager).execute(status -> {
             ChallengeEntity challenge = challenges.findByIdForUpdate(challengeId)
                     .orElseThrow(ChallengePublishService::challengeNotFound);
+            if (!challenge.getCreatorUserId().equals(userId)) {
+                return "challenge_not_editable";
+            }
             if (challenge.getStatus() != ChallengeStatus.DRAFT) {
-                throw new BusinessConflictException("challenge_not_editable", "Challenge is not editable.");
+                if (participants.findByChallengeIdAndUserId(challengeId, userId).isPresent()) {
+                    operations.findById(operationId)
+                            .orElseThrow(ChallengePublishService::operationNotFound)
+                            .confirm(holdId, Instant.now());
+                    return null;
+                }
+                return "challenge_not_editable";
             }
             Instant now = Instant.now();
             long sequence = challenge.openForJoining(now);
@@ -138,7 +152,29 @@ public class ChallengePublishService {
             operations.findById(operationId)
                     .orElseThrow(ChallengePublishService::operationNotFound)
                     .confirm(holdId, now);
+            return null;
         });
+    }
+
+    /**
+     * Восстановление ранее начатой PUBLISH-операции после неизвестного ответа.
+     */
+    void recover(UUID userId, UUID challengeId, UUID operationId, UUID holdId) {
+        String failure = confirm(userId, challengeId, operationId, holdId);
+        if (failure == null) {
+            return;
+        }
+        try {
+            coins.releaseStake(ReleaseStakeRequest.newBuilder()
+                    .setReleaseOperationId(UUID.randomUUID().toString())
+                    .setHoldId(holdId.toString())
+                    .setChallengeId(challengeId.toString())
+                    .setReason(ReleaseReason.RELEASE_REASON_JOIN_NOT_CONFIRMED)
+                    .build());
+        } catch (CoinsOutcomeUnknownException exception) {
+            return;
+        }
+        fail(operationId, failure);
     }
 
     private void fail(UUID operationId, String failureCode) {

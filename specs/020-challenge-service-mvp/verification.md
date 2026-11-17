@@ -455,3 +455,17 @@ Testcontainers-тесты требуют работающего Docker. Без D
 - `sh ./mvnw -B -ntp -pl services/challenge-service -am test`: `BUILD SUCCESS`, contracts 5/5, challenge 52/52.
 - `git diff --check`: успешно. Проверка относительных Markdown-ссылок Python-скриптом: ошибок нет.
 - Ограничение: recovery для `PENDING` release/complete — T004.13; Kafka и deploy не менялись.
+
+### 2026-11-17 — T004.13, recovery worker
+
+- Миграция `003-add-recovery-leases`: `lease_until`/`lease_generation` у операций, release intents и stake sets; индексы recovery. Changeset применён к локальной `fitness_challenge`.
+- `ChallengeRecoveryRepository` захватывает строки через `FOR UPDATE SKIP LOCKED`, продлевает lease и увеличивает поколение; worker очищает lease после обработки.
+- `ChallengeRecoveryWorker` по расписанию (`challenge.recovery.fixed-delay`) продолжает:
+  - PUBLISH/JOIN через `GetStakeOperation(RESERVE)` и повторное подтверждение;
+  - release intent через `GetStakeOperation(RELEASE)` или повтор freeze/release/complete.
+- Hold не освобождается по таймеру: release выполняется только по сохранённому intent или при невозможности подтвердить место.
+- Неизвестный исход оставляет операцию/intent в `PENDING`; `NOT_FOUND` не считается отказом.
+- `ChallengeRecoveryWorkerIntegrationTest` проверяет восстановление publish после `202` и release intent после неизвестного ответа.
+- `sh ./mvnw -B -ntp -pl services/challenge-service -am test`: `BUILD SUCCESS`, contracts 5/5, challenge 54/54.
+- `git diff --check`: успешно. Проверка относительных Markdown-ссылок Python-скриптом: ошибок нет.
+- Ограничение: восстановление seal появится вместе с T004.14; multi-instance lease-поведение проверяется в T004.20. Kafka и deploy не менялись.

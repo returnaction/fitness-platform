@@ -121,7 +121,7 @@ public class ChallengeJoinService {
         });
     }
 
-    private String confirm(UUID userId, UUID challengeId, UUID operationId, UUID holdId) {
+    String confirm(UUID userId, UUID challengeId, UUID operationId, UUID holdId) {
         return new TransactionTemplate(transactionManager).execute(status -> {
             ChallengeEntity challenge = challenges.findByIdForUpdate(challengeId)
                     .orElseThrow(ChallengeJoinService::challengeNotFound);
@@ -146,6 +146,21 @@ public class ChallengeJoinService {
                     .confirm(holdId, now);
             return null;
         });
+    }
+
+    /**
+     * Восстановление ранее начатой JOIN-операции после неизвестного ответа.
+     */
+    void recover(UUID userId, UUID challengeId, UUID operationId, UUID holdId) {
+        String failure = confirm(userId, challengeId, operationId, holdId);
+        if (failure == null) {
+            return;
+        }
+        try {
+            compensate(operationId, challengeId, holdId, failure);
+        } catch (BusinessConflictException ignored) {
+            // Hold освобождён, операция помечена FAILED.
+        }
     }
 
     private JoinResult compensate(UUID operationId, UUID challengeId, UUID holdId, String failureCode) {
