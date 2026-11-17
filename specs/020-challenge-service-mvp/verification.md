@@ -481,3 +481,15 @@ Testcontainers-тесты требуют работающего Docker. Без D
 - `sh ./mvnw -B -ntp -pl services/challenge-service -am test`: `BUILD SUCCESS`, contracts 5/5, challenge 56/56.
 - `git diff --check`: успешно. Проверка относительных Markdown-ссылок Python-скриптом: ошибок нет.
 - Ограничение: гонка cancel/seal и multi-instance lease — T004.20. Kafka и deploy не менялись.
+
+### 2026-11-17 — T004.15, outbox publisher
+
+- `ChallengeOutboxService` пишет событие с `Propagation.MANDATORY`: локальное изменение и outbox фиксируются одной транзакцией.
+- `ChallengeOutboxRepository` выполняет claim через `FOR UPDATE SKIP LOCKED`, lease и `lease_generation`; `markPublished` вызывается только после ack.
+- `ChallengeOutboxPublisher` публикует пачками, очищает lease при ошибке и не удаляет событие; повтор после потери ack возможен, потребитель дедуплицирует по `event_id`.
+- `KafkaChallengeEventPublisher` публикует в `fitness.<event_type>.v1` с ключом `aggregateId`; Kafka-конфигурация добавлена в `application.yaml` и окружения.
+- Добавлен gauge `challenge_outbox_backlog`.
+- `ChallengeOutboxIntegrationTest` проверяет atomic commit/rollback, публикацию ровно один раз, `published_at` и отсутствие повторной публикации.
+- `sh ./mvnw -B -ntp -pl services/challenge-service -am test`: `BUILD SUCCESS`, contracts 5/5, challenge 58/58.
+- `git diff --check`: успешно. Проверка относительных Markdown-ссылок Python-скриптом: ошибок нет.
+- Ограничение: событие `challenge.finished` формируется в T004.16; реальный Kafka-брокер в тестах не поднимался. Deploy не менялся.

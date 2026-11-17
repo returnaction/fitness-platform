@@ -178,8 +178,10 @@ class ChallengeSealFlowIntegrationTest {
     }
 
     private long stakeSetCount(String challengeId) {
-        return jdbc.queryForObject("SELECT count(*) FROM challenge_stake_sets WHERE challenge_id = ?",
-                Long.class, UUID.fromString(challengeId));
+        return Objects.requireNonNull(jdbc.queryForObject(
+                        "SELECT count(*) FROM challenge_stake_sets WHERE challenge_id = ?",
+                        Long.class, UUID.fromString(challengeId)),
+                "count query must return a value");
     }
 
     private String stakeSetState(String challengeId) {
