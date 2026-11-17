@@ -20,6 +20,7 @@ import java.net.http.HttpResponse;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import io.github.returnaction.fitness.gateway.configuration.properties.UpstreamProperties;
 import io.github.returnaction.fitness.gateway.routing.GatewayRoute;
 import io.github.returnaction.fitness.gateway.routing.GatewayRouteCatalog;
@@ -32,9 +33,11 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
+import org.springframework.http.server.PathContainer;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.web.util.pattern.PathPatternParser;
 import tools.jackson.databind.ObjectMapper;
 
 /**
@@ -46,6 +49,9 @@ import tools.jackson.databind.ObjectMapper;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("test")
 class RouteValidationTest {
+
+    private static final String CHALLENGE_ID = "550e8400-e29b-41d4-a716-446655440000";
+    private static final String OPERATION_ID = "7c9e6679-7425-40de-944b-e07fc1f90ae7";
 
     @MockitoBean
     private SessionVerificationClient sessions;
@@ -73,12 +79,11 @@ class RouteValidationTest {
                 assertError(client, "POST", "/unknown?x=1", bearer, 404, "not_found");
                 assertError(client, "OPTIONS", "/unknown", bearer, 404, "not_found");
                 for (var route : GatewayRouteCatalog.routes()) {
-                    String unsupportedMethod = route.path().startsWith("/api/v1/accounts/me")
-                            || route.path().startsWith("/api/v1/coins/me") ? "POST" : "GET";
-                    assertError(client, unsupportedMethod, route.path() + "?x=1", bearer, 405, "method_not_allowed");
-                    assertError(client, "OPTIONS", route.path(), bearer, 405, "method_not_allowed");
-                    assertError(client, "HEAD", route.path(), bearer, 405, null);
-                    assertError(client, route.method().name(), route.path() + "?x=1", bearer, 400, "invalid_request");
+                    String path = concretePath(route.path());
+                    assertError(client, "DELETE", path + "?x=1", bearer, 405, "method_not_allowed");
+                    assertError(client, "OPTIONS", path, bearer, 405, "method_not_allowed");
+                    assertError(client, "HEAD", path, bearer, 405, null);
+                    assertError(client, route.method().name(), path + "?x=1", bearer, 400, "invalid_request");
                 }
             }
         }
@@ -90,7 +95,7 @@ class RouteValidationTest {
             try (var socket = new Socket("127.0.0.1", port)) {
                 socket.setSoTimeout(3000);
                 socket.getOutputStream()
-                        .write((route.method().name() + " " + route.path() + "? HTTP/1.1\r\n"
+                        .write((route.method().name() + " " + concretePath(route.path()) + "? HTTP/1.1\r\n"
                                 + "Host: localhost\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")
                                 .getBytes(StandardCharsets.US_ASCII));
                 socket.getOutputStream().flush();
@@ -117,15 +122,16 @@ class RouteValidationTest {
 
     @Test
     void policyMatchesOnlyCatalogOperationsAndProtectedRouteStaysClosed() throws Exception {
-        assertThat(GatewayRouteCatalog.routes()).hasSize(8);
+        assertThat(GatewayRouteCatalog.routes()).hasSize(16);
         try (var client = HttpClient.newHttpClient()) {
             for (var route : GatewayRouteCatalog.routes()) {
-                var request = new MockHttpServletRequest(route.method().name(), route.path());
+                String path = concretePath(route.path());
+                var request = new MockHttpServletRequest(route.method().name(), path);
                 boolean protectedRoute = route.access() == RouteAccess.AUTHENTICATED;
                 assertThat(policy.protectedRequests().matches(request)).isEqualTo(protectedRoute);
                 assertThat(policy.publicRequests().matches(request)).isEqualTo(!protectedRoute);
                 if (protectedRoute) {
-                    assertError(client, route.method().name(), route.path(), "", 401, "invalid_access_token");
+                    assertError(client, route.method().name(), path, "", 401, "invalid_access_token");
                 }
             }
         }
@@ -162,6 +168,24 @@ class RouteValidationTest {
                 .isInstanceOf(IllegalStateException.class);
     }
 
+    private static String concretePath(String path) {
+        return path.replace("{challengeId}", CHALLENGE_ID)
+                .replace("{operationId}", OPERATION_ID);
+    }
+
+    private static String allowedMethods(String path) {
+        int query = path.indexOf('?');
+        String pathOnly = query < 0 ? path : path.substring(0, query);
+        var parser = new PathPatternParser();
+        var parsed = PathContainer.parsePath(pathOnly);
+        return GatewayRouteCatalog.routes().stream()
+                .filter(route -> parser.parse(route.path()).matches(parsed))
+                .map(route -> route.method().name())
+                .distinct()
+                .sorted()
+                .collect(Collectors.joining(", "));
+    }
+
     private void assertError(HttpClient client, String method, String path, String bearer, int status,
         String code) throws Exception {
         var builder = HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + path))
@@ -176,9 +200,7 @@ class RouteValidationTest {
         assertThat(response.headers().firstValue("Access-Control-Allow-Origin")).isEmpty();
         assertThat(response.headers().firstValue("Access-Control-Allow-Methods")).isEmpty();
         if (status == 405) {
-            String expected = path.startsWith("/api/v1/accounts/me") ? "GET, PUT"
-                    : path.startsWith("/api/v1/coins/me") ? "GET" : "POST";
-            assertThat(response.headers().firstValue("Allow")).contains(expected);
+            assertThat(response.headers().firstValue("Allow")).contains(allowedMethods(path));
         }
         String id = response.headers().firstValue("X-Request-Id").orElseThrow();
         assertThat(UUID.fromString(id)).isNotNull();

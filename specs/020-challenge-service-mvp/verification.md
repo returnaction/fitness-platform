@@ -193,3 +193,13 @@ Testcontainers-тесты требуют работающего Docker. Без D
 - Проверка grep: переменная присутствует во всех четырёх файлах.
 - `git diff --check`: успешно. Проверка относительных Markdown-ссылок Python-скриптом: ошибок нет.
 - Код, маршруты, БД, Kafka, deploy и commit не выполнялись.
+
+### 2026-11-17 — T003.3, маршруты Challenge в каталоге
+
+- В `GatewayRouteCatalog` добавлены восемь маршрутов Challenge с `AUTHENTICATED`: drafts (`POST`), get (`GET`), draft (`PATCH`), publish/joins/cancel (`POST`), operations (`GET`), result (`GET`). Внутренний gRPC в каталог не входит.
+- Тесты каталога адаптированы к шаблонным путям: конкретные UUID для запросов, ожидаемый `Allow` вычисляется по каталогу, `GatewayRouteValidator` и policy проверяют новые маршруты.
+- `JwtValidationTest`: добавлен отдельный mock upstream Challenge; проверены forwarding и канонический `X-Request-Id` для восьми новых маршрутов; число вызовов и CheckSession обновлено.
+- `contracts/gateway-v1.md`: статус раздела изменён на «маршруты зарегистрированы».
+- `sh ./mvnw -B -ntp -pl services/gateway-service -am test`: `BUILD SUCCESS`, 50 тестов, 0 ошибок.
+- `git diff --check`: успешно. Проверка относительных Markdown-ссылок Python-скриптом: ошибок нет.
+- Ограничение: табличная проверка каталога вместо `hasSize` и отдельные security-forwarding проверки остаются в T003.4; сквозная проверка динамических путей — T003.5. БД, Kafka, deploy и commit не выполнялись.

@@ -5,9 +5,11 @@ import java.util.List;
 import static io.github.returnaction.fitness.gateway.routing.RouteAccess.AUTHENTICATED;
 import static io.github.returnaction.fitness.gateway.routing.RouteAccess.PUBLIC;
 import static io.github.returnaction.fitness.gateway.routing.UpstreamId.ACCOUNT;
+import static io.github.returnaction.fitness.gateway.routing.UpstreamId.CHALLENGE;
 import static io.github.returnaction.fitness.gateway.routing.UpstreamId.COINS;
 import static io.github.returnaction.fitness.gateway.routing.UpstreamId.IDENTITY;
 import static org.springframework.http.HttpMethod.GET;
+import static org.springframework.http.HttpMethod.PATCH;
 import static org.springframework.http.HttpMethod.POST;
 import static org.springframework.http.HttpMethod.PUT;
 
@@ -16,6 +18,9 @@ import static org.springframework.http.HttpMethod.PUT;
  *
  * <p>Spec 017 T003.3: добавлен защищённый маршрут
  * {@code GET /api/v1/coins/me → COINS, AUTHENTICATED}.</p>
+ *
+ * <p>Spec 020 T003.3: добавлены восемь защищённых маршрутов Challenge.
+ * Внутренний gRPC результата в каталог не входит.</p>
  */
 public final class GatewayRouteCatalog {
 
@@ -29,7 +34,16 @@ public final class GatewayRouteCatalog {
             new GatewayRoute(GET, "/api/v1/accounts/me", ACCOUNT, AUTHENTICATED),
             new GatewayRoute(PUT, "/api/v1/accounts/me", ACCOUNT, AUTHENTICATED),
 
-            new GatewayRoute(GET, "/api/v1/coins/me", COINS, AUTHENTICATED));
+            new GatewayRoute(GET, "/api/v1/coins/me", COINS, AUTHENTICATED),
+
+            new GatewayRoute(POST, "/api/v1/challenges/drafts", CHALLENGE, AUTHENTICATED),
+            new GatewayRoute(GET, "/api/v1/challenges/{challengeId}", CHALLENGE, AUTHENTICATED),
+            new GatewayRoute(PATCH, "/api/v1/challenges/{challengeId}/draft", CHALLENGE, AUTHENTICATED),
+            new GatewayRoute(POST, "/api/v1/challenges/{challengeId}/publish", CHALLENGE, AUTHENTICATED),
+            new GatewayRoute(POST, "/api/v1/challenges/{challengeId}/joins", CHALLENGE, AUTHENTICATED),
+            new GatewayRoute(POST, "/api/v1/challenges/{challengeId}/cancel", CHALLENGE, AUTHENTICATED),
+            new GatewayRoute(GET, "/api/v1/challenge-operations/{operationId}", CHALLENGE, AUTHENTICATED),
+            new GatewayRoute(GET, "/api/v1/challenges/{challengeId}/result", CHALLENGE, AUTHENTICATED));
 
     private GatewayRouteCatalog() {
     }

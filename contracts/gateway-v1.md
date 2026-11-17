@@ -46,7 +46,7 @@ coins_unavailable передаются с единым телом ошибки �
 `x-gateway-policy.upstream-errors` описывает ошибки upstream; `errors` сохраняет
 коды самого Gateway. Недоступный upstream (502) отличается от ответа Coins 503.
 
-## Контракт Challenge (Spec 020; контракт подготовлен, маршруты ещё не реализованы)
+## Контракт Challenge (Spec 020; маршруты зарегистрированы, сквозная проверка — отдельная задача)
 
 Владелец тел, успешных ответов, бизнес-ошибок, идемпотентности и транзакций —
 Challenge: [challenge-v1.yaml](openapi/challenge-v1.yaml). Gateway добавляет
