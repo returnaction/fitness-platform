@@ -24,7 +24,7 @@ public class WalletController {
      *
      * userId берётся из SecurityContext, заполненного фильтром аутентификации.
      * Сервис читает кошелёк из БД, а контроллер возвращает баланс в JSON с HTTP 200.
-     * Заголовок Cache-Control: no-store устанавливает WalletRequestInterceptor.
+     * Заголовок Cache-Control: no-store устанавливает NoStoreResponseInterceptor.
      */
     @GetMapping(produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<WalletBalanceResponse> getOwnBalance(@AuthenticationPrincipal UUID userId) {

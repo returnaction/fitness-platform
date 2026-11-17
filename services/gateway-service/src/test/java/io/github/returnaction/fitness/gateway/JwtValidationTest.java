@@ -291,6 +291,7 @@ class JwtValidationTest {
     @Test
     void forwardsCatalogOperationsToTheirOwnUpstreamWithOriginalHeadersAndBody() throws Exception {
         String token = sign(claims());
+        String idempotencyKey = UUID.randomUUID().toString();
         String body = "{ \"value\" : \"исходное тело\" }";
         try (var client = HttpClient.newHttpClient()) {
             for (var route : GatewayRouteCatalog.routes()) {
@@ -300,12 +301,12 @@ class JwtValidationTest {
                 var other = accountsRoute ? UPSTREAM : ACCOUNTS;
                 int otherCalls = other.calls.get();
                 String requestBody = route.method().name().equals("GET")
-                        || route.path().equals("/api/v1/coins/daily-reward/claim") ? "" : body;
+                        || route.path().equals("/api/v1/coins/daily-reward/claims") ? "" : body;
                 var outgoing = HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + route.path()))
                         .header("Authorization", "Bearer " + token)
                         .header("Content-Type", "application/json")
                         .header("Accept", "application/json")
-                        .header("Idempotency-Key", "operation-key")
+                        .header("Idempotency-Key", idempotencyKey)
                         .header("X-Request-Id", "forged-id")
                         .header("X-User-Id", "forged-user")
                         .header("X-Roles", "ADMIN")
@@ -328,7 +329,7 @@ class JwtValidationTest {
                 assertThat(received.body()).isEqualTo(requestBody);
                 assertThat(received.header("Content-Type")).isEqualTo("application/json");
                 assertThat(received.header("Accept")).isEqualTo("application/json");
-                assertThat(received.header("Idempotency-Key")).isEqualTo("operation-key");
+                assertThat(received.header("Idempotency-Key")).isEqualTo(idempotencyKey);
                 assertThat(received.header("Authorization"))
                         .isEqualTo(route.access() == RouteAccess.PUBLIC ? null : "Bearer " + token);
                 assertThat(received.header("X-Forwarded-For")).isEqualTo("127.0.0.1");

@@ -1,4 +1,4 @@
-package io.github.returnaction.fitness.coins.shared.web;
+package io.github.returnaction.fitness.coins.shared.web.error;
 
 import java.util.List;
 

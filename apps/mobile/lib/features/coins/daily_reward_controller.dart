@@ -187,7 +187,6 @@ class DailyRewardController extends ChangeNotifier {
       DailyRewardStatus(
         available: false,
         amount: current?.amount ?? claim.claimedAmount,
-        claimedForDate: claim.claimedForDate,
         nextClaimAt: claim.nextClaimAt,
         serverTime: claim.serverTime,
         availableBalance: claim.availableBalance,

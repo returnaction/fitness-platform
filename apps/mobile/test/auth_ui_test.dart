@@ -49,6 +49,10 @@ void main() {
   });
 
   Future<void> openLogoutAll(WidgetTester tester) async {
+    if (find.byTooltip('Sign out').evaluate().isEmpty) {
+      await tester.tap(find.text('Profile'));
+      await tester.pumpAndSettle();
+    }
     await tester.tap(find.byTooltip('Sign out'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Sign out from all devices'));
@@ -66,7 +70,7 @@ void main() {
       await openLogoutAll(tester);
       await tester.tap(find.text('Cancel'));
       await tester.pumpAndSettle();
-      expect(find.text('You are signed in'), findsOneWidget);
+      expect(find.byTooltip('Sign out'), findsOneWidget);
       expect(api.logoutCalls, 0);
       expect(store.value, isNotNull);
       await openLogoutAll(tester);
@@ -108,7 +112,7 @@ void main() {
           await tester.tap(find.text('Try again'));
           await tester.pumpAndSettle();
           expect(api.calls, 2);
-          expect(find.text('You are signed in'), findsOneWidget);
+          expect(find.text('Your fitness journey'), findsOneWidget);
         }
       },
     );
@@ -132,7 +136,7 @@ void main() {
       find.text('Could not save your session securely. Please try again.'),
       findsOneWidget,
     );
-    expect(find.text('You are signed in'), findsNothing);
+    expect(find.text('Your fitness journey'), findsNothing);
     expect(store.value, isNull);
     expect(tester.takeException(), isNull);
   });
@@ -145,6 +149,10 @@ void main() {
       ..value = jsonEncode({'accessToken': 'a', 'refreshToken': 'r'});
     await openApp(tester, api, store);
     store.failDelete = true;
+    if (find.byTooltip('Sign out').evaluate().isEmpty) {
+      await tester.tap(find.text('Profile'));
+      await tester.pumpAndSettle();
+    }
     await tester.tap(find.byTooltip('Sign out'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Sign out from this device'));

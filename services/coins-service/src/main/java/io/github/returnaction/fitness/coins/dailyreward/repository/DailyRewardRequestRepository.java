@@ -7,5 +7,5 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface DailyRewardRequestRepository extends JpaRepository<DailyRewardRequestEntity, UUID> {
 
-    Optional<DailyRewardRequestEntity> findByUserIdAndKeyDigest(UUID userId, byte[] keyDigest);
+    Optional<DailyRewardRequestEntity> findByUserIdAndIdempotencyKey(UUID userId, UUID idempotencyKey);
 }

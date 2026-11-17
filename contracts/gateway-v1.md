@@ -16,14 +16,14 @@
 | PUT /api/v1/accounts/me | ES256 JWT + CheckSession ACTIVE | Тот же путь Accounts |
 | GET /api/v1/coins/me | ES256 JWT + CheckSession ACTIVE | Тот же путь Coins |
 | GET /api/v1/coins/daily-reward/status | ES256 JWT + CheckSession ACTIVE | Тот же путь Coins |
-| POST /api/v1/coins/daily-reward/claim | ES256 JWT + CheckSession ACTIVE; Idempotency-Key проверяет Coins | Тот же путь Coins |
+| POST /api/v1/coins/daily-reward/claims | ES256 JWT + CheckSession ACTIVE; Idempotency-Key проверяет Coins | Тот же путь Coins |
 
 Пример: `POST /api/v1/auth/login`, `Content-Type: application/json`,
 `{"email":"test@example.com","password":"<password>"}`. Для logout-all:
 `Authorization: Bearer <accessToken>`, без тела. DTO и ответы Identity сохраняются.
 Query string не поддерживается (400). Неизвестный путь — 404, другой метод
 известного пути — 405 с Allow разрешённых методов (POST для auth; GET, PUT для /accounts/me;
-GET для /coins/me и /coins/daily-reward/status; POST для /coins/daily-reward/claim). Recovery, JWKS, actuator и gRPC наружу
+GET для /coins/me и /coins/daily-reward/status; POST для /coins/daily-reward/claims). Recovery, JWKS, actuator и gRPC наружу
 не маршрутизируются. Management Gateway доступен отдельно на loopback.
 
 Gateway передаёт только Content-Type, Accept, Authorization, Idempotency-Key,
@@ -40,18 +40,19 @@ Gateway не валидирует. Маршрутизация и GET/PUT про�
 ## Контракт Coins (Spec 017 и daily reward; реализован и проверен локально)
 
 `GET /api/v1/coins/me`, `GET /api/v1/coins/daily-reward/status` и
-`POST /api/v1/coins/daily-reward/claim` требуют JWT + CheckSession ACTIVE и
+`POST /api/v1/coins/daily-reward/claims` требуют JWT + CheckSession ACTIVE и
 пересылаются в Coins по тем же путям с Authorization и X-Request-Id. Владелец
 ответов и ошибок — [Coins OpenAPI](openapi/coins-wallet-v1.yaml); Gateway
 подключает пути через `$ref`. Ответы содержат integer/int64 и no-store.
 Coins извлекает claims по локальной модели доверия Accounts без повторной
 валидации подписи и сессии. userId и query string не принимаются.
-Статус возвращает available/amount/claimedForDate/nextClaimAt/serverTime и
+Статус возвращает available/amount/nextClaimAt/serverTime и
 текущий баланс, поэтому отдельный GET баланса при открытии экрана не обязателен.
 Claim требует `Idempotency-Key` (UUID); Gateway пересылает его без изменений.
 Повтор того же ключа возвращает сохранённый снимок. Новый ключ в недоступный
-период возвращает alreadyClaimed=true без начисления. Правило доступности:
-новый календарный день UTC и не менее 24 часов с предыдущего claim.
+период возвращает granted=false и claimedAmount=0 без начисления.
+Успешное начисление возвращает granted=true. Правило доступности:
+не менее 24 часов с предыдущего получения, без календарного ограничения.
 Ошибки Coins 500 wallet_invariant_violation, 500 internal_error и 503
 coins_unavailable передаются с единым телом ошибки и requestId. Для 503 Coins
 возвращает `Retry-After: 1`; занятость кошелька ограничена lock_timeout 2s.

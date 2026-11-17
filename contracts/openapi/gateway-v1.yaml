@@ -34,8 +34,8 @@ paths:
     $ref: './coins-wallet-v1.yaml#/paths/~1api~1v1~1coins~1me'
   /api/v1/coins/daily-reward/status:
     $ref: './coins-wallet-v1.yaml#/paths/~1api~1v1~1coins~1daily-reward~1status'
-  /api/v1/coins/daily-reward/claim:
-    $ref: './coins-wallet-v1.yaml#/paths/~1api~1v1~1coins~1daily-reward~1claim'
+  /api/v1/coins/daily-reward/claims:
+    $ref: './coins-wallet-v1.yaml#/paths/~1api~1v1~1coins~1daily-reward~1claims'
 components:
   securitySchemes:
     BearerAccess:
@@ -46,13 +46,13 @@ x-gateway-policy:
     - /api/v1/accounts/me
     - /api/v1/coins/me
     - /api/v1/coins/daily-reward/status
-    - /api/v1/coins/daily-reward/claim
+    - /api/v1/coins/daily-reward/claims
   upstream-errors:
     /api/v1/coins/me:
       '503': coins_unavailable
     /api/v1/coins/daily-reward/status:
       '503': coins_unavailable
-    /api/v1/coins/daily-reward/claim:
+    /api/v1/coins/daily-reward/claims:
       '503': coins_unavailable
   session-check: grpc-mtls-every-request
   retries: 0

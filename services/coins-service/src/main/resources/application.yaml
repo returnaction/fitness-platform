@@ -14,8 +14,6 @@ spring:
       # Не включать значения строк из подробностей ошибок PostgreSQL в логи.
       data-source-properties:
         logServerErrorDetail: false
-      connection-timeout: 3000
-      validation-timeout: 1000
       minimum-idle: ${DATABASE_POOL_MIN_IDLE}
       maximum-pool-size: ${DATABASE_POOL_MAX_SIZE}
   jpa:
@@ -38,7 +36,7 @@ server:
   port: ${SERVER_PORT}
 coins:
   daily-reward:
-    amount: 10
+    amount: 10 #todo сделать переменую и закинуть ее
   grpc:
     address: ${COINS_GRPC_ADDRESS}
     port: ${COINS_GRPC_PORT}

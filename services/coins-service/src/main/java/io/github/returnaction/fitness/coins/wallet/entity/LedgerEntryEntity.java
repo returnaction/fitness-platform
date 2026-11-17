@@ -32,17 +32,17 @@ public class LedgerEntryEntity {
     private UUID operationId;
 
     @Column(name = "entry_index", nullable = false, updatable = false)
-    private int entryIndex;
+    private int entryIndex; // TODO почему int  а не INTEGER?
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 32, updatable = false)
-    private LedgerEntryType type;
+    @Column(name = "entry_type", nullable = false, length = 32, updatable = false)
+    private LedgerEntryType entryType;
 
     @Column(name = "available_delta", nullable = false, updatable = false)
-    private long availableDelta;
+    private long availableDelta; // TODO почему long а не Long
 
     @Column(name = "locked_delta", nullable = false, updatable = false)
-    private long lockedDelta;
+    private long lockedDelta; // TODO почему long а не Long
 
     @Column(name = "challenge_id", updatable = false)
     private UUID challengeId;
@@ -57,7 +57,7 @@ public class LedgerEntryEntity {
                              UUID userId,
                              UUID operationId,
                              int entryIndex,
-                             LedgerEntryType type,
+                             LedgerEntryType entryType,
                              long availableDelta,
                              long lockedDelta,
                              UUID challengeId,
@@ -67,7 +67,7 @@ public class LedgerEntryEntity {
         this.userId = userId;
         this.operationId = operationId;
         this.entryIndex = entryIndex;
-        this.type = type;
+        this.entryType = entryType;
         this.availableDelta = availableDelta;
         this.lockedDelta = lockedDelta;
         this.challengeId = challengeId;

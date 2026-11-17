@@ -13,7 +13,7 @@ class HttpDailyRewardRepository implements DailyRewardRepository {
   HttpDailyRewardRepository(this._api, this._auth);
 
   static const _statusPath = '/api/v1/coins/daily-reward/status';
-  static const _claimPath = '/api/v1/coins/daily-reward/claim';
+  static const _claimPath = '/api/v1/coins/daily-reward/claims';
 
   final IdentityApiClient _api;
   final AuthRepository _auth;

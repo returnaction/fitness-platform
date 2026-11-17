@@ -16,10 +16,12 @@ import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
 /**
- * Сохранённый результат первого запроса по Idempotency-Key.
+ * Окончательный результат первого запроса по Idempotency-Key; изменение и удаление запрещены в БД.
  *
- * <p>Ключ хранится только как SHA-256 digest. Снимок ответа — JSONB,
- * чтобы повтор вернул исходный результат, а не текущий баланс.</p>
+ * <p>Ключ хранится как UUID без хеширования. Снимок ответа — JSONB,
+ * чтобы повтор вернул исходный результат, а не текущий баланс.
+ * При NOT_YET_AVAILABLE claimId указывает на предыдущее получение,
+ * после которого ещё не прошло 24 часа.</p>
  */
 @Entity
 @Table(name = "daily_reward_requests")
@@ -34,9 +36,8 @@ public class DailyRewardRequestEntity {
     @Column(name = "user_id", nullable = false, updatable = false)
     private UUID userId;
 
-    @Getter(AccessLevel.NONE)
-    @Column(name = "key_digest", nullable = false, updatable = false)
-    private byte[] keyDigest;
+    @Column(name = "idempotency_key", nullable = false, updatable = false)
+    private UUID idempotencyKey;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 32, updatable = false)
@@ -54,14 +55,14 @@ public class DailyRewardRequestEntity {
 
     public DailyRewardRequestEntity(UUID id,
                                     UUID userId,
-                                    byte[] keyDigest,
+                                    UUID idempotencyKey,
                                     DailyRewardOutcome outcome,
                                     UUID claimId,
                                     DailyRewardClaimResponse responseSnapshot,
                                     Instant createdAt) {
         this.id = id;
         this.userId = userId;
-        this.keyDigest = keyDigest.clone();
+        this.idempotencyKey = idempotencyKey;
         this.outcome = outcome;
         this.claimId = claimId;
         this.responseSnapshot = responseSnapshot;

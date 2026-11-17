@@ -11,11 +11,9 @@ import static org.mockito.Mockito.when;
 
 import io.github.returnaction.fitness.coins.dailyreward.dto.DailyRewardClaimResponse;
 import io.github.returnaction.fitness.coins.dailyreward.entity.DailyRewardRequestEntity;
-import io.github.returnaction.fitness.coins.dailyreward.exception.InvalidIdempotencyKeyException;
 import io.github.returnaction.fitness.coins.dailyreward.repository.DailyRewardRequestRepository;
 import io.github.returnaction.fitness.coins.wallet.exception.CoinsUnavailableException;
 import java.time.Instant;
-import java.time.LocalDate;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -41,13 +39,12 @@ class DailyRewardClaimServiceTest {
     }
 
     @Test
-    void rejectsMissingOrMalformedKeyBeforeReadingDatabase() {
+    void rejectsNullKeyBeforeReadingDatabase() {
         UUID userId = UUID.randomUUID();
 
         assertThatThrownBy(() -> service.claim(userId, null))
-            .isInstanceOf(InvalidIdempotencyKeyException.class);
-        assertThatThrownBy(() -> service.claim(userId, "not-a-uuid"))
-            .isInstanceOf(InvalidIdempotencyKeyException.class);
+            .isInstanceOf(NullPointerException.class)
+            .hasMessage("idempotencyKey");
 
         verifyNoInteractions(requests, transactionService);
     }
@@ -56,10 +53,10 @@ class DailyRewardClaimServiceTest {
     void mapsPreCheckConnectionFailureToUnavailable() {
         UUID userId = UUID.randomUUID();
         var failure = new DataAccessResourceFailureException("private diagnostics");
-        when(requests.findByUserIdAndKeyDigest(eq(userId), any(byte[].class)))
+        when(requests.findByUserIdAndIdempotencyKey(eq(userId), any(UUID.class)))
             .thenThrow(failure);
 
-        assertThatThrownBy(() -> service.claim(userId, UUID.randomUUID().toString()))
+        assertThatThrownBy(() -> service.claim(userId, UUID.randomUUID()))
             .isInstanceOf(CoinsUnavailableException.class)
             .hasCause(failure);
 
@@ -70,13 +67,12 @@ class DailyRewardClaimServiceTest {
     void returnsStoredSnapshotWithoutOpeningWriteTransaction() {
         UUID userId = UUID.randomUUID();
         var request = mock(DailyRewardRequestEntity.class);
-        var snapshot = new DailyRewardClaimResponse(10, 10, 0, LocalDate.parse("2026-11-16"),
-            false, Instant.parse("2026-11-17T12:34:56Z"), Instant.parse("2026-11-16T12:34:56Z"));
-        when(requests.findByUserIdAndKeyDigest(eq(userId), any(byte[].class)))
+        var snapshot = new DailyRewardClaimResponse(10, 10, 0, true, Instant.parse("2026-11-17T12:34:56Z"), Instant.parse("2026-11-16T12:34:56Z"));
+        when(requests.findByUserIdAndIdempotencyKey(eq(userId), any(UUID.class)))
             .thenReturn(Optional.of(request));
         when(request.getResponseSnapshot()).thenReturn(snapshot);
 
-        assertThat(service.claim(userId, UUID.randomUUID().toString())).isSameAs(snapshot);
+        assertThat(service.claim(userId, UUID.randomUUID())).isSameAs(snapshot);
 
         verifyNoInteractions(transactionService);
     }
@@ -84,14 +80,13 @@ class DailyRewardClaimServiceTest {
     @Test
     void delegatesFirstIntentToTransactionalService() {
         UUID userId = UUID.randomUUID();
-        var snapshot = new DailyRewardClaimResponse(10, 10, 0, LocalDate.parse("2026-11-16"),
-            false, Instant.parse("2026-11-17T12:34:56Z"), Instant.parse("2026-11-16T12:34:56Z"));
-        when(requests.findByUserIdAndKeyDigest(eq(userId), any(byte[].class)))
+        var snapshot = new DailyRewardClaimResponse(10, 10, 0, true, Instant.parse("2026-11-17T12:34:56Z"), Instant.parse("2026-11-16T12:34:56Z"));
+        when(requests.findByUserIdAndIdempotencyKey(eq(userId), any(UUID.class)))
             .thenReturn(Optional.empty());
-        when(transactionService.claim(eq(userId), any(byte[].class))).thenReturn(snapshot);
+        when(transactionService.claimDailyReward(eq(userId), any(UUID.class))).thenReturn(snapshot);
 
-        assertThat(service.claim(userId, UUID.randomUUID().toString())).isSameAs(snapshot);
+        assertThat(service.claim(userId, UUID.randomUUID())).isSameAs(snapshot);
 
-        verify(transactionService).claim(eq(userId), any(byte[].class));
+        verify(transactionService).claimDailyReward(eq(userId), any(UUID.class));
     }
 }

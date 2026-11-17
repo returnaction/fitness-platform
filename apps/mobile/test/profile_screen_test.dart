@@ -3,6 +3,10 @@ import 'dart:async';
 import 'package:fitness_app/core/network/identity_api_error.dart';
 import 'package:fitness_app/core/security/token_storage.dart';
 import 'package:fitness_app/features/app_shell/app_shell_screen.dart';
+import 'package:fitness_app/features/coins/daily_reward_controller.dart';
+import 'package:fitness_app/features/coins/daily_reward_repository.dart';
+import 'package:fitness_app/features/coins/model/daily_reward_claim.dart';
+import 'package:fitness_app/features/coins/model/daily_reward_status.dart';
 import 'package:fitness_app/features/auth/auth_controller.dart';
 import 'package:fitness_app/features/auth/auth_repository.dart';
 import 'package:fitness_app/features/profile/profile.dart';
@@ -31,6 +35,7 @@ void main() {
     addTearDown(store.dispose);
     await tester.pumpWidget(ProviderScope(
       overrides: [
+        dailyRewardRepositoryProvider.overrideWithValue(_Rewards()),
         profileControllerProvider.overrideWithValue(controller),
         authControllerProvider.overrideWith(() => auth ?? TestAuth()),
       ],
@@ -46,20 +51,24 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('profile is lazy; other destinations disabled; selecting again uses cache',
+  testWidgets('profile is lazy; Challenges disabled; selecting again uses cache',
     (tester) async {
       final api = Api();
       await open(tester, api);
-      expect(find.text('You are signed in'), findsOneWidget);
+      expect(find.text('Your fitness journey'), findsOneWidget);
       expect(api.gets, 0);
+      expect(find.byTooltip('Sign out'), findsNothing);
+      expect(find.byTooltip('Claim daily reward'), findsOneWidget);
       final destinations = tester.widgetList<NavigationDestination>(
         find.byType(NavigationDestination)).toList();
-      expect(destinations.map((d) => d.enabled), [false, false, true]);
+      expect(destinations.map((d) => d.enabled), [true, false, true]);
       await tester.tap(find.text('Challenges'));
       await tester.pumpAndSettle();
-      expect(find.text('You are signed in'), findsOneWidget);
+      expect(find.text('Your fitness journey'), findsOneWidget);
       await selectProfile(tester);
       expect(api.gets, 1);
+      expect(find.byTooltip('Claim daily reward'), findsNothing);
+      expect(find.byTooltip('Sign out'), findsOneWidget);
       expect(tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex, 2);
       await selectProfile(tester);
       expect(api.gets, 1);
@@ -197,4 +206,14 @@ class TestAuth extends AuthController {
     all++;
     return const LogoutResult(remoteSucceeded: true, localTokensCleared: true);
   }
+}
+
+class _Rewards implements DailyRewardRepository {
+  @override
+  Future<DailyRewardStatus> getStatus() async => DailyRewardStatus(
+    available: true, amount: 10, nextClaimAt: null,
+    serverTime: DateTime.utc(2026, 11, 17), availableBalance: 20, lockedBalance: 0,
+  );
+  @override
+  Future<DailyRewardClaim> claim(String key) => throw UnimplementedError();
 }

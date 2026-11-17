@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:fitness_app/core/network/identity_api_error.dart';
 import 'package:fitness_app/core/security/token_storage.dart';
 import 'package:fitness_app/features/coins/daily_reward_controller.dart';
@@ -15,7 +17,6 @@ void main() {
   DailyRewardStatus status({required bool available}) => DailyRewardStatus(
     available: available,
     amount: 10,
-    claimedForDate: available ? null : '2026-11-16',
     nextClaimAt: available ? null : nextClaimAt,
     serverTime: serverTime,
     availableBalance: available ? 10 : 20,
@@ -26,8 +27,7 @@ void main() {
     claimedAmount: 10,
     availableBalance: 20,
     lockedBalance: 0,
-    claimedForDate: '2026-11-16',
-    alreadyClaimed: false,
+    granted: true,
     nextClaimAt: nextClaimAt,
     serverTime: serverTime,
   );
@@ -115,6 +115,43 @@ void main() {
     expect(await controller.claim(), isNull);
     expect(repository.claimKeys, isEmpty);
   });
+
+  test('late status from previous session cannot replace new account balance', () async {
+    final pending = Completer<DailyRewardStatus>();
+    final repository = _FakeRepository()..pendingStatus = pending;
+    final controller = _controller(repository, _MemorySecureValueStore());
+    addTearDown(controller.dispose);
+    final oldRead = controller.open();
+    controller.reset();
+    repository..pendingStatus = null..status = status(available: false);
+    await controller.open();
+    pending.complete(status(available: true));
+    await oldRead;
+    expect(controller.status?.availableBalance, 20);
+    expect(controller.status?.available, isFalse);
+  });
+
+  test('in-flight credit blocks duplicate claim and refresh; reset drops late reply', () async {
+    final pending = Completer<DailyRewardClaim>();
+    final repository = _FakeRepository()
+      ..status = status(available: true)
+      ..pendingClaim = pending;
+    final controller = _controller(repository, _MemorySecureValueStore());
+    addTearDown(controller.dispose);
+    await controller.open();
+    final first = controller.claim();
+    // Allow key storage to finish before simulating a session change.
+    await Future<void>.delayed(Duration.zero);
+    expect(repository.claimKeys, hasLength(1));
+    expect(await controller.claim(), isNull);
+    await controller.refresh();
+    expect(repository.statusCalls, 1);
+    controller.reset();
+    pending.complete(claim());
+    expect(await first, isNull);
+    expect(controller.status, isNull);
+    expect(controller.claiming, isFalse);
+  });
 }
 
 DailyRewardController _controller(
@@ -131,7 +168,6 @@ class _FakeRepository implements DailyRewardRepository {
   DailyRewardStatus status = DailyRewardStatus(
     available: true,
     amount: 10,
-    claimedForDate: null,
     nextClaimAt: null,
     serverTime: DateTime.utc(2026, 11, 16, 12, 34, 56),
     availableBalance: 0,
@@ -139,12 +175,15 @@ class _FakeRepository implements DailyRewardRepository {
   );
   DailyRewardClaim? claimResult;
   Object? claimError;
+  Completer<DailyRewardStatus>? pendingStatus;
+  Completer<DailyRewardClaim>? pendingClaim;
   int statusCalls = 0;
   final List<String> claimKeys = [];
 
   @override
   Future<DailyRewardStatus> getStatus() async {
     statusCalls++;
+    if (pendingStatus != null) return pendingStatus!.future;
     return status;
   }
 
@@ -153,6 +192,7 @@ class _FakeRepository implements DailyRewardRepository {
     claimKeys.add(idempotencyKey);
     final failure = claimError;
     if (failure != null) throw failure;
+    if (pendingClaim != null) return pendingClaim!.future;
     return claimResult!;
   }
 }

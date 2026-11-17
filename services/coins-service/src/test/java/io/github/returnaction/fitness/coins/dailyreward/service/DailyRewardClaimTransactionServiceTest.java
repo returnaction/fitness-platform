@@ -17,11 +17,8 @@ import io.github.returnaction.fitness.coins.wallet.entity.WalletEntity;
 import io.github.returnaction.fitness.coins.wallet.exception.CoinsUnavailableException;
 import io.github.returnaction.fitness.coins.wallet.repository.LedgerEntryRepository;
 import io.github.returnaction.fitness.coins.wallet.repository.WalletRepository;
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.Query;
 import java.time.Clock;
 import java.time.Instant;
-import java.time.LocalDate;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -47,18 +44,13 @@ class DailyRewardClaimTransactionServiceTest {
     private DailyRewardProperties properties;
     @Mock
     private Clock clock;
-    @Mock
-    private EntityManager entityManager;
-    @Mock
-    private Query lockTimeoutQuery;
 
     private DailyRewardClaimTransactionService service;
 
     @BeforeEach
     void setUp() {
         service = new DailyRewardClaimTransactionService(
-            wallets, ledgerEntries, claims, requests, properties, clock, entityManager);
-        when(entityManager.createNativeQuery(any(String.class))).thenReturn(lockTimeoutQuery);
+            wallets, ledgerEntries, claims, requests, properties, clock);
     }
 
     @Test
@@ -66,15 +58,13 @@ class DailyRewardClaimTransactionServiceTest {
         UUID userId = UUID.randomUUID();
         var wallet = mock(WalletEntity.class);
         var request = mock(DailyRewardRequestEntity.class);
-        var snapshot = new DailyRewardClaimResponse(10, 10, 0, LocalDate.parse("2026-11-16"),
-            false, Instant.parse("2026-11-17T12:34:56Z"), Instant.parse("2026-11-16T12:34:56Z"));
-        when(lockTimeoutQuery.executeUpdate()).thenReturn(0);
+        var snapshot = new DailyRewardClaimResponse(10, 10, 0, true, Instant.parse("2026-11-17T12:34:56Z"), Instant.parse("2026-11-16T12:34:56Z"));
         when(wallets.findByIdForUpdate(userId)).thenReturn(Optional.of(wallet));
-        when(requests.findByUserIdAndKeyDigest(eq(userId), any(byte[].class)))
+        when(requests.findByUserIdAndIdempotencyKey(eq(userId), any(UUID.class)))
             .thenReturn(Optional.of(request));
         when(request.getResponseSnapshot()).thenReturn(snapshot);
 
-        assertThat(service.claim(userId, new byte[32])).isSameAs(snapshot);
+        assertThat(service.claimDailyReward(userId, UUID.randomUUID())).isSameAs(snapshot);
 
         verifyNoInteractions(ledgerEntries, claims, properties, clock);
     }
@@ -83,10 +73,9 @@ class DailyRewardClaimTransactionServiceTest {
     void mapsDatabaseConnectionFailureToUnavailable() {
         UUID userId = UUID.randomUUID();
         var failure = new DataAccessResourceFailureException("private diagnostics");
-        when(lockTimeoutQuery.executeUpdate()).thenReturn(0);
         when(wallets.findByIdForUpdate(userId)).thenThrow(failure);
 
-        assertThatThrownBy(() -> service.claim(userId, new byte[32]))
+        assertThatThrownBy(() -> service.claimDailyReward(userId, UUID.randomUUID()))
             .isInstanceOf(CoinsUnavailableException.class)
             .hasCause(failure);
     }
@@ -95,10 +84,9 @@ class DailyRewardClaimTransactionServiceTest {
     void mapsLockTimeoutToUnavailable() {
         UUID userId = UUID.randomUUID();
         var failure = new CannotAcquireLockException("lock timeout");
-        when(lockTimeoutQuery.executeUpdate()).thenReturn(0);
         when(wallets.findByIdForUpdate(userId)).thenThrow(failure);
 
-        assertThatThrownBy(() -> service.claim(userId, new byte[32]))
+        assertThatThrownBy(() -> service.claimDailyReward(userId, UUID.randomUUID()))
             .isInstanceOf(CoinsUnavailableException.class)
             .hasCause(failure);
     }

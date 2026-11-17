@@ -16,16 +16,17 @@ import io.github.returnaction.fitness.coins.wallet.grpc.SecureGrpcServer;
 import io.github.returnaction.fitness.coins.wallet.repository.LedgerEntryRepository;
 import io.github.returnaction.fitness.coins.wallet.repository.WalletRepository;
 import jakarta.persistence.EntityManager;
+import jakarta.persistence.EntityManagerFactory;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Clock;
 import java.time.Instant;
-import java.time.LocalDate;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.hibernate.SessionFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
@@ -40,7 +41,8 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import tools.jackson.databind.ObjectMapper;
 
 @Testcontainers(disabledWithoutDocker = true)
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
+    properties = "spring.jpa.properties.hibernate.generate_statistics=true")
 @ActiveProfiles("test")
 class DailyRewardStatusHttpTest {
 
@@ -68,6 +70,9 @@ class DailyRewardStatusHttpTest {
     private EntityManager entityManager;
 
     @Autowired
+    private EntityManagerFactory entityManagerFactory;
+
+    @Autowired
     private TransactionTemplate transactions;
 
     @Autowired
@@ -93,14 +98,17 @@ class DailyRewardStatusHttpTest {
         UUID owner = UUID.randomUUID();
         createWallet(owner, 5);
 
+        var statistics = entityManagerFactory.unwrap(SessionFactory.class).getStatistics();
+        statistics.clear();
+
         var response = get(token(owner), "");
 
         assertThat(response.statusCode()).isEqualTo(200);
+        assertThat(statistics.getPrepareStatementCount()).isEqualTo(1);
         assertThat(response.headers().firstValue("Cache-Control")).contains("no-store");
         var body = mapper.readTree(response.body());
         assertThat(body.get("available").asBoolean()).isTrue();
         assertThat(body.get("amount").asLong()).isEqualTo(10);
-        assertThat(body.get("claimedForDate").isNull()).isTrue();
         assertThat(body.get("nextClaimAt").isNull()).isTrue();
         assertThat(body.get("serverTime").asString()).isEqualTo("2026-11-16T12:34:56Z");
         assertThat(body.get("availableBalance").asLong()).isEqualTo(5);
@@ -108,22 +116,46 @@ class DailyRewardStatusHttpTest {
     }
 
     @Test
-    void returnsNextClaimTimeAndLastClaimDateAfterClaim() throws Exception {
+    void returnsNextClaimTimeFromLatestClaimAndBothBalancesInOneQuery() throws Exception {
         UUID owner = UUID.randomUUID();
         Instant claimedAt = NOW.minusSeconds(3600);
         createWallet(owner, 10);
-        createClaim(owner, LocalDate.parse("2026-11-16"), claimedAt);
+        createClaim(owner, claimedAt);
+        createClaim(owner, claimedAt.minusSeconds(86400));
+        transactions.executeWithoutResult(_ -> entityManager.createNativeQuery(
+                "UPDATE coin_wallets SET locked_balance = 7 WHERE user_id = :id")
+            .setParameter("id", owner).executeUpdate());
+        UUID otherUser = UUID.randomUUID();
+        createWallet(otherUser, 100);
+        createClaim(otherUser, NOW);
+        var statistics = entityManagerFactory.unwrap(SessionFactory.class).getStatistics();
+        statistics.clear();
+
+        var response = get(token(owner), "");
+
+        assertThat(response.statusCode()).isEqualTo(200);
+        assertThat(statistics.getPrepareStatementCount()).isEqualTo(1);
+        var body = mapper.readTree(response.body());
+        assertThat(body.get("available").asBoolean()).isFalse();
+        assertThat(body.get("amount").asLong()).isEqualTo(10);
+        assertThat(body.get("nextClaimAt").asString()).isEqualTo("2026-11-17T11:34:56Z");
+        assertThat(body.get("availableBalance").asLong()).isEqualTo(10);
+        assertThat(body.get("lockedBalance").asLong()).isEqualTo(7);
+    }
+
+    @Test
+    void makesRewardAvailableExactlyAfter24Hours() throws Exception {
+        UUID owner = UUID.randomUUID();
+        createWallet(owner, 10);
+        createClaim(owner, NOW.minusSeconds(86400));
 
         var response = get(token(owner), "");
 
         assertThat(response.statusCode()).isEqualTo(200);
         var body = mapper.readTree(response.body());
-        assertThat(body.get("available").asBoolean()).isFalse();
-        assertThat(body.get("amount").asLong()).isEqualTo(10);
-        assertThat(body.get("claimedForDate").asString()).isEqualTo("2026-11-16");
-        assertThat(body.get("nextClaimAt").asString()).isEqualTo("2026-11-17T11:34:56Z");
+        assertThat(body.get("available").asBoolean()).isTrue();
+        assertThat(body.get("nextClaimAt").isNull()).isTrue();
         assertThat(body.get("availableBalance").asLong()).isEqualTo(10);
-        assertThat(body.get("lockedBalance").asLong()).isZero();
     }
 
     @Test
@@ -161,12 +193,12 @@ class DailyRewardStatusHttpTest {
         });
     }
 
-    private void createClaim(UUID userId, LocalDate claimDate, Instant claimedAt) {
+    private void createClaim(UUID userId, Instant claimedAt) {
         UUID claimId = UUID.randomUUID();
         UUID ledgerId = UUID.randomUUID();
         ledgerEntries.save(new LedgerEntryEntity(ledgerId, userId, claimId, 0,
-            LedgerEntryType.DAILY_REWARD, 10, 0, null, null, claimedAt));
-        claims.save(new DailyRewardClaimEntity(claimId, userId, claimDate, claimedAt, 10, ledgerId));
+            LedgerEntryType.DAILY_REWARD_CREDIT, 10, 0, null, null, claimedAt));
+        claims.save(new DailyRewardClaimEntity(claimId, userId, claimedAt, 10, ledgerId));
     }
 
     private HttpResponse<String> get(String bearer, String query) throws Exception {

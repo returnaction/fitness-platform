@@ -31,7 +31,7 @@ void main() {
     await tester.pumpWidget(UncontrolledProviderScope(
       container: setup.container, child: const FitnessApp()));
     await tester.pumpAndSettle();
-    expect(find.text('You are signed in'), findsOneWidget);
+    expect(find.text('Your fitness journey'), findsOneWidget);
     return setup;
   }
 
@@ -127,7 +127,7 @@ void main() {
       .handleRequestSessionFailure(SessionRestoreResult.guest, oldGeneration);
     setup.api.pendingPut!.complete(setup.api.failure(401, 'invalid_access_token'));
     await tester.pumpAndSettle();
-    expect(find.text('You are signed in'), findsOneWidget);
+    expect(find.text('Your fitness journey'), findsOneWidget);
     expect(find.text('Profile updated'), findsNothing);
     expect(find.textContaining('Could not confirm profile update'), findsNothing);
     await tester.tap(find.text('Profile'));

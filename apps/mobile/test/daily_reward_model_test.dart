@@ -7,7 +7,6 @@ void main() {
     final status = DailyRewardStatus.fromJson({
       'available': true,
       'amount': 10,
-      'claimedForDate': null,
       'nextClaimAt': null,
       'serverTime': '2026-11-16T12:34:56Z',
       'availableBalance': 10,
@@ -16,7 +15,6 @@ void main() {
 
     expect(status.available, isTrue);
     expect(status.amount, 10);
-    expect(status.claimedForDate, isNull);
     expect(status.nextClaimAt, isNull);
     expect(status.serverTime, DateTime.utc(2026, 11, 16, 12, 34, 56));
     expect(status.availableBalance, 10);
@@ -26,7 +24,6 @@ void main() {
     final status = DailyRewardStatus.fromJson({
       'available': false,
       'amount': 10,
-      'claimedForDate': '2026-11-16',
       'nextClaimAt': '2026-11-17T12:34:56Z',
       'serverTime': '2026-11-16T12:34:56Z',
       'availableBalance': 20,
@@ -36,8 +33,7 @@ void main() {
       'claimedAmount': 10,
       'availableBalance': 20,
       'lockedBalance': 2,
-      'claimedForDate': '2026-11-16',
-      'alreadyClaimed': false,
+      'granted': true,
       'nextClaimAt': '2026-11-17T12:34:56Z',
       'serverTime': '2026-11-16T12:34:56Z',
     });
@@ -45,8 +41,7 @@ void main() {
     expect(status.available, isFalse);
     expect(status.nextClaimAt, DateTime.utc(2026, 11, 17, 12, 34, 56));
     expect(claim.claimedAmount, 10);
-    expect(claim.alreadyClaimed, isFalse);
-    expect(claim.claimedForDate, '2026-11-16');
+    expect(claim.granted, isTrue);
   });
 
   test('rejects missing and wrongly typed fields', () {
@@ -54,7 +49,6 @@ void main() {
       () => DailyRewardStatus.fromJson({
         'available': 'true',
         'amount': 10,
-        'claimedForDate': null,
         'nextClaimAt': null,
         'serverTime': '2026-11-16T12:34:56Z',
         'availableBalance': 10,
@@ -67,8 +61,7 @@ void main() {
         'claimedAmount': -1,
         'availableBalance': 20,
         'lockedBalance': 0,
-        'claimedForDate': '2026-11-16',
-        'alreadyClaimed': false,
+        'granted': true,
         'nextClaimAt': '2026-11-17T12:34:56Z',
         'serverTime': '2026-11-16T12:34:56Z',
       }),

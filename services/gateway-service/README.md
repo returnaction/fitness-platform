@@ -5,7 +5,7 @@
 загрузки ключей и проверок доступа: пять auth-операций в Identity, GET/PUT
 `/api/v1/accounts/me` в Accounts по [Spec 014](../../specs/014-accounts-profile/spec.md)
 и три операции Coins: GET `/api/v1/coins/me` по [Spec 017](../../specs/017-coins-wallet-realtime/spec.md),
-GET `/api/v1/coins/daily-reward/status` и POST `/api/v1/coins/daily-reward/claim`.
+GET `/api/v1/coins/daily-reward/status` и POST `/api/v1/coins/daily-reward/claims`.
 GET/PUT профиля реализованы в Accounts и проверены сквозным сценарием через Gateway
 на временной тестовой среде (Spec 014 T009).
 Баланс Coins реализован и проверен локальным сквозным сценарием через Gateway (Spec 017 T005).
@@ -53,7 +53,7 @@ Management работает только на отдельном loopback-пор
 готовность Gateway. Остановка отменяет текущую загрузку/ожидание повтора.
 После готовности каталог допускает POST register/login/refresh/logout/logout-all
 под /api/v1/auth/ и GET/PUT /api/v1/accounts/me, GET /api/v1/coins/me,
-GET /api/v1/coins/daily-reward/status и POST /api/v1/coins/daily-reward/claim.
+GET /api/v1/coins/daily-reward/status и POST /api/v1/coins/daily-reward/claims.
 Неизвестный путь даёт 404, неверный метод — 405 с Allow: POST для auth,
 Allow: GET, PUT для профиля, Allow: GET для баланса и статуса Coins,
 Allow: POST для claim, наличие query string — 400 (включая пустой вопросительный знак).

@@ -11,12 +11,6 @@ import static org.springframework.http.HttpMethod.GET;
 import static org.springframework.http.HttpMethod.POST;
 import static org.springframework.http.HttpMethod.PUT;
 
-/**
- * Каталог разрешённых операций Gateway.
- *
- * <p>Spec 017: защищённый маршрут {@code GET /api/v1/coins/me}.
- * Daily reward: {@code GET /status} и {@code POST /claim} через COINS.</p>
- */
 public final class GatewayRouteCatalog {
 
     private static final List<GatewayRoute> ROUTES = List.of(
@@ -31,7 +25,7 @@ public final class GatewayRouteCatalog {
 
             new GatewayRoute(GET, "/api/v1/coins/me", COINS, AUTHENTICATED),
             new GatewayRoute(GET, "/api/v1/coins/daily-reward/status", COINS, AUTHENTICATED),
-            new GatewayRoute(POST, "/api/v1/coins/daily-reward/claim", COINS, AUTHENTICATED));
+            new GatewayRoute(POST, "/api/v1/coins/daily-reward/claims", COINS, AUTHENTICATED));
 
     private GatewayRouteCatalog() {
     }

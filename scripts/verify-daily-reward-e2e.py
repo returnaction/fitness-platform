@@ -11,6 +11,7 @@ import time
 import urllib.error
 import urllib.request
 import uuid
+from datetime import datetime, timedelta
 from pathlib import Path
 
 
@@ -308,20 +309,22 @@ def main():
             assert status == 200, status
             assert headers.get("Cache-Control") == "no-store", headers
             assert body["available"] is True and body["amount"] == 10, body
-            assert body["claimedForDate"] is None and body["nextClaimAt"] is None, body
+            assert "claimedForDate" not in body and body["nextClaimAt"] is None, body
             assert body["availableBalance"] == 0 and body["lockedBalance"] == 0, body
             print("OK: initial daily-reward status and zero balance", flush=True)
 
             key = str(uuid.uuid4())
             status, _, first = request_json(
-                gateway + "/api/v1/coins/daily-reward/claim",
+                gateway + "/api/v1/coins/daily-reward/claims",
                 method="POST", token=token, idempotency_key=key,
             )
             assert status == 200, status
             assert first["claimedAmount"] == 10, first
             assert first["availableBalance"] == 10 and first["lockedBalance"] == 0, first
-            assert first["alreadyClaimed"] is False, first
-            assert first["claimedForDate"] and first["nextClaimAt"] and first["serverTime"], first
+            assert first["granted"] is True, first
+            assert "claimedForDate" not in first and first["nextClaimAt"] and first["serverTime"], first
+            assert (datetime.fromisoformat(first["nextClaimAt"].replace("Z", "+00:00"))
+                    - datetime.fromisoformat(first["serverTime"].replace("Z", "+00:00"))) == timedelta(hours=24)
             assert sql(container, "test_coins",
                        f"SELECT available_balance FROM coin_wallets WHERE user_id='{user}'") == "10"
             assert sql(container, "test_coins",
@@ -329,7 +332,7 @@ def main():
             print("OK: first claim credited exactly 10 coins", flush=True)
 
             status, _, repeated = request_json(
-                gateway + "/api/v1/coins/daily-reward/claim",
+                gateway + "/api/v1/coins/daily-reward/claims",
                 method="POST", token=token, idempotency_key=key,
             )
             assert status == 200 and repeated == first, repeated
@@ -340,10 +343,10 @@ def main():
             print("OK: same Idempotency-Key returned the stored snapshot", flush=True)
 
             status, _, unavailable = request_json(
-                gateway + "/api/v1/coins/daily-reward/claim",
+                gateway + "/api/v1/coins/daily-reward/claims",
                 method="POST", token=token, idempotency_key=str(uuid.uuid4()),
             )
-            assert status == 200 and unavailable["alreadyClaimed"] is True, unavailable
+            assert status == 200 and unavailable["granted"] is False, unavailable
             assert unavailable["claimedAmount"] == 0, unavailable
             assert unavailable["availableBalance"] == 10, unavailable
             assert sql(container, "test_coins",
@@ -364,6 +367,16 @@ def main():
             assert unauthorized["error"]["code"] == "invalid_access_token", unauthorized
             print("OK: daily-reward endpoints require a Bearer token", flush=True)
 
+            for invalid_key in (None, "not-a-uuid"):
+                status, headers, invalid = request_json(
+                    gateway + "/api/v1/coins/daily-reward/claims",
+                    method="POST", token=token, idempotency_key=invalid_key,
+                )
+                assert status == 400 and invalid["error"]["code"] == "invalid_request"
+                assert headers.get("Cache-Control") == "no-store", headers
+                assert headers.get("X-Request-Id") == invalid["error"]["requestId"], headers
+            print("OK: missing/invalid UUID returns Coins 400 through Gateway with requestId and no-store", flush=True)
+
             second_email = "reward-lock-" + uuid.uuid4().hex + "@example.com"
             second = register(gateway, second_email)
             second_token = second["session"]["accessToken"]
@@ -381,13 +394,15 @@ def main():
             time.sleep(0.5)
             started = time.monotonic()
             status, headers, busy = request_json(
-                gateway + "/api/v1/coins/daily-reward/claim",
+                gateway + "/api/v1/coins/daily-reward/claims",
                 method="POST", token=second_token, idempotency_key=str(uuid.uuid4()),
             )
             elapsed = time.monotonic() - started
             assert status == 503, (status, busy)
             assert busy["error"]["code"] == "coins_unavailable", busy
             assert headers.get("Retry-After") == "1", headers
+            assert headers.get("Cache-Control") == "no-store", headers
+            assert headers.get("X-Request-Id") == busy["error"]["requestId"], headers
             assert elapsed < 5, elapsed
             print("OK: busy wallet returned 503 coins_unavailable with Retry-After", flush=True)
 

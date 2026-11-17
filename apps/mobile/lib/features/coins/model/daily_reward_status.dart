@@ -2,7 +2,6 @@ class DailyRewardStatus {
   const DailyRewardStatus({
     required this.available,
     required this.amount,
-    required this.claimedForDate,
     required this.nextClaimAt,
     required this.serverTime,
     required this.availableBalance,
@@ -14,7 +13,6 @@ class DailyRewardStatus {
     return DailyRewardStatus(
       available: _bool(json, 'available'),
       amount: amount,
-      claimedForDate: _optionalString(json, 'claimedForDate'),
       nextClaimAt: _optionalInstant(json, 'nextClaimAt'),
       serverTime: _instant(json, 'serverTime'),
       availableBalance: _nonNegativeInt(json, 'availableBalance'),
@@ -24,7 +22,6 @@ class DailyRewardStatus {
 
   final bool available;
   final int amount;
-  final String? claimedForDate;
   final DateTime? nextClaimAt;
   final DateTime serverTime;
   final int availableBalance;
@@ -59,15 +56,6 @@ int _nonNegativeInt(Map<String, dynamic> json, String key) {
   final value = json[key];
   if (value is! int || value < 0) {
     throw FormatException('$key must be a non-negative integer.');
-  }
-  return value;
-}
-
-String? _optionalString(Map<String, dynamic> json, String key) {
-  final value = json[key];
-  if (value == null) return null;
-  if (value is! String || value.isEmpty) {
-    throw FormatException('$key must be a non-empty string or null.');
   }
   return value;
 }

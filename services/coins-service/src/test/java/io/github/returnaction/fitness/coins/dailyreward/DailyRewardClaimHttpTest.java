@@ -26,6 +26,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
@@ -112,8 +113,7 @@ class DailyRewardClaimHttpTest {
         assertThat(firstBody.get("claimedAmount").asLong()).isEqualTo(10);
         assertThat(firstBody.get("availableBalance").asLong()).isEqualTo(10);
         assertThat(firstBody.get("lockedBalance").asLong()).isZero();
-        assertThat(firstBody.get("claimedForDate").asString()).isEqualTo("2026-11-16");
-        assertThat(firstBody.get("alreadyClaimed").asBoolean()).isFalse();
+        assertThat(firstBody.get("granted").asBoolean()).isTrue();
         assertThat(firstBody.get("nextClaimAt").asString()).isEqualTo("2026-11-17T12:34:56Z");
         assertThat(firstBody.get("serverTime").asString()).isEqualTo("2026-11-16T12:34:56Z");
         assertThat(count("daily_reward_claims", owner)).isEqualTo(1);
@@ -144,8 +144,7 @@ class DailyRewardClaimHttpTest {
         var body = mapper.readTree(response.body());
         assertThat(body.get("claimedAmount").asLong()).isZero();
         assertThat(body.get("availableBalance").asLong()).isEqualTo(10);
-        assertThat(body.get("alreadyClaimed").asBoolean()).isTrue();
-        assertThat(body.get("claimedForDate").asString()).isEqualTo("2026-11-16");
+        assertThat(body.get("granted").asBoolean()).isFalse();
         assertThat(body.get("nextClaimAt").asString()).isEqualTo("2026-11-17T11:34:56Z");
         assertThat(count("daily_reward_claims", owner)).isEqualTo(1);
         assertThat(count("coin_ledger_entries", owner)).isEqualTo(1);
@@ -165,8 +164,7 @@ class DailyRewardClaimHttpTest {
         var body = mapper.readTree(response.body());
         assertThat(body.get("claimedAmount").asLong()).isEqualTo(10);
         assertThat(body.get("availableBalance").asLong()).isEqualTo(20);
-        assertThat(body.get("alreadyClaimed").asBoolean()).isFalse();
-        assertThat(body.get("claimedForDate").asString()).isEqualTo("2026-11-16");
+        assertThat(body.get("granted").asBoolean()).isTrue();
         assertThat(count("daily_reward_claims", owner)).isEqualTo(2);
         assertThat(count("coin_ledger_entries", owner)).isEqualTo(2);
         assertThat(balance(owner)).isEqualTo(20);
@@ -175,8 +173,26 @@ class DailyRewardClaimHttpTest {
     @Test
     void rejectsMissingOrMalformedIdempotencyKey() throws Exception {
         assertError(post(token(UUID.randomUUID()), null, ""), 400, "invalid_request");
+        assertError(post(token(UUID.randomUUID()), "", ""), 400, "invalid_request");
         assertError(post(token(UUID.randomUUID()), "not-a-uuid", ""), 400, "invalid_request");
         assertError(post(token(UUID.randomUUID()), "{" + UUID.randomUUID() + "}", ""), 400, "invalid_request");
+    }
+
+    @Test
+    void differentHeaderCaseReturnsTheSameSavedResponse() throws Exception {
+        UUID owner = UUID.randomUUID();
+        createWallet(owner, 0);
+        String key = "3f1b0d9e-6a99-4b30-9c5e-1e2a9f1d0c77";
+
+        var first = post(token(owner), key, "");
+        var repeat = post(token(owner), key.toUpperCase(Locale.ROOT), "");
+
+        assertThat(first.statusCode()).isEqualTo(200);
+        assertThat(repeat.statusCode()).isEqualTo(200);
+        assertThat(repeat.body()).isEqualTo(first.body());
+        assertThat(count("daily_reward_requests", owner)).isEqualTo(1);
+        assertThat(count("daily_reward_claims", owner)).isEqualTo(1);
+        assertThat(balance(owner)).isEqualTo(10);
     }
 
     @Test
@@ -234,10 +250,10 @@ class DailyRewardClaimHttpTest {
         assertThat(count("coin_ledger_entries", owner)).isEqualTo(1);
         assertThat(count("daily_reward_requests", owner)).isEqualTo(2);
         assertThat(balance(owner)).isEqualTo(10);
-        List<Boolean> alreadyClaimed = responses.stream()
-            .map(response -> mapper.readTree(response.body()).get("alreadyClaimed").asBoolean())
+        List<Boolean> granted = responses.stream()
+            .map(response -> mapper.readTree(response.body()).get("granted").asBoolean())
             .toList();
-        assertThat(alreadyClaimed).containsExactlyInAnyOrder(false, true);
+        assertThat(granted).containsExactlyInAnyOrder(false, true);
     }
 
     @Test
@@ -319,8 +335,8 @@ class DailyRewardClaimHttpTest {
         UUID claimId = UUID.randomUUID();
         UUID ledgerId = UUID.randomUUID();
         ledgerEntries.save(new LedgerEntryEntity(ledgerId, userId, claimId, 0,
-            LedgerEntryType.DAILY_REWARD, 10, 0, null, null, claimedAt));
-        claims.save(new DailyRewardClaimEntity(claimId, userId, claimDate, claimedAt, 10, ledgerId));
+            LedgerEntryType.DAILY_REWARD_CREDIT, 10, 0, null, null, claimedAt));
+        claims.save(new DailyRewardClaimEntity(claimId, userId, claimedAt, 10, ledgerId));
     }
 
     private long count(String table, UUID userId) {
@@ -340,7 +356,7 @@ class DailyRewardClaimHttpTest {
     private HttpResponse<String> post(String bearer, String idempotencyKey, String query) throws Exception {
         try (var client = HttpClient.newHttpClient()) {
             var builder = HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port
-                    + "/api/v1/coins/daily-reward/claim" + (query.isEmpty() ? "" : "?" + query)))
+                    + "/api/v1/coins/daily-reward/claims" + (query.isEmpty() ? "" : "?" + query)))
                 .header("X-Request-Id", "client-id")
                 .POST(HttpRequest.BodyPublishers.noBody());
             if (bearer != null) {

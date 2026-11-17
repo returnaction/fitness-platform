@@ -1,14 +1,11 @@
 package io.github.returnaction.fitness.coins.dailyreward.service;
 
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.returnaction.fitness.coins.dailyreward.config.DailyRewardProperties;
 import io.github.returnaction.fitness.coins.dailyreward.dto.DailyRewardStatusResponse;
-import io.github.returnaction.fitness.coins.dailyreward.entity.DailyRewardClaimEntity;
 import io.github.returnaction.fitness.coins.dailyreward.repository.DailyRewardClaimRepository;
 import io.github.returnaction.fitness.coins.shared.persistence.ConnectionFailures;
 import io.github.returnaction.fitness.coins.wallet.exception.CoinsUnavailableException;
 import io.github.returnaction.fitness.coins.wallet.exception.WalletInvariantViolationException;
-import io.github.returnaction.fitness.coins.wallet.repository.WalletRepository;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.Objects;
@@ -21,14 +18,13 @@ import org.springframework.orm.jpa.JpaSystemException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.CannotCreateTransactionException;
 
+/** Читает статус подарка для фронта: доступность, сумму, время ожидания и балансы. Монеты не начисляет. */
 @Service
 @RequiredArgsConstructor
-@SuppressFBWarnings(value = "EI_EXPOSE_REP2", justification = "Spring-managed repositories and clock are shared")
 public class DailyRewardQueryService {
 
-    private final WalletRepository wallets;
-    private final DailyRewardClaimRepository claims;
-    private final DailyRewardProperties properties;
+    private final DailyRewardClaimRepository dailyRewardClaimRepository;
+    private final DailyRewardProperties dailyRewardProperties;
     private final Clock clock;
 
     public DailyRewardStatusResponse getStatus(UUID userId) {
@@ -36,29 +32,36 @@ public class DailyRewardQueryService {
         Objects.requireNonNull(userId, "userId");
 
         try {
-            var wallet = wallets.findById(userId).orElseThrow(WalletInvariantViolationException::new);
-            var latestClaim = claims.findFirstByUserIdOrderByClaimedAtDesc(userId);
-            Instant now = clock.instant();
-            Instant nextClaimAt = latestClaim
-                .map(claim -> DailyRewardSchedule.nextClaimAt(claim.getClaimDate(), claim.getClaimedAt()))
-                .orElse(null);
-            boolean available = nextClaimAt == null || DailyRewardSchedule.isAvailable(now, nextClaimAt);
+            // 1. Одним запросом читаем оба баланса и последнее получение подарка.
+            // Кошелёк должен уже существовать; его отсутствие считаем ошибкой состояния приложения.
+            var rewardStatus = dailyRewardClaimRepository.findStatusByUserId(userId)
+                .orElseThrow(WalletInvariantViolationException::new);
 
+            // 2. Следующий подарок доступен через 24 часа после последнего. Если подарков не было — сразу.
+            Instant currentTime = clock.instant();
+            Instant lastClaimedAt = rewardStatus.getLastClaimedAt();
+            Instant nextClaimAt = lastClaimedAt == null ? null : DailyRewardAvailability.nextClaimAt(lastClaimedAt);
+            boolean available = nextClaimAt == null || DailyRewardAvailability.isAvailable(currentTime, nextClaimAt);
+
+            // 3. Возвращаем фронту балансы и серверное время для таймера.
+            // Если подарок уже доступен, время ожидания не нужно: nextClaimAt будет null.
             return new DailyRewardStatusResponse(
                 available,
-                properties.amount(),
-                latestClaim.map(DailyRewardClaimEntity::getClaimDate).orElse(null),
+                dailyRewardProperties.amount(),
                 available ? null : nextClaimAt,
-                now,
-                wallet.getAvailableBalance(),
-                wallet.getLockedBalance()
+                currentTime,
+                rewardStatus.getAvailableBalance(),
+                rewardStatus.getLockedBalance()
             );
+
         } catch (DataAccessResourceFailureException
                  | TransientDataAccessResourceException
                  | QueryTimeoutException
                  | CannotCreateTransactionException exception) {
+            // Временную проблему с БД превращаем в понятную для API ошибку недоступности.
             throw new CoinsUnavailableException(exception);
         } catch (JpaSystemException exception) {
+            // Hibernate может обернуть ошибку соединения. Другие ошибки не скрываем.
             if (ConnectionFailures.causedByConnectionFailure(exception)) {
                 throw new CoinsUnavailableException(exception);
             }

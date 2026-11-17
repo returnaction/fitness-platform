@@ -674,7 +674,7 @@
               }
             ],
             "url": "{{base_url}}/api/v1/coins/daily-reward/status",
-            "description": "Возвращает available, amount, claimedForDate, nextClaimAt, serverTime и текущий баланс. При available=true nextClaimAt=null. Query string запрещён."
+            "description": "Возвращает available, amount, nextClaimAt, serverTime и текущий баланс. При available=true nextClaimAt=null. Query string запрещён."
           },
           "event": [
             {
@@ -696,7 +696,7 @@
                   "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
                   "pm.test('No store', () => pm.expect(pm.response.headers.get('Cache-Control')).to.include('no-store'));",
                   "const body = pm.response.json();",
-                  "pm.test('Status fields', () => pm.expect(Object.keys(body).sort()).to.eql(['amount', 'available', 'availableBalance', 'claimedForDate', 'lockedBalance', 'nextClaimAt', 'serverTime']));",
+                  "pm.test('Status fields', () => pm.expect(Object.keys(body).sort()).to.eql(['amount', 'available', 'availableBalance', 'lockedBalance', 'nextClaimAt', 'serverTime']));",
                   "pm.test('Available is boolean', () => pm.expect(body.available).to.be.a('boolean'));",
                   "pm.test('Amount is positive integer', () => { pm.expect(body.amount).to.be.a('number'); pm.expect(Number.isInteger(body.amount)).to.be.true; pm.expect(body.amount).to.be.at.least(1); });",
                   "pm.test('Next claim is null when available', () => { if (body.available) pm.expect(body.nextClaimAt).to.equal(null); else pm.expect(body.nextClaimAt).to.be.a('string'); });"
@@ -719,8 +719,8 @@
                 "value": "{{daily_reward_key}}"
               }
             ],
-            "url": "{{base_url}}/api/v1/coins/daily-reward/claim",
-            "description": "Начисляет награду или возвращает alreadyClaimed=true. Повтор использует тот же daily_reward_key и возвращает сохранённый снимок. Для нового намерения очистите переменную daily_reward_key."
+            "url": "{{base_url}}/api/v1/coins/daily-reward/claims",
+            "description": "Начисляет награду или возвращает granted=false. Повтор использует тот же daily_reward_key и возвращает сохранённый снимок. Для нового намерения очистите переменную daily_reward_key."
           },
           "event": [
             {
@@ -745,9 +745,9 @@
                   "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
                   "pm.test('No store', () => pm.expect(pm.response.headers.get('Cache-Control')).to.include('no-store'));",
                   "const body = pm.response.json();",
-                  "pm.test('Claim fields', () => pm.expect(Object.keys(body).sort()).to.eql(['alreadyClaimed', 'availableBalance', 'claimedAmount', 'claimedForDate', 'lockedBalance', 'nextClaimAt', 'serverTime']));",
-                  "pm.test('Already claimed is boolean', () => pm.expect(body.alreadyClaimed).to.be.a('boolean'));",
-                  "pm.test('Claim amount matches result', () => { pm.expect(body.claimedAmount).to.be.a('number'); pm.expect(Number.isInteger(body.claimedAmount)).to.be.true; if (body.alreadyClaimed) pm.expect(body.claimedAmount).to.equal(0); else pm.expect(body.claimedAmount).to.be.at.least(1); });"
+                  "pm.test('Claim fields', () => pm.expect(Object.keys(body).sort()).to.eql(['availableBalance', 'claimedAmount', 'granted', 'lockedBalance', 'nextClaimAt', 'serverTime']));",
+                  "pm.test('Granted is boolean', () => pm.expect(body.granted).to.be.a('boolean'));",
+                  "pm.test('Claim amount matches result', () => { pm.expect(body.claimedAmount).to.be.a('number'); pm.expect(Number.isInteger(body.claimedAmount)).to.be.true; if (!body.granted) pm.expect(body.claimedAmount).to.equal(0); else pm.expect(body.claimedAmount).to.be.at.least(1); });"
                 ]
               }
             }
