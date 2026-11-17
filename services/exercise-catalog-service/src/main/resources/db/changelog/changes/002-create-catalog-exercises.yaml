@@ -7,4 +7,4 @@ databaseChangeLog:
         - sqlFile:
             path: 002-create-catalog-exercises.sql
             relativeToChangelogFile: true
-            stripComments: false
+            stripComments: true
