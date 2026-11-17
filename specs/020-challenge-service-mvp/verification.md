@@ -266,3 +266,17 @@ Testcontainers-тесты требуют работающего Docker. Без D
 - `sh ./mvnw -B -ntp -pl services/challenge-service -am test`: `BUILD SUCCESS`, contracts 5/5, challenge 12/12.
 - `git diff --check`: успешно. Проверка относительных Markdown-ссылок Python-скриптом: ошибок нет.
 - Ограничение: сериализация переходов пессимистической блокировкой строки и `version` относится к T004.4. БД, Kafka и deploy не менялись.
+
+### 2026-11-17 — T004.4, репозитории и блокировки
+
+- Добавлены JPA-сущности `ChallengeEntity`, `ChallengeParticipantEntity`, `ChallengeOperationEntity`, `ChallengeReleaseIntentEntity` и доменные enum для режима, видимости, старта, операций и release intent.
+- `ChallengeEntity` хранит `version` и `next_join_sequence`; метод `takeNextJoinSequence` увеличивает счётчик и версию.
+- `ChallengeRepository.findByIdForUpdate` использует нативный `SELECT ... FOR UPDATE`; добавлены нативные выборки участников, активных операций и release intent по hold. Enum-статусы передаются в SQL строкой.
+- `ChallengeRepositoryIntegrationTest` на Testcontainers подтверждает:
+  - два параллельных увеличения `next_join_sequence` дают номера 1 и 2, итоговое значение 3, версия 3 — без потерянного обновления;
+  - версия увеличивается с 1 до 2 при обновлении под блокировкой;
+  - частичный уникальный индекс отклоняет вторую незавершённую операцию и разрешает новую после `CONFIRMED`;
+  - второй release intent для того же `hold_id` отклоняется, сохранённый остаётся с исходной причиной.
+- `sh ./mvnw -B -ntp -pl services/challenge-service -am test`: `BUILD SUCCESS`, contracts 5/5, challenge 16/16.
+- `git diff --check`: успешно. Проверка относительных Markdown-ссылок Python-скриптом: ошибок нет.
+- Ограничение: сервисный слой и HTTP API ещё отсутствуют; блокировки проверены на Testcontainers PostgreSQL. БД, Kafka и deploy не менялись.
