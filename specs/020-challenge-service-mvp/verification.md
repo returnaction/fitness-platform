@@ -407,3 +407,14 @@ Testcontainers-тесты требуют работающего Docker. Без D
 - `sh ./mvnw -B -ntp -pl services/coins-service -am test`: `BUILD SUCCESS`, 78 тестов, 0 ошибок.
 - `git diff --check`: успешно. Проверка относительных Markdown-ссылок Python-скриптом: ошибок нет.
 - Ограничение: клиент Challenge — T004.9; settlement/Kafka не менялись.
+
+### 2026-11-17 — T004.9, gRPC-клиент Coins
+
+- Добавлены `CoinsStakeProperties` и `CoinsStakeConfiguration`; параметры `COINS_STAKE_GRPC_*`, `CHALLENGE_GRPC_*`; deadline зафиксирован 3s и валидируется как меньше gateway 7s.
+- `CoinsStakeClient` создаёт mTLS-канал лениво и публикует все 8 stake-методов контракта.
+- `UNAVAILABLE` и `DEADLINE_EXCEEDED` классифицируются как `CoinsOutcomeUnknownException`; клиент повторяет вызов один раз с тем же operation ID. `ALREADY_EXISTS/OPERATION_ID_CONFLICT` — `CoinsOperationConflictException`; остальные постоянные ошибки — `CoinsRejectedException` с gRPC code и reason.
+- `.env.example` и тестовые свойства дополнены обязательными адресами и путями сертификатов.
+- `CoinsStakeClientTest` проверяет deadline, успешный ответ, повтор при UNAVAILABLE, отсутствие повтора при постоянной ошибке, конфликт operation ID и отказ от deadline >= 7s.
+- `sh ./mvnw -B -ntp -pl services/challenge-service -am test`: `BUILD SUCCESS`, contracts 5/5, challenge 38/38.
+- `git diff --check`: успешно. Проверка относительных Markdown-ссылок Python-скриптом: ошибок нет.
+- Ограничение: mTLS-канал клиента ещё не проверен end-to-end с реальным Coins; это T006.2. Клиент пока не подключён к publish/join. БД, Kafka и deploy не менялись.
