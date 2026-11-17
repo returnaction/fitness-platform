@@ -687,3 +687,16 @@ Testcontainers-тесты требуют работающего Docker. Без D
 - Результаты: publish `200`, join `200`, повторный join без второго резерва, гонка `200/409`, cancel `PENDING → COMPLETED`, result `FINAL`, settlement `COMPLETED`, повтор события без изменения баланса.
 - Проверки сборки: challenge 73/73, SpotBugs 0; coins 91/91, SpotBugs 0.
 - Ограничения: нет нагрузочного теста Kafka, redelivery/хаос не имитировались; production-источник результата не определён; mTLS-вызов результата выполнен тестовым клиентом; Gateway возвращает `invalid_access_token` вместо ожидаемого планом `unauthenticated`, выравнивание кода требует отдельного решения; Postman-коллекция обновляется в T006.8. Секреты, пароли и токены в Git не добавлялись. Deploy не менялся.
+
+### 2026-11-17 — T006.8, Postman
+
+- Коллекция `postman/fitness-local.postman_collection.json` дополнена папкой `Challenge`:
+  - `Подготовка`: вход второго пользователя, проверка его баланса, `401` без токена;
+  - `Основной сценарий`: draft → patch → publish → проверка операции → чтение challenge → join → ACTIVE → повтор publish/join → result → `409` отмены после второго участника → чужой challenge.
+- Проверки охватывают `201`, `200/202`, `401`, `404`, `409`, `OPEN`, `ACTIVE`, двух участников, `PENDING/FINAL` результата и `requestId`.
+- Коллекция не содержит реальных токенов, паролей и email; значения `second_email`, `second_password` и `access_token` задаются локально через environment. Файл environment с секретами создан только в игнорируемом `secrets/`.
+- Newman запущен через Docker:
+  - `requests: 14`, `test-scripts: 14`, `prerequest-scripts: 9`;
+  - `assertions: 27`, `failed: 0`.
+- Первый запуск выявил ошибку prerequest: проверялись collection-переменные вместо environment. Исправлено, повторный запуск прошёл без ошибок.
+- Ограничение: сценарий не фиксирует `FINAL` через Gateway, потому что внутренний `FinalizeResult` доступен только по mTLS; запрос результата принимает `PENDING` и `FINAL`, а `FINAL` проверяется отдельным локальным mTLS-вызовом. Тестовые запуски создают дополнительные challenge и требуют локальных монет. Deploy не менялся.

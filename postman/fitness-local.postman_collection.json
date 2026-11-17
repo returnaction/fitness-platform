@@ -1,7 +1,7 @@
 {
   "info": {
-    "name": "Fitness Platform — локальная авторизация, профиль и Coins",
-    "description": "Auth, профиль и баланс Coins через Gateway: регистрация, вход, refresh, просмотр и обновление профиля, просмотр баланса, выход и проверка отзыва. Реальные секреты не экспортировать. Недоступность Identity проверяется отдельно.",
+    "name": "Fitness Platform — локальная авторизация, профиль, Coins и Challenge",
+    "description": "Auth, профиль, баланс Coins и сценарии Challenge через Gateway: создание, публикация, вступление, результат, отмена и ошибки. Токены и секреты не экспортируются; значения задаются локально.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -43,6 +43,81 @@
     {
       "key": "revoked_access_token",
       "value": "",
+      "type": "string"
+    },
+    {
+      "key": "second_email",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "second_password",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "second_access_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "challenge_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "challenge_version",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "challenge_create_key",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "challenge_patch_key",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "challenge_publish_key",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "challenge_join_key",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "challenge_cancel_key",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "challenge_operation_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "challenge_join_operation_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "challenge_stake_amount",
+      "value": "10",
+      "type": "string"
+    },
+    {
+      "key": "challenge_duration_days",
+      "value": "7",
+      "type": "string"
+    },
+    {
+      "key": "challenge_title",
+      "value": "Postman challenge",
       "type": "string"
     }
   ],
@@ -655,6 +730,676 @@
                   "pm.test('Balances are non-negative', () => { pm.expect(body.availableBalance).to.be.at.least(0); pm.expect(body.lockedBalance).to.be.at.least(0); });"
                 ]
               }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Challenge",
+      "description": "Сценарии Challenge через Gateway. Перед запуском выполните Авторизацию для основного пользователя, задайте second_email/second_password и запустите scripts/prepare-local-challenge-data.sh. Внутренний FinalizeResult через Gateway недоступен; FINAL появится после отдельного mTLS-вызова.",
+      "item": [
+        {
+          "name": "Подготовка",
+          "description": "Вторая сессия и проверка предусловий.",
+          "item": [
+            {
+              "name": "1. Вход второго пользователя",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{base_url}}/api/v1/auth/login",
+                "description": "Введите second_email и second_password из локального secrets/challenge-local-test-data.env. Токен сохраняется только в переменной коллекции.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"{{second_email}}\",\n  \"password\": \"{{second_password}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "if (!pm.variables.get('second_email') || !pm.variables.get('second_password')) {",
+                      "  throw new Error('Set second_email and second_password from local secrets before running Challenge scenarios.');",
+                      "}"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                      "if (pm.response.code === 200) { pm.collectionVariables.set('second_access_token', pm.response.json().accessToken); }"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "2. Проверить баланс второго пользователя",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{second_access_token}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/v1/coins/me",
+                "description": "У второго пользователя должно быть достаточно монет для ставки. Локальные данные создаёт scripts/prepare-local-challenge-data.sh."
+              },
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "if (!pm.variables.get('second_access_token')) throw new Error('Run Auth: login for the second user first.');"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                      "const body = pm.response.json();",
+                      "pm.test('Enough available coins', () => pm.expect(body.availableBalance).to.be.at.least(Number(pm.collectionVariables.get('challenge_stake_amount') || 10)));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "3. Запрос без токена",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{base_url}}/api/v1/challenges/{{$guid}}",
+                "description": "Проверяет 401 и requestId в едином формате ошибки."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('HTTP 401', () => pm.response.to.have.status(401));",
+                      "const error = pm.response.json().error;",
+                      "pm.test('Error code', () => pm.expect(error.code).to.be.oneOf(['invalid_access_token', 'unauthenticated']));",
+                      "pm.test('Request id present', () => pm.expect(error.requestId).to.be.a('string').and.not.empty);"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Основной сценарий",
+          "description": "Draft → publish → join → ACTIVE → result → ошибки.",
+          "item": [
+            {
+              "name": "1. Создать черновик",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Idempotency-Key",
+                    "value": "{{challenge_create_key}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/v1/challenges/drafts",
+                "description": "Создаёт DRAFT для текущего access_token.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.collectionVariables.set('challenge_create_key', pm.variables.replaceIn('{{$guid}}'));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                      "const body = pm.response.json();",
+                      "pm.test('Draft', () => pm.expect(body.status).to.eql('DRAFT'));",
+                      "pm.collectionVariables.set('challenge_id', body.id);",
+                      "pm.collectionVariables.set('challenge_version', String(body.version));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "2. Заполнить черновик",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Idempotency-Key",
+                    "value": "{{challenge_patch_key}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/v1/challenges/{{challenge_id}}/draft",
+                "description": "Заполняет обязательные поля. Версия из ответа предыдущего запроса.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"version\": {{challenge_version}},\n  \"title\": \"{{challenge_title}}\",\n  \"description\": \"Postman scenario\",\n  \"stakeAmount\": {{challenge_stake_amount}},\n  \"durationDays\": {{challenge_duration_days}}\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "if (!pm.collectionVariables.get('challenge_id')) throw new Error('Run Challenge 1 first.');",
+                      "pm.collectionVariables.set('challenge_patch_key', pm.variables.replaceIn('{{$guid}}'));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                      "const body = pm.response.json();",
+                      "pm.collectionVariables.set('challenge_version', String(body.version));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "3. Опубликовать",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Idempotency-Key",
+                    "value": "{{challenge_publish_key}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/v1/challenges/{{challenge_id}}/publish",
+                "description": "Успех: 200 OPEN/JOINED или 202 PENDING со statusUrl.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"version\": {{challenge_version}}}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.collectionVariables.unset('challenge_operation_id');",
+                      "pm.collectionVariables.set('challenge_publish_key', pm.variables.replaceIn('{{$guid}}'));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('HTTP 200 or 202', () => pm.expect(pm.response.code).to.be.oneOf([200, 202]));",
+                      "const body = pm.response.json();",
+                      "if (pm.response.code === 202) {",
+                      "  pm.test('Pending', () => pm.expect(body.status).to.eql('PENDING'));",
+                      "  pm.collectionVariables.set('challenge_operation_id', body.operationId);",
+                      "} else {",
+                      "  pm.test('Open', () => pm.expect(body.status).to.eql('OPEN'));",
+                      "}"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "4. Проверить операцию publish",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/v1/challenge-operations/{{challenge_operation_id}}",
+                "description": "Выполняйте при 202. PENDING можно повторить; SUCCEEDED означает завершение."
+              },
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "if (!pm.collectionVariables.get('challenge_operation_id')) pm.execution.skipRequest();"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                      "const body = pm.response.json();",
+                      "pm.test('Operation state', () => pm.expect(body.status).to.be.oneOf(['PENDING', 'SUCCEEDED']));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "5. Прочитать challenge",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/v1/challenges/{{challenge_id}}",
+                "description": "После publish ожидается OPEN, создатель — участник."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                      "const body = pm.response.json();",
+                      "pm.test('Open', () => pm.expect(body.status).to.eql('OPEN'));",
+                      "pm.test('Creator is participant', () => pm.expect(body.viewer.isCreator).to.be.true);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "6. Вступить вторым пользователем",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{second_access_token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Idempotency-Key",
+                    "value": "{{challenge_join_key}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/v1/challenges/{{challenge_id}}/joins",
+                "description": "После второго участия challenge должен стать ACTIVE, а набор — SEALED.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.collectionVariables.unset('challenge_join_operation_id');",
+                      "pm.collectionVariables.set('challenge_join_key', pm.variables.replaceIn('{{$guid}}'));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('HTTP 200 or 202', () => pm.expect(pm.response.code).to.be.oneOf([200, 202]));",
+                      "const body = pm.response.json();",
+                      "if (pm.response.code === 202) {",
+                      "  pm.test('Pending', () => pm.expect(body.status).to.eql('PENDING'));",
+                      "  pm.collectionVariables.set('challenge_join_operation_id', body.operationId);",
+                      "} else {",
+                      "  pm.test('Joined', () => pm.expect(body.participationStatus).to.eql('JOINED'));",
+                      "}"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "7. Проверить операцию join",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/v1/challenge-operations/{{challenge_join_operation_id}}",
+                "description": "Выполняйте при 202."
+              },
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "if (!pm.collectionVariables.get('challenge_join_operation_id')) pm.execution.skipRequest();"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                      "const body = pm.response.json();",
+                      "pm.test('Operation state', () => pm.expect(body.status).to.be.oneOf(['PENDING', 'SUCCEEDED']));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "8. Прочитать challenge после join",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/v1/challenges/{{challenge_id}}",
+                "description": "Ожидается ACTIVE и два участника."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                      "const body = pm.response.json();",
+                      "pm.test('Active', () => pm.expect(body.status).to.eql('ACTIVE'));",
+                      "pm.test('Two participants', () => pm.expect(body.participants.joined).to.eql(2));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "9. Повторить publish с тем же ключом",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Idempotency-Key",
+                    "value": "{{challenge_publish_key}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/v1/challenges/{{challenge_id}}/publish",
+                "description": "Идемпотентный повтор: сохранённый ответ, второго резерва нет.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"version\": 2}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('HTTP 200 or 202', () => pm.expect(pm.response.code).to.be.oneOf([200, 202]));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "10. Повторить join с тем же ключом",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{second_access_token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Idempotency-Key",
+                    "value": "{{challenge_join_key}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/v1/challenges/{{challenge_id}}/joins",
+                "description": "Идемпотентный повтор: сохранённый ответ, второго резерва нет.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('HTTP 200 or 202', () => pm.expect(pm.response.code).to.be.oneOf([200, 202]));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "11. Прочитать результат до фиксации",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/v1/challenges/{{challenge_id}}/result",
+                "description": "До внутреннего FinalizeResult ожидается PENDING. После settlement — FINAL."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                      "const body = pm.response.json();",
+                      "pm.test('Result state', () => pm.expect(body.status).to.be.oneOf(['PENDING', 'FINAL']));",
+                      "if (body.status === 'FINAL') {",
+                      "  pm.test('Final result fields', () => { pm.expect(body.result.resultId).to.be.a('string'); pm.expect(body.result.winnersCount).to.be.at.least(1); });",
+                      "}"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "12. Отмена после второго участника",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Idempotency-Key",
+                    "value": "{{challenge_cancel_key}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/v1/challenges/{{challenge_id}}/cancel",
+                "description": "После вступления второго участника отмена запрещена.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.collectionVariables.set('challenge_cancel_key', pm.variables.replaceIn('{{$guid}}'));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('HTTP 409', () => pm.response.to.have.status(409));",
+                      "pm.test('Cancellation denied', () => pm.expect(pm.response.json().error.code).to.eql('cancellation_not_allowed'));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "13. Чужой challenge",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  }
+                ],
+                "url": "{{base_url}}/api/v1/challenges/{{$guid}}",
+                "description": "Неизвестный challenge не раскрывается."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('HTTP 404', () => pm.response.to.have.status(404));",
+                      "pm.test('Not found', () => pm.expect(pm.response.json().error.code).to.eql('challenge_not_found'));"
+                    ]
+                  }
+                }
+              ]
             }
           ]
         }
