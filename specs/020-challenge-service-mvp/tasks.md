@@ -22,7 +22,7 @@
 - [x] T003.1 — Добавить `UpstreamId.CHALLENGE` и обязательную конфигурацию URL. Зависит от T002.5. Критерий: приложение не стартует без адреса Challenge; тесты свойств обновлены.
 - [x] T003.2 — Обновить конфигурацию по средам. Зависит от T003.1. Критерий: `application.yaml`, `.env.example`, `test-environment.properties`, `deployment/env/gateway.env.example` содержат `CHALLENGE_HTTP_BASE_URL`.
 - [x] T003.3 — Добавить маршруты Challenge в каталог. Зависит от T003.2. Критерий: drafts/patch/publish/joins/cancel/get/operations/result зарегистрированы с `AUTHENTICATED`; внутренний результат отсутствует в каталоге.
-- [ ] T003.4 — Переработать тесты каталога и security forwarding. Зависит от T003.3. Критерий: таблица ожидаемых операций вместо `hasSize(8)`; подтверждены JWT validation, CheckSession, forwarding `Authorization` и канонического `X-Request-Id`.
+- [x] T003.4 — Переработать тесты каталога и security forwarding. Зависит от T003.3. Критерий: таблица ожидаемых операций вместо `hasSize(8)`; подтверждены JWT validation, CheckSession, forwarding `Authorization` и канонического `X-Request-Id`.
 - [ ] T003.5 — Проверить динамические пути через proxy. Зависит от T003.4. Критерий: mock upstream получает `/api/v1/challenges/{challengeId}` и `/api/v1/challenge-operations/{operationId}`; статус, тело и заголовки проксируются; query string отклоняется.
 - [ ] T003.6 — Verify gateway-service. Зависит от T003.5. Критерий: `./mvnw -B -ntp -pl services/gateway-service -am verify` и SpotBugs проходят.
 

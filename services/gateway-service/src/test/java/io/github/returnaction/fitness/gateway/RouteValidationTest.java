@@ -8,6 +8,7 @@ import jakarta.servlet.ServletContext;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import org.mockito.Mockito;
+import org.springframework.http.HttpMethod;
 import org.springframework.mock.web.MockHttpServletResponse;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -52,6 +53,31 @@ class RouteValidationTest {
 
     private static final String CHALLENGE_ID = "550e8400-e29b-41d4-a716-446655440000";
     private static final String OPERATION_ID = "7c9e6679-7425-40de-944b-e07fc1f90ae7";
+    private static final List<GatewayRoute> EXPECTED_ROUTES = List.of(
+            new GatewayRoute(HttpMethod.POST, "/api/v1/auth/register", UpstreamId.IDENTITY, RouteAccess.PUBLIC),
+            new GatewayRoute(HttpMethod.POST, "/api/v1/auth/login", UpstreamId.IDENTITY, RouteAccess.PUBLIC),
+            new GatewayRoute(HttpMethod.POST, "/api/v1/auth/refresh", UpstreamId.IDENTITY, RouteAccess.PUBLIC),
+            new GatewayRoute(HttpMethod.POST, "/api/v1/auth/logout", UpstreamId.IDENTITY, RouteAccess.PUBLIC),
+            new GatewayRoute(HttpMethod.POST, "/api/v1/auth/logout-all", UpstreamId.IDENTITY, RouteAccess.AUTHENTICATED),
+            new GatewayRoute(HttpMethod.GET, "/api/v1/accounts/me", UpstreamId.ACCOUNT, RouteAccess.AUTHENTICATED),
+            new GatewayRoute(HttpMethod.PUT, "/api/v1/accounts/me", UpstreamId.ACCOUNT, RouteAccess.AUTHENTICATED),
+            new GatewayRoute(HttpMethod.GET, "/api/v1/coins/me", UpstreamId.COINS, RouteAccess.AUTHENTICATED),
+            new GatewayRoute(HttpMethod.POST, "/api/v1/challenges/drafts", UpstreamId.CHALLENGE,
+                    RouteAccess.AUTHENTICATED),
+            new GatewayRoute(HttpMethod.GET, "/api/v1/challenges/{challengeId}", UpstreamId.CHALLENGE,
+                    RouteAccess.AUTHENTICATED),
+            new GatewayRoute(HttpMethod.PATCH, "/api/v1/challenges/{challengeId}/draft", UpstreamId.CHALLENGE,
+                    RouteAccess.AUTHENTICATED),
+            new GatewayRoute(HttpMethod.POST, "/api/v1/challenges/{challengeId}/publish", UpstreamId.CHALLENGE,
+                    RouteAccess.AUTHENTICATED),
+            new GatewayRoute(HttpMethod.POST, "/api/v1/challenges/{challengeId}/joins", UpstreamId.CHALLENGE,
+                    RouteAccess.AUTHENTICATED),
+            new GatewayRoute(HttpMethod.POST, "/api/v1/challenges/{challengeId}/cancel", UpstreamId.CHALLENGE,
+                    RouteAccess.AUTHENTICATED),
+            new GatewayRoute(HttpMethod.GET, "/api/v1/challenge-operations/{operationId}", UpstreamId.CHALLENGE,
+                    RouteAccess.AUTHENTICATED),
+            new GatewayRoute(HttpMethod.GET, "/api/v1/challenges/{challengeId}/result", UpstreamId.CHALLENGE,
+                    RouteAccess.AUTHENTICATED));
 
     @MockitoBean
     private SessionVerificationClient sessions;
@@ -122,7 +148,7 @@ class RouteValidationTest {
 
     @Test
     void policyMatchesOnlyCatalogOperationsAndProtectedRouteStaysClosed() throws Exception {
-        assertThat(GatewayRouteCatalog.routes()).hasSize(16);
+        assertThat(GatewayRouteCatalog.routes()).containsExactlyElementsOf(EXPECTED_ROUTES);
         try (var client = HttpClient.newHttpClient()) {
             for (var route : GatewayRouteCatalog.routes()) {
                 String path = concretePath(route.path());

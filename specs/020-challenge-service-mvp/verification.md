@@ -203,3 +203,12 @@ Testcontainers-тесты требуют работающего Docker. Без D
 - `sh ./mvnw -B -ntp -pl services/gateway-service -am test`: `BUILD SUCCESS`, 50 тестов, 0 ошибок.
 - `git diff --check`: успешно. Проверка относительных Markdown-ссылок Python-скриптом: ошибок нет.
 - Ограничение: табличная проверка каталога вместо `hasSize` и отдельные security-forwarding проверки остаются в T003.4; сквозная проверка динамических путей — T003.5. БД, Kafka, deploy и commit не выполнялись.
+
+### 2026-11-17 — T003.4, таблица каталога и security forwarding
+
+- `RouteValidationTest`: ожидаемый каталог задан явной таблицей из 16 операций (метод, путь, upstream, доступ); проверка — `containsExactlyElementsOf`. `hasSize` для каталога больше не используется.
+- `JwtValidationTest`: добавлен отдельный тест восьми маршрутов Challenge. Подтверждены `401` без токена и с невалидным JWT, `401` при неактивной сессии, `503 identity_unavailable` при недоступности CheckSession, forwarding исходного `Authorization` и канонического сгенерированного `X-Request-Id` вместо клиентского.
+- Тест проверяет 8 успешных вызовов upstream Challenge и 24 обращения к CheckSession (по три на маршрут: неактивная, недоступная, активная сессия).
+- `sh ./mvnw -B -ntp -pl services/gateway-service -am test`: `BUILD SUCCESS`, 51 тест, 0 ошибок.
+- `git diff --check`: успешно. Проверка относительных Markdown-ссылок Python-скриптом: ошибок нет.
+- Ограничение: динамические пути через реальный прокси проверяются в T003.5; пограничный `GET /api/v1/challenges/drafts`, совпадающий с шаблоном `{challengeId}`, пока не ограничен UUID-паттерном. БД, Kafka, deploy и commit не выполнялись.
