@@ -33,7 +33,7 @@
 - [x] T004.3 — Доменные состояния и переходы. Зависит от T004.2. Критерий: `DRAFT→OPEN→ACTIVE→FINISHED` и `OPEN→CANCELLED` сериализуются; некорректные переходы отклоняются; статусы участия соответствуют спеке.
 - [x] T004.4 — Repository-слой и блокировки. Зависит от T004.3. Критерий: чтение под pessimistic lock, `version`, `next_join_sequence`, частичный уникальный индекс незавершённых операций, `UNIQUE(hold_id)` release intent.
 - [x] T004.5 — Claims-фильтр и security chain. Зависит от T004.4. Критерий: `sub` forwarded Bearer JWT попадает в `SecurityContext`; контекст очищается; Actuator доступен по текущим правилам; неизвестный путь закрыт.
-- [ ] T004.6 — Общий error handler и security handler. Зависит от T004.5. Критерий: формат `{"error":{code,message,requestId}}`, коды по спеке, `401/404/409/422/503`, без внутренних подробностей.
+- [x] T004.6 — Общий error handler и security handler. Зависит от T004.5. Критерий: формат `{"error":{code,message,requestId}}`, коды по спеке, `401/404/409/422/503`, без внутренних подробностей.
 - [ ] T004.7 — Хранение HTTP-идемпотентности. Зависит от T004.6. Критерий: ключ привязан к пользователю, методу и пути; повтор возвращает сохранённый ответ; другое тело — `409 idempotency_key_conflict`.
 - [ ] T004.8 — DTO и endpoints draft/patch/read/operations. Зависит от T004.7. Критерий: `201` с `Location`, `200`, `409 version_conflict`, `422`; чужой DRAFT — `404`; чужая операция — `404`; `refundStatus` и `settlementStatus` в чтении.
 

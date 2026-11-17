@@ -291,3 +291,21 @@ Testcontainers-тесты требуют работающего Docker. Без D
 - `sh ./mvnw -B -ntp -pl services/challenge-service -am test`: `BUILD SUCCESS`, contracts 5/5, challenge 19/19.
 - `git diff --check`: успешно. Проверка относительных Markdown-ссылок Python-скриптом: ошибок нет.
 - Ограничение: единый формат тела `401/403` и точный security handler — T004.6. Контроллеров API ещё нет; БД, Kafka и deploy не менялись.
+
+### 2026-11-17 — T004.6, единый обработчик ошибок
+
+- Добавлен `ApiErrorResponse` формата `{"error":{"code","message","details","requestId"}}`; `details` необязателен и по умолчанию пуст.
+- `ApiExceptionHandler` сопоставляет:
+  - `400 invalid_request` — некорректный JSON, UUID, отсутствующий заголовок или `InvalidRequestException`;
+  - `401 unauthenticated` и `403 access_denied`;
+  - `404` — `challenge_not_found`/`operation_not_found` через `ResourceNotFoundException`, неизвестный маршрут — `not_found`;
+  - `409` — код из `BusinessConflictException` (`version_conflict`, `challenge_full` и т.д.);
+  - `422 validation_error` — поля, параметры, нарушения состояния с `details`;
+  - `503 service_unavailable` — `DataAccessException`/`TransactionSystemException` без внутренних подробностей;
+  - `500 internal_error` — только класс исключения в логе, без текста и данных.
+- `SecurityExceptionHandler` передаёт `AuthenticationException`/`AccessDeniedException` в общий resolver; security chain использует его как entry point и access denied handler.
+- `X-Request-Id` из `RequestIdFilter` попадает в тело ошибки; все ответы ошибок получают `Cache-Control: no-store`.
+- Тесты: 8 unit-проверок маппинга; интеграционный тест приложения проверяет `401 unauthenticated` с `requestId` для `/api/**`, закрытые `/unknown` и `/actuator/env`, доступность health/prometheus и `404 not_found` для валидного forwarded токена.
+- `sh ./mvnw -B -ntp -pl services/challenge-service -am test`: `BUILD SUCCESS`, contracts 5/5, challenge 27/27.
+- `git diff --check`: успешно. Проверка относительных Markdown-ссылок Python-скриптом: ошибок нет.
+- Ограничение: конкретные бизнес-коды будут бросать сервисы в T004.7–T004.12; HTTP-контроллеров пока нет. БД, Kafka и deploy не менялись.
