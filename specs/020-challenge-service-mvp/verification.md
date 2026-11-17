@@ -334,3 +334,17 @@ Testcontainers-тесты требуют работающего Docker. Без D
 - `sh ./mvnw -B -ntp -pl services/challenge-service -am test`: `BUILD SUCCESS`, contracts 5/5, challenge 33/33.
 - `git diff --check`: успешно. Проверка относительных Markdown-ссылок Python-скриптом: ошибок нет.
 - Ограничение: publish/join/result endpoints появятся в T004.10–T004.16; результат PENDING-операции пока null. БД, Kafka и deploy не менялись.
+
+### 2026-11-17 — T005.1, миграции Coins
+
+- Созданы роль `fitness_coins_app` и база `fitness_coins`; пароль хранится только в локальном окружении и не добавлен в Git.
+- Liquibase changeset `002-create-stake-and-settlement-tables` применён к пустой базе: `EXECUTED`.
+- Созданы таблицы: `coin_holds`, `coin_ledger_entries`, `coin_stake_sets`, `coin_stake_operations`, `coin_stake_seal_uploads`, `coin_stake_seal_batches`, `coin_stake_seal_items`, `coin_sealed_stakes`, `coin_settlements`, `coin_settlement_winners`, `coin_settlement_allocations`, `coin_settlement_hold_moves`, `coin_inbox`, `coin_outbox`.
+- Staging-таблицы seal добавлены для протокола Begin/Put/Finalize (T005.4); план перечисляет их косвенно через `sealed stakes`.
+- Ограничения: активный hold один на `(challenge_id, user_id)`; уникальность `join_operation_id`; пары state/version/digest набора; каталог операций и статусов; аренда и фазы settlement; JSONB result/payload; digest/hash 32 байта.
+- `coin_wallets` не изменена: колонки `user_id`, `available_balance`, `locked_balance`, `created_at`, `updated_at` совпадают с исходной миграцией.
+- Новый `CoinsSchemaMigrationIntegrationTest` на Testcontainers проверяет список таблиц, неизменность `coin_wallets`, запрет второго активного hold и CHECK состояния набора.
+- `sh ./mvnw -B -ntp -pl services/coins-service -am test`: `BUILD SUCCESS`, 50 тестов, 0 ошибок.
+- Проверка реальной базы: `databasechangelog` содержит changesets 001 и 002; `\dt` показывает 14 новых таблиц и `coin_wallets`.
+- `git diff --check`: успешно. Проверка относительных Markdown-ссылок Python-скриптом: ошибок нет.
+- Ограничение: доменный код Coins ещё отсутствует; production-миграции не выполнялись. Kafka и deploy не менялись.
