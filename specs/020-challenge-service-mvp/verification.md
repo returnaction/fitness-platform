@@ -112,7 +112,7 @@ Testcontainers-тесты требуют работающего Docker. Без D
 
 Эти ограничения не являются забытыми задачами и не входят в MVP. Маркеры удалены из кода, чтобы не дублировать учёт; дальнейшая работа требует отдельных спецификаций.
 
-1. **Автоматический mTLS E2E результата.** Ручной вызов `FinalizeResult` с сертификатом `result-source` выполнен в T006.5, но автоматического end-to-end теста с сертификатами результата и `coins-service` нет.
+1. **Production-источник результата.** Автоматический mTLS E2E-тест добавлен (`ChallengeResultMtlsIntegrationTest`), но реальный production-источник результата и его SAN пока не определены.
 2. **HMAC-курсор `ListResultWinners`.** В MVP используется UUID-курсор; в дуэли максимум два победителя, поэтому пагинация фактически не применяется. Подписанный курсор нужен при появлении реальной пагинации.
 3. **`challenge_pending_events` для `WAITING`.** При отсутствии окончательного результата событие не сохраняется в отдельную pending-таблицу; доставка удерживается повтором Kafka, inbox не считается применённым.
 4. **Карантин digest в Challenge.** Конфликт `event_id` с другим digest не применяется и фиксируется в ERROR-логе; отдельной quarantine-таблицы в MVP нет.
@@ -725,3 +725,12 @@ Testcontainers-тесты требуют работающего Docker. Без D
 - Подтверждённые пункты проверок по модулям отмечены в этом документе.
 - `git diff --check`: успешно. Проверка относительных Markdown-ссылок Python-скриптом: 1008 ссылок, ошибок нет.
 - Ограничения MVP: отсутствует production-источник результата; mTLS-вызов результата выполнен тестовым клиентом; нет нагрузочного теста Kafka и имитации хаоса; `invalid_access_token` в Gateway расходится с ожидаемым планом `unauthenticated`; TTL/rate limit и длительная недоступность БД остаются будущими задачами. Deploy, commit, push, merge и серверные миграции не выполнялись.
+
+### 2026-11-17 — clean code: complexity и mTLS E2E
+
+- `ChallengeResultService.finalizeResult` разбит на небольшие проверки и шаги: lock, replay/conflict, active, sealed set, validated result, participants, persistence, statuses и outbox.
+- `SettlementCompletedProcessor.apply` разбит на `requireResult`, `applyProjection`, `recordInbox` и `duplicateOrQuarantine`; ветвление проекции вынесено в `ProjectionOutcome`.
+- Добавлен `ChallengeResultMtlsIntegrationTest`: реальный `ChallengeResultGrpcServer`, result-source SAN получает `FinalizeResult`, coins SAN получает `ListResultWinners`, перекрёстные вызовы получают `PERMISSION_DENIED`, клиент без сертификата — `UNAVAILABLE`.
+- `sh ./mvnw -B -ntp -pl services/challenge-service -am verify`: `BUILD SUCCESS`, challenge 74/74, SpotBugs 0.
+- `git diff --check`: успешно. Проверка относительных Markdown-ссылок: ошибок нет.
+- Ограничение: production-источник результата по-прежнему не определён; тест использует краткоживущие локальные сертификаты. Deploy не менялся.

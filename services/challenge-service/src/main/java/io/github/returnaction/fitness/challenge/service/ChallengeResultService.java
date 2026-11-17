@@ -40,23 +40,57 @@ public class ChallengeResultService {
 
     @Transactional
     public FinalResult finalizeResult(FinalizeResultCommand command) {
-        ChallengeEntity challenge = challenges.findByIdForUpdate(command.challengeId())
-                .orElseThrow(() -> new ResultFailureException(ResultFailureException.Reason.CHALLENGE_NOT_ACTIVE));
-
+        ChallengeEntity challenge = lockChallenge(command.challengeId());
         var existing = results.findByResultId(command.resultId());
         if (existing.isPresent()) {
-            if (matches(existing.get(), command)) {
-                return toResult(existing.get());
-            }
-            throw new ResultFailureException(ResultFailureException.Reason.RESULT_ID_CONFLICT);
+            return replayOrConflict(existing.get(), command);
         }
-        if (results.findByChallengeId(command.challengeId()).isPresent()) {
+        requireNoResultForChallenge(command.challengeId());
+        requireActive(challenge);
+        requireSealedStakeSet(command);
+
+        ValidatedResult validated = validateResult(command);
+        List<ChallengeParticipantEntity> participantRows = requireParticipants(command.challengeId(),
+                validated.winners());
+        byte[] winnersDigest = ResultDigest.winnersDigest(command.winnerUserIds());
+        String winnersDigestHex = ResultDigest.toHex(winnersDigest);
+
+        persistResult(command, validated, winnersDigest);
+        finalizeParticipants(participantRows, validated);
+        challenge.finish(Instant.now());
+        appendFinishedEvent(command, winnersDigestHex);
+
+        return new FinalResult(command.resultId(), command.challengeId(), command.setVersion(),
+                validated.outcome(), validated.expectedWinners(), winnersDigestHex);
+    }
+
+    private ChallengeEntity lockChallenge(UUID challengeId) {
+        return challenges.findByIdForUpdate(challengeId)
+                .orElseThrow(() -> new ResultFailureException(
+                        ResultFailureException.Reason.CHALLENGE_NOT_ACTIVE));
+    }
+
+    private FinalResult replayOrConflict(ChallengeResultRepository.ResultRow existing,
+                                         FinalizeResultCommand command) {
+        if (matches(existing, command)) {
+            return toResult(existing);
+        }
+        throw new ResultFailureException(ResultFailureException.Reason.RESULT_ID_CONFLICT);
+    }
+
+    private void requireNoResultForChallenge(UUID challengeId) {
+        if (results.findByChallengeId(challengeId).isPresent()) {
             throw new ResultFailureException(ResultFailureException.Reason.CHALLENGE_RESULT_EXISTS);
         }
+    }
+
+    private void requireActive(ChallengeEntity challenge) {
         if (challenge.getStatus() != ChallengeStatus.ACTIVE) {
             throw new ResultFailureException(ResultFailureException.Reason.CHALLENGE_NOT_ACTIVE);
         }
+    }
 
+    private void requireSealedStakeSet(FinalizeResultCommand command) {
         var stakeSet = sealRepository.findByChallengeId(command.challengeId())
                 .orElseThrow(() -> new ResultFailureException(
                         ResultFailureException.Reason.STAKE_SET_NOT_SEALED));
@@ -66,56 +100,68 @@ public class ChallengeResultService {
         if (stakeSet.version() != command.setVersion() || !stakeSet.digestHex().equals(command.setDigest())) {
             throw new ResultFailureException(ResultFailureException.Reason.STAKE_SET_MISMATCH);
         }
+    }
 
+    private ValidatedResult validateResult(FinalizeResultCommand command) {
         String outcome = command.outcome();
         if (MULTIPLE_WINNERS.equals(outcome)) {
             throw new ResultFailureException(ResultFailureException.Reason.UNSUPPORTED_OUTCOME);
         }
-        if (!SINGLE_WINNER.equals(outcome) && !DRAW.equals(outcome)) {
-            throw new ResultFailureException(ResultFailureException.Reason.INVALID_REQUEST);
-        }
-        int expectedWinners = SINGLE_WINNER.equals(outcome) ? 1 : 2;
+        int expectedWinners = expectedWinners(outcome);
         if (command.winnerUserIds().size() != expectedWinners) {
             throw new ResultFailureException(ResultFailureException.Reason.WINNER_COUNT_MISMATCH);
         }
-        Set<UUID> unique = new HashSet<>(command.winnerUserIds());
-        if (unique.size() != command.winnerUserIds().size()) {
+        Set<UUID> uniqueWinners = new HashSet<>(command.winnerUserIds());
+        if (uniqueWinners.size() != expectedWinners) {
             throw new ResultFailureException(ResultFailureException.Reason.INVALID_REQUEST);
         }
+        return new ValidatedResult(outcome, expectedWinners, uniqueWinners);
+    }
 
+    private int expectedWinners(String outcome) {
+        return switch (outcome) {
+            case SINGLE_WINNER -> 1;
+            case DRAW -> 2;
+            default -> throw new ResultFailureException(ResultFailureException.Reason.INVALID_REQUEST);
+        };
+    }
+
+    private List<ChallengeParticipantEntity> requireParticipants(UUID challengeId, Set<UUID> winners) {
         List<ChallengeParticipantEntity> participantRows =
-                participants.findByChallengeIdOrderByJoinSequenceAsc(command.challengeId());
+                participants.findByChallengeIdOrderByJoinSequenceAsc(challengeId);
         Set<UUID> participantIds = new HashSet<>();
         participantRows.forEach(participant -> participantIds.add(participant.getUserId()));
-        if (!participantIds.containsAll(unique)) {
+        if (!participantIds.containsAll(winners)) {
             throw new ResultFailureException(ResultFailureException.Reason.WINNER_NOT_PARTICIPANT);
         }
+        return participantRows;
+    }
 
-        byte[] winnersDigest = ResultDigest.winnersDigest(command.winnerUserIds());
-        String winnersDigestHex = ResultDigest.toHex(winnersDigest);
-        results.insertResult(command.resultId(), command.challengeId(), command.setVersion(), outcome,
-                command.ruleVersion(), expectedWinners, winnersDigest);
+    private void persistResult(FinalizeResultCommand command, ValidatedResult validated, byte[] winnersDigest) {
+        results.insertResult(command.resultId(), command.challengeId(), command.setVersion(),
+                validated.outcome(), command.ruleVersion(), validated.expectedWinners(), winnersDigest);
         for (UUID winner : command.winnerUserIds()) {
             results.insertWinner(command.resultId(), winner);
         }
+    }
 
+    private void finalizeParticipants(List<ChallengeParticipantEntity> participants,
+                                      ValidatedResult validated) {
         Instant now = Instant.now();
-        for (ChallengeParticipantEntity participant : participantRows) {
-            if (DRAW.equals(outcome)) {
-                participant.complete(now);
-            } else if (unique.contains(participant.getUserId())) {
+        for (ChallengeParticipantEntity participant : participants) {
+            boolean winner = validated.winners().contains(participant.getUserId());
+            if (!DRAW.equals(validated.outcome()) && winner) {
                 participant.win(now);
             } else {
                 participant.complete(now);
             }
         }
-        challenge.finish(now);
+    }
+
+    private void appendFinishedEvent(FinalizeResultCommand command, String winnersDigestHex) {
         UUID eventId = UUID.randomUUID();
         outbox.append(eventId, "challenge.finished", 1, command.challengeId(),
                 eventPayload(eventId, command, winnersDigestHex));
-
-        return new FinalResult(command.resultId(), command.challengeId(), command.setVersion(), outcome,
-                expectedWinners, winnersDigestHex);
     }
 
     @Transactional(readOnly = true)
@@ -160,8 +206,10 @@ public class ChallengeResultService {
                 row.winnerCount(), row.winnersDigestHex());
     }
 
-    private String eventPayload(UUID eventId, FinalizeResultCommand command, String winnersDigestHex) {
-        var data = new LinkedHashMap<String, Object>();
+    private record ValidatedResult(String outcome, int expectedWinners, Set<UUID> winners) {
+    }
+
+    private String eventPayload(UUID eventId, FinalizeResultCommand command, String winnersDigestHex) {        var data = new LinkedHashMap<String, Object>();
         data.put("challengeId", command.challengeId().toString());
         data.put("resultId", command.resultId().toString());
         data.put("setVersion", command.setVersion());

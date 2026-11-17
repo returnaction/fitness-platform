@@ -52,47 +52,64 @@ public class SettlementCompletedProcessor {
         }
 
         SettlementCompletedData data = event.data();
-        Optional<ChallengeResultRepository.ResultRow> result = results.findByResultId(data.resultId());
-        if (result.isEmpty()) {
-            throw new SettlementNotReadyException(data.resultId());
-        }
-        if (!matches(result.get(), data)) {
+        ChallengeResultRepository.ResultRow result = requireResult(data);
+        if (!matches(result, data)) {
             log.warn("Settlement event does not match the final result, event_id={}, challenge_id={}, "
                     + "result_id={}", eventId, data.challengeId(), data.resultId());
             return SettlementApplyResult.QUARANTINED;
         }
 
-        boolean projectionExisted = false;
+        ProjectionOutcome projection = applyProjection(eventId, data);
+        if (projection == ProjectionOutcome.CONFLICT) {
+            return SettlementApplyResult.QUARANTINED;
+        }
+        if (!recordInbox(eventId, digest)) {
+            return SettlementApplyResult.DUPLICATE;
+        }
+        return projection == ProjectionOutcome.EXISTING
+                ? SettlementApplyResult.DUPLICATE
+                : SettlementApplyResult.APPLIED;
+    }
+
+    private ChallengeResultRepository.ResultRow requireResult(SettlementCompletedData data) {
+        return results.findByResultId(data.resultId())
+                .orElseThrow(() -> new SettlementNotReadyException(data.resultId()));
+    }
+
+    private ProjectionOutcome applyProjection(UUID eventId, SettlementCompletedData data) {
         Optional<ChallengeSettlementStatusRepository.SettlementRow> projection =
                 settlements.findByChallengeId(data.challengeId());
         if (projection.isPresent()) {
-            projectionExisted = true;
-            if (!matches(projection.get(), data)) {
-                log.warn("Settlement projection conflicts with the applied settlement, event_id={}, "
-                        + "challenge_id={}", eventId, data.challengeId());
-                return SettlementApplyResult.QUARANTINED;
-            }
-        } else {
-            settlements.insert(data.challengeId(), data.resultId(), data.settlementId(), eventId,
-                    data.completedAt());
-            var stored = settlements.findByChallengeId(data.challengeId())
-                    .orElseThrow(() -> new IllegalStateException("Settlement projection was not stored"));
-            if (!matches(stored, data)) {
-                log.warn("Settlement projection conflicts with the concurrent settlement, event_id={}, "
-                        + "challenge_id={}", eventId, data.challengeId());
-                return SettlementApplyResult.QUARANTINED;
-            }
+            return matches(projection.get(), data)
+                    ? ProjectionOutcome.EXISTING
+                    : conflict(eventId, data, "applied");
         }
 
-        if (inbox.insertIfAbsent(CONSUMER, eventId, digest) == 0) {
-            byte[] storedDigest = inbox.findDigest(CONSUMER, eventId)
-                    .orElseThrow(() -> new IllegalStateException("Inbox record disappeared"));
-            if (!Arrays.equals(storedDigest, digest)) {
-                throw new SettlementDigestConflictException(eventId);
-            }
-            return SettlementApplyResult.DUPLICATE;
+        settlements.insert(data.challengeId(), data.resultId(), data.settlementId(), eventId,
+                data.completedAt());
+        var stored = settlements.findByChallengeId(data.challengeId())
+                .orElseThrow(() -> new IllegalStateException("Settlement projection was not stored"));
+        return matches(stored, data)
+                ? ProjectionOutcome.INSERTED
+                : conflict(eventId, data, "concurrent");
+    }
+
+    private ProjectionOutcome conflict(UUID eventId, SettlementCompletedData data, String kind) {
+        log.warn("Settlement projection conflicts with the {} settlement, event_id={}, challenge_id={}",
+                kind, eventId, data.challengeId());
+        return ProjectionOutcome.CONFLICT;
+    }
+
+    private boolean recordInbox(UUID eventId, byte[] digest) {
+        if (inbox.insertIfAbsent(CONSUMER, eventId, digest) != 0) {
+            return true;
         }
-        return projectionExisted ? SettlementApplyResult.DUPLICATE : SettlementApplyResult.APPLIED;
+        byte[] storedDigest = inbox.findDigest(CONSUMER, eventId)
+                .orElseThrow(() -> new IllegalStateException("Inbox record disappeared"));
+        if (!Arrays.equals(storedDigest, digest)) {
+            throw new SettlementDigestConflictException(eventId);
+        }
+        return false;
     }
 
     private SettlementApplyResult duplicateOrQuarantine(byte[] storedDigest, byte[] incomingDigest,
@@ -157,5 +174,11 @@ public class SettlementCompletedProcessor {
         } catch (IllegalArgumentException _) {
             return false;
         }
+    }
+
+    private enum ProjectionOutcome {
+        INSERTED,
+        EXISTING,
+        CONFLICT
     }
 }
