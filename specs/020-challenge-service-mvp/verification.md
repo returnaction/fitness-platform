@@ -222,3 +222,12 @@ Testcontainers-тесты требуют работающего Docker. Без D
 - `sh ./mvnw -B -ntp -pl services/gateway-service -am test`: `BUILD SUCCESS`, 53 теста, 0 ошибок.
 - `git diff --check`: успешно. Проверка относительных Markdown-ссылок Python-скриптом: ошибок нет.
 - Ограничение: полный `verify` и SpotBugs выполняются в T003.6. БД, Kafka, deploy и commit не выполнялись.
+
+### 2026-11-17 — T003.6, verify Gateway
+
+- `sh ./mvnw -B -ntp -pl services/gateway-service -am verify`: `BUILD SUCCESS`.
+- Тесты: contracts 5/5, gateway 53/53; падений, ошибок и пропусков нет.
+- SpotBugs: `BugInstance size is 0`, `Error size is 0`, предупреждений нет.
+- Собран `gateway-service-0.1.3.jar`.
+- `git diff --check`: успешно. Проверка относительных Markdown-ссылок Python-скриптом: ошибок нет.
+- Ограничение: серверная выкладка и сквозной сценарий через Gateway не выполнялись; это T006. БД, Kafka, deploy и commit не выполнялись.
