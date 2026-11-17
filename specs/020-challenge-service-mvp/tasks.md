@@ -12,7 +12,7 @@
 - [x] T002.1 — Owner OpenAPI Challenge. Зависит от T001. Критерий: `contracts/openapi/challenge-v1.yaml` описывает draft/patch/publish/join/cancel/read/operations/result, camelCase, Bearer, обязательный `Idempotency-Key`, ответы `200/201/202` со `statusUrl`, `refundStatus`, `settlementStatus`, ошибки с `requestId`.
 - [x] T002.2 — gRPC-контракт ставок. Зависит от T002.1. Критерий: `contracts/proto/coins-stake-v1.proto` содержит Reserve/Release/GetStakeOperation, Begin/Put/Finalize, Freeze/CompleteCancellation, бизнес-исходы и ошибки operation ID; версия `fitness-grpc-contracts` повышена.
 - [x] T002.3 — gRPC-контракт результата. Зависит от T002.2. Критерий: `contracts/proto/challenge-results-v1.proto` содержит `FinalizeResult` и `ListResultWinners`, поля digest/count/outcome, правила mTLS-авторизации и конфликта resultId.
-- [ ] T002.4 — Gateway OpenAPI. Зависит от T002.3. Критерий: `contracts/openapi/gateway-v1.yaml` содержит только `$ref` на путь Challenge, protected paths и публичный `503 challenge_unavailable`, без дублирования схем.
+- [x] T002.4 — Gateway OpenAPI. Зависит от T002.3. Критерий: `contracts/openapi/gateway-v1.yaml` содержит только `$ref` на путь Challenge, protected paths и публичный `503 challenge_unavailable`, без дублирования схем.
 - [ ] T002.5 — Проверка контрактов и потребителей. Зависит от T002.4. Критерий: `openapi-spec-validator` проходит; все пять потребителей `fitness-grpc-contracts` используют одну версию; индекс `contracts/README.md` обновлён.
 
 ## Реализация

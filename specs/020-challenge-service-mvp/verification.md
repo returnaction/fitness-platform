@@ -155,3 +155,11 @@ Testcontainers-тесты требуют работающего Docker. Без D
 - `sh ./mvnw -B -ntp -pl services/challenge-service,services/coins-service -am clean test-compile`: `BUILD SUCCESS`.
 - `git diff --check`: успешно. Проверка относительных Markdown-ссылок Python-скриптом: 1004 ссылки, ошибок нет.
 - Код сервисов, БД, Kafka, deployment, commit, push и deploy не выполнялись.
+
+### 2026-11-17 — T002.4, Gateway OpenAPI
+
+- `contracts/openapi/gateway-v1.yaml`: добавлены `$ref` на восемь путей `challenge-v1.yaml`, тег `Challenge`, защищённые пути и `upstream-errors` `503 → challenge_unavailable` для каждого пути. Схемы Challenge не дублируются.
+- `contracts/gateway-v1.md`: добавлен раздел о маршрутах Challenge, forwarding, query string, публичном `503 challenge_unavailable` и недоступности внутреннего gRPC. Маршруты в Gateway ещё не реализованы.
+- `/private/var/folders/.../opencode/openapi-venv/bin/python -m openapi_spec_validator contracts/openapi/challenge-v1.yaml contracts/openapi/gateway-v1.yaml`: оба файла `OK`.
+- `git diff --check`: успешно. Проверка относительных Markdown-ссылок Python-скриптом: ошибок нет.
+- Код сервисов, маршруты Gateway, БД, Kafka, deployment, commit, push и deploy не выполнялись.
