@@ -518,3 +518,17 @@ Testcontainers-тесты требуют работающего Docker. Без D
 - `sh ./mvnw -B -ntp -pl services/challenge-service -am test`: `BUILD SUCCESS`, contracts 5/5, challenge 67/67.
 - `git diff --check`: успешно. Проверка относительных Markdown-ссылок Python-скриптом: ошибок нет.
 - Ограничение: таблица `challenge_pending_events` не входит в MVP; конфликт digest фиксируется отказом от применения и ERROR-логом, а неизвестный результат удерживается повторной доставкой Kafka. Реальный брокер в тестах не поднимался; deploy не менялся.
+
+### 2026-11-17 — T005.6, settlement Coins
+
+- `ChallengeFinishedConsumer` подписан на `fitness.challenge.finished.v1` с группой `coins-service.challenge-finished`; key проверяется как `challengeId`.
+- `ChallengeFinishedProcessor` разбирает snake_case-оболочку и camelCase `data`, проверяет обязательные поля, outcome/count, digest-формат и inbox по `event_id`.
+- `ChallengeResultGrpcClient` читает победителей страницами по mTLS; `UNAVAILABLE`/`DEADLINE_EXCEEDED` оставляют событие на повтор, постоянный отказ уходит в карантин.
+- `SettlementService` одной транзакцией проверяет закрытый набор, `setDigest`, count/digest победителей, принадлежность победителей набору и точное совпадение активных holds; затем переводит holds в `SETTLED`, обновляет кошельки и ledger, сохраняет allocations/hold moves, переводит stake set в `SETTLED`, settlement — в `COMPLETED` и пишет `coins.settlement_completed` в outbox вместе с inbox.
+- `SINGLE_WINNER` начисляет победителю весь банк; `DRAW` возвращает каждому победителю его ставку. Сумма выплат равна сумме holds; остатка нет.
+- Повтор события и другой `event_id` для того же `resultId` не создают второй settlement и не платят дважды; конфликт digest и несовпадение результата не изменяют состояние.
+- Исправлен выявленный дефект T005.4: `FinalizeStakeSet` теперь сохраняет `coin_sealed_stakes` — неизменяемый снимок, необходимый для расчёта.
+- `SettlementServiceIntegrationTest` покрывает SINGLE_WINNER, DRAW, несовпадение digest/состава победителей, неверный `setDigest`, replay события и бизнес-повтор по `resultId`.
+- `sh ./mvnw -B -ntp -pl services/coins-service -am test`: `BUILD SUCCESS`, contracts 5/5, coins 85/85.
+- `git diff --check`: успешно. Проверка относительных Markdown-ссылок Python-скриптом: ошибок нет.
+- Ограничение: mTLS-клиент Challenge не проверен end-to-end; реальный Kafka-брокер и публикация outbox появятся в T005.7. Escrow, pending/quarantine-таблицы и административное возобновление не входят в MVP. Deploy не менялся.

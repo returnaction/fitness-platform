@@ -119,6 +119,9 @@ public class StakeSetService {
         if (repository.sealStakeSet(upload.challengeId(), upload.setVersion(), expectedDigest) != 1) {
             throw new StakeSetSealedException();
         }
+        for (SealedStake stake : items) {
+            repository.insertSealedStake(upload.challengeId(), upload.setVersion(), stake);
+        }
         repository.markUploadSealed(command.sealOperationId());
 
         FinalizeStakeSetResult result = new FinalizeStakeSetResult(command.sealOperationId(),

@@ -224,6 +224,18 @@ public class StakeRepository {
                 .addValue("digest", digest));
     }
 
+    public void insertSealedStake(UUID challengeId, long setVersion, SealedStake stake) {
+        jdbc.update("""
+                INSERT INTO coin_sealed_stakes (challenge_id, set_version, hold_id, user_id, amount)
+                VALUES (:challengeId, :setVersion, :holdId, :userId, :amount)
+                """, new MapSqlParameterSource()
+                .addValue(CHALLENGE_ID, challengeId)
+                .addValue("setVersion", setVersion)
+                .addValue(HOLD_ID, stake.holdId())
+                .addValue(USER_ID, stake.userId())
+                .addValue(AMOUNT, stake.amount()));
+    }
+
     public int markStakeSetDraining(UUID challengeId, UUID cancellationId) {
         return jdbc.update("""
                 UPDATE coin_stake_sets

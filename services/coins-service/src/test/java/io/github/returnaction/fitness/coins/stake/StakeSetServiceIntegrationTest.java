@@ -71,6 +71,10 @@ class StakeSetServiceIntegrationTest {
         assertThat(result.setDigestHex()).isEqualTo(digest(stakes));
         assertThat(stakeSetState(challengeId)).isEqualTo("SEALED");
         assertThat(uploadStatus(sealId)).isEqualTo("SEALED");
+        assertThat(count("""
+                SELECT count(*) FROM coin_sealed_stakes
+                WHERE challenge_id = ? AND set_version = 1
+                """, challengeId)).isEqualTo(2);
         assertThat(count("SELECT count(*) FROM coin_stake_operations WHERE kind = 'SEAL' AND id = ?", sealId))
                 .isEqualTo(1);
 
