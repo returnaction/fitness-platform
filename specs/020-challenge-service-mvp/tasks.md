@@ -28,7 +28,7 @@
 
 ### Challenge: основа и чтение
 
-- [ ] T004.1 — Зависимости и конфигурация модуля. Зависит от T003.6. Критерий: добавлены JPA, Liquibase, PostgreSQL, validation, MapStruct, gRPC, Kafka, Testcontainers; строгий Jackson как в Accounts; приложение стартует в тестах.
+- [x] T004.1 — Зависимости и конфигурация модуля. Зависит от T003.6. Критерий: добавлены JPA, Liquibase, PostgreSQL, validation, MapStruct, gRPC, Kafka, Testcontainers; строгий Jackson как в Accounts; приложение стартует в тестах.
 - [ ] T004.2 — Миграции `fitness_challenge`. Зависит от T004.1 и отдельного разрешения на БД. Критерий: созданы только таблицы из `plan.md`; CHECK и уникальные индексы соответствуют спеке; пустая БД поднимается Liquibase.
 - [ ] T004.3 — Доменные состояния и переходы. Зависит от T004.2. Критерий: `DRAFT→OPEN→ACTIVE→FINISHED` и `OPEN→CANCELLED` сериализуются; некорректные переходы отклоняются; статусы участия соответствуют спеке.
 - [ ] T004.4 — Repository-слой и блокировки. Зависит от T004.3. Критерий: чтение под pessimistic lock, `version`, `next_join_sequence`, частичный уникальный индекс незавершённых операций, `UNIQUE(hold_id)` release intent.

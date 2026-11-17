@@ -231,3 +231,15 @@ Testcontainers-тесты требуют работающего Docker. Без D
 - Собран `gateway-service-0.1.3.jar`.
 - `git diff --check`: успешно. Проверка относительных Markdown-ссылок Python-скриптом: ошибок нет.
 - Ограничение: серверная выкладка и сквозной сценарий через Gateway не выполнялись; это T006. БД, Kafka, deploy и commit не выполнялись.
+
+### 2026-11-17 — T004.1, зависимости и конфигурация Challenge
+
+- `services/challenge-service/pom.xml`: версия `0.1.3`; добавлены JPA, validation, Liquibase, PostgreSQL, MapStruct, gRPC (`grpc-netty-shaded` + контракты `0.1.2`), `spring-boot-starter-kafka`, Testcontainers PostgreSQL/JUnit/Kafka, `spring-boot-starter-webmvc-test`, BouncyCastle для тестовых сертификатов, Lombok и SpotBugs annotations.
+- `application.yaml`: строгие настройки Jackson как в Accounts, datasource с Hikari, `ddl-auto: validate`, `open-in-view: false`, Liquibase changelog `classpath:db/changelog/db.changelog-master.yaml`.
+- Добавлен `JacksonConfiguration` для запрета скалярных coercion.
+- `db.changelog-master.yaml` пока пуст (`databaseChangeLog: []`); таблицы и changeSet появятся в T004.2.
+- `ChallengeServiceApplicationTest` переведён на PostgreSQL Testcontainers с `disabledWithoutDocker = true`; тестовые ресурсы содержат безопасные DATABASE_* значения и отключённый Kafka health indicator.
+- `.env.example` и `README.md` дополнены обязательными переменными БД.
+- `sh ./mvnw -B -ntp -pl services/challenge-service -am test`: `BUILD SUCCESS`, contracts 5/5, challenge 1/1; контекст стартует с Liquibase и JPA.
+- `git diff --check`: успешно. Проверка относительных Markdown-ссылок Python-скриптом: ошибок нет.
+- Ограничение: таблиц и миграций нет, это T004.2 и требует отдельного разрешения на БД. Kafka-брокер в этой задаче не использовался; deploy и commit не выполнялись.
