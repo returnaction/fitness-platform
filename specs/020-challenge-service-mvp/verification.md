@@ -321,3 +321,16 @@ Testcontainers-тесты требуют работающего Docker. Без D
 - `sh ./mvnw -B -ntp -pl services/challenge-service -am test`: `BUILD SUCCESS`, contracts 5/5, challenge 30/30.
 - `git diff --check`: успешно. Проверка относительных Markdown-ссылок Python-скриптом: ошибок нет.
 - Ограничение: подключение к draft/publish/join endpoints — T004.8; стратегия повторного чтения после конкурентной вставки будет реализована там. БД, Kafka и deploy не менялись.
+
+### 2026-11-17 — T004.8, API черновиков и чтения
+
+- DTO: `CreateDraftRequest`, `UpdateDraftRequest` с различением отсутствующего и явно null поля, `DraftResponse`, `ChallengeDetailsResponse`, `OperationResponse`.
+- `ChallengeDraftService`: создание и изменение черновика под `findByIdForUpdate`, проверка владельца, состояния `DRAFT` и `version`; чтение challenge с `viewer`, `refundStatus` и `settlementStatus`; чтение операции только её владельцем.
+- `ChallengeReadRepository` вычисляет `settlementStatus` по `challenge_results`/`challenge_settlement_status`: `UNKNOWN` без результата, `PENDING` до расчёта, `COMPLETED` после.
+- `refundStatus`: `NONE` вне отмены, `PENDING` при незавершённых release intent, `COMPLETED` после подтверждения.
+- `ChallengeController`: `POST /challenges/drafts` (`201` + `Location`), `PATCH /challenges/{id}/draft` (`200`), `GET /challenges/{id}`, `GET /challenge-operations/{id}`; везде `Cache-Control: no-store`.
+- Идемпотентность подключена к POST/PATCH: повтор с тем же ключом и каноническим телом возвращает сохранённый ответ, другое тело — `409 idempotency_key_conflict`.
+- `ChallengeDraftFlowIntegrationTest` подтверждает: `201`/`Location`, replay, `400` без ключа, `200` после PATCH, `409 version_conflict`, `422 validation_error`, `409` идемпотентности, `404` для чужого черновика и чужой операции, корректные `refundStatus`/`settlementStatus`, `viewer.isCreator`.
+- `sh ./mvnw -B -ntp -pl services/challenge-service -am test`: `BUILD SUCCESS`, contracts 5/5, challenge 33/33.
+- `git diff --check`: успешно. Проверка относительных Markdown-ссылок Python-скриптом: ошибок нет.
+- Ограничение: publish/join/result endpoints появятся в T004.10–T004.16; результат PENDING-операции пока null. БД, Kafka и deploy не менялись.

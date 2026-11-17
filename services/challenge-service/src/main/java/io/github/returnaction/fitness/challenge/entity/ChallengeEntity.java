@@ -3,6 +3,7 @@ package io.github.returnaction.fitness.challenge.entity;
 import io.github.returnaction.fitness.challenge.domain.ChallengeMode;
 import io.github.returnaction.fitness.challenge.domain.ChallengeStatus;
 import io.github.returnaction.fitness.challenge.domain.ChallengeVisibility;
+import io.github.returnaction.fitness.challenge.domain.DraftChanges;
 import io.github.returnaction.fitness.challenge.domain.StartMode;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -101,5 +102,26 @@ public class ChallengeEntity {
         version++;
         updatedAt = now;
         return sequence;
+    }
+
+    /**
+     * Применяет частичное изменение черновика. Вызывается только после проверки
+     * состояния, владельца и ожидаемой версии под блокировкой строки.
+     */
+    public void updateDraft(DraftChanges changes, Instant now) {
+        if (changes.titlePresent()) {
+            title = changes.title();
+        }
+        if (changes.descriptionPresent()) {
+            description = changes.description();
+        }
+        if (changes.stakeAmountPresent()) {
+            stakeAmount = changes.stakeAmount();
+        }
+        if (changes.durationDaysPresent()) {
+            durationDays = changes.durationDays();
+        }
+        version++;
+        updatedAt = now;
     }
 }

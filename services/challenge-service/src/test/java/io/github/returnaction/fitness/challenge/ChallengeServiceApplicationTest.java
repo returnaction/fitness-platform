@@ -64,7 +64,7 @@ class ChallengeServiceApplicationTest {
                     requestWithToken("/api/v1/challenges/" + UUID.randomUUID()),
                     HttpResponse.BodyHandlers.ofString());
             assertEquals(404, authorized.statusCode());
-            assertTrue(authorized.body().contains("\"code\":\"not_found\""));
+            assertTrue(authorized.body().contains("\"code\":\"challenge_not_found\""));
         }
     }
 
