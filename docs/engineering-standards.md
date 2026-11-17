@@ -87,10 +87,23 @@ services/example-service/
       entity/
       dto/
       mapper/
-    security/
     shared/
+      security/
+        SecurityConfiguration.java
       web/
-        ApiExceptionHandler.java
+        configuration/
+          ServletFiltersConfiguration.java
+          CoinsWebConfiguration.java
+        requestid/
+          RequestIdFilter.java
+          RequestIdResolver.java
+        interceptor/
+          NoStoreResponseInterceptor.java
+          NoQueryParametersInterceptor.java
+        error/
+          ApiExceptionHandler.java
+          ApiErrorResponse.java
+          InvalidRequestException.java
       exception/
       configuration/
 ```
@@ -106,6 +119,70 @@ services/example-service/
 сервиса. Бизнес-правила конкретной функции туда не переносятся.
 Нельзя создавать общую Java-библиотеку бизнес-моделей для разных сервисов:
 сервисы взаимодействуют через REST, gRPC или события с явным контрактом.
+
+### Общие HTTP-компоненты внутри сервиса
+
+Структура `shared.web` выше показана на примере Coins; в другом сервисе имя
+его MVC-конфигурации должно отражать этот сервис. Создаём подпакеты по мере
+появления соответствующего кода, а не копируем пустые папки.
+
+| Пакет | Назначение |
+| --- | --- |
+| `shared.web.configuration` | Регистрация servlet-фильтров и MVC-interceptors, пути и порядок выполнения |
+| `shared.web.requestid` | Назначение ID запроса и связанные правила его разбора |
+| `shared.web.interceptor` | Общие действия перед контроллером: заголовки ответа и проверки HTTP-контракта |
+| `shared.web.error` | Общий обработчик ошибок, формат ответа и исключения HTTP-контракта |
+| `shared.security` | Конфигурация Spring Security, фильтр аутентификации и обработчик отказов доступа |
+
+Связанные классы держим вместе: например, RequestIdFilter и RequestIdResolver
+решают одну задачу, поэтому не разносим их в общие `filter` и `util`.
+Небольшой `shared.security` не дробим на папки с одним классом.
+Бизнес-исключения остаются в соответствующей функции, а не перемещаются
+в `shared.web.error` только потому, что общий обработчик их перехватывает.
+Проекции запросов размещаем в `repository.projection` соответствующей функции;
+имя отражает назначение, например `DailyRewardStatusProjection`.
+
+### Регистрация и порядок HTTP-обработки
+
+Порядок задаётся отдельно для трёх уровней; одного общего списка для них нет:
+
+1. Наши servlet-фильтры регистрируем через `FilterRegistrationBean` в
+   `ServletFiltersConfiguration`. Порядок задаём через `setOrder(...)`.
+   RequestIdFilter выполняется раньше Spring Security, чтобы ID был и у ошибок
+   авторизации. В текущем Coins используется `Ordered.HIGHEST_PRECEDENCE`.
+2. Фильтры внутри Spring Security подключаем в `SecurityConfiguration`
+   через `addFilterBefore` / `addFilterAfter` относительно фильтра этой цепочки.
+3. MVC-interceptors подключаем в MVC-конфигурации сервиса через
+   `addInterceptors`, с явными путями и `.order(...)`. В Coins no-store имеет
+   порядок 0, проверка query-параметров — 1. Они работают перед контроллером,
+   после прохождения security-цепочки.
+
+Меньшее значение порядка означает более раннее выполнение **внутри своего
+уровня**. Конфигурации собирают цепочки при запуске приложения; их методы
+регистрации не вызываются заново на каждый запрос.
+
+Не регистрируем фильтр дважды. При использовании FilterRegistrationBean убираем
+с класса фильтра `@Component` и `@Order`. Фильтр, подключённый только внутри
+Spring Security, не регистрируем дополнительно как servlet-фильтр; если он
+объявлен Spring bean, исключаем его автоматическую servlet-регистрацию.
+
+Запрет кеширования и запрет query-параметров — независимые обязанности.
+Для них используем отдельные interceptors и отдельные списки путей.
+Не запрещаем query-параметры всему API сервиса широким шаблоном: будущим
+endpoints могут понадобиться пагинация и фильтры. Разрешённое кеширование
+задаём явно по контракту endpoint; отсутствие NoStoreResponseInterceptor
+само по себе не гарантирует кешируемый ответ — остаются настройки Security и Gateway.
+
+Обработчики ошибок самостоятельно устанавливают `Cache-Control: no-store`:
+ошибка может возникнуть до MVC-interceptor. SecurityExceptionHandler передаёт
+ошибку через resolver в ApiExceptionHandler и не является очередным фильтром.
+
+В комментариях к цепочке можно использовать сквозные шаги и отдельную ветку
+ошибок. Отличаем настройку при запуске от обработки запроса и обратного выхода:
+код после `filterChain.doFilter(...)` выполняется после возврата из дальнейшей
+цепочки; очистку контекста пользователя выполняем в `finally`.
+Такая структура не заменяет проверки токена и не подтверждает защиту доступа
+в обход Gateway: разбор JWT и проверка его подлинности — разные действия.
 
 ## 3. Ответственность классов
 

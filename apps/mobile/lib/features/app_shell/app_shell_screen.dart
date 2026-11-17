@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../auth/account_screen.dart';
+
 import '../home/home_screen.dart';
 import '../profile/profile_screen.dart';
 
@@ -15,27 +15,29 @@ class _AppShellScreenState extends State<AppShellScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    body: switch (_selectedIndex) {
-      0 => const HomeScreen(),
-      2 => const ProfileScreen(),
-      _ => const AccountScreen(),
-    },
+    body: _selectedIndex == 2 ? const ProfileScreen() : const HomeScreen(),
     bottomNavigationBar: NavigationBar(
       selectedIndex: _selectedIndex,
       onDestinationSelected: (index) {
         if (index != 1 && _selectedIndex != index) {
+          ScaffoldMessenger.of(context).removeCurrentSnackBar();
           setState(() => _selectedIndex = index);
         }
       },
       destinations: const [
         NavigationDestination(
-          icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home), label: 'Home',
+          icon: Icon(Icons.home_outlined),
+          selectedIcon: Icon(Icons.home),
+          label: 'Home',
         ),
         NavigationDestination(
-          icon: Icon(Icons.emoji_events_outlined), label: 'Challenges', enabled: false,
+          icon: Icon(Icons.emoji_events_outlined),
+          label: 'Challenges',
+          enabled: false,
         ),
         NavigationDestination(
-          icon: Icon(Icons.person_outline), selectedIcon: Icon(Icons.person),
+          icon: Icon(Icons.person_outline),
+          selectedIcon: Icon(Icons.person),
           label: 'Profile',
         ),
       ],

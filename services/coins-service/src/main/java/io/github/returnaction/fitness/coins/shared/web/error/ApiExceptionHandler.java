@@ -1,8 +1,12 @@
-package io.github.returnaction.fitness.coins.shared.web;
+package io.github.returnaction.fitness.coins.shared.web.error;
+
+import io.github.returnaction.fitness.coins.shared.web.requestid.RequestIdFilter;
 
 import io.github.returnaction.fitness.coins.wallet.exception.CoinsUnavailableException;
 import io.github.returnaction.fitness.coins.wallet.exception.WalletInvariantViolationException;
 import jakarta.servlet.http.HttpServletRequest;
+import java.util.Arrays;
+import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -10,33 +14,41 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
+import org.springframework.transaction.CannotCreateTransactionException;
 import org.springframework.web.HttpMediaTypeNotAcceptableException;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
-import java.util.List;
-
-
+/**
+ * Превращает ошибки HTTP API Coins в единый ответ с кодом ошибки и requestId.
+ * Технические подробности не отправляются клиенту. Ответы с ошибками не кешируются,
+ * даже если ошибка возникла до выполнения MVC-interceptors.
+ * Недоступный до истечения 24 часов подарок — обычный результат сервиса, а не исключение.
+ */
 @Slf4j
 @RestControllerAdvice
 public class ApiExceptionHandler {
 
     private static final String NO_STORE = "no-store";
 
+    // Неверный формат запроса, в том числе отсутствующий Idempotency-Key или ключ не в формате UUID.
     @ExceptionHandler(
         {
             HttpMessageNotReadableException.class,
             MethodArgumentTypeMismatchException.class,
+            MissingRequestHeaderException.class,
             InvalidRequestException.class
         })
     ResponseEntity<ApiErrorResponse> handleInvalidRequest(HttpServletRequest request) {
         return response(HttpStatus.BAD_REQUEST, "invalid_request", "Check the request format.", List.of(), request);
     }
 
+    // Тело прочитано, но поля не прошли валидацию. Значения полей и тексты исключений не возвращаем.
     @ExceptionHandler(MethodArgumentNotValidException.class)
     ResponseEntity<ApiErrorResponse> handleValidation(MethodArgumentNotValidException exception,
                                                       HttpServletRequest request) {
@@ -67,6 +79,7 @@ public class ApiExceptionHandler {
             .body(errorBody("method_not_allowed", "HTTP method is not supported.", List.of(), request));
     }
 
+    // Клиент не принимает доступный формат ответа: не пытаемся отправить ему JSON с ошибкой.
     @ExceptionHandler(HttpMediaTypeNotAcceptableException.class)
     ResponseEntity<Void> handleNotAcceptable() {
         return ResponseEntity.status(HttpStatus.NOT_ACCEPTABLE)
@@ -90,6 +103,7 @@ public class ApiExceptionHandler {
             .body(errorBody("access_denied", "Access denied.", List.of(), request));
     }
 
+    // Нарушение состояния кошелька — ошибка сервера, а не неверный запрос пользователя.
     @ExceptionHandler(WalletInvariantViolationException.class)
     ResponseEntity<ApiErrorResponse> handleWalletInvariantViolation(HttpServletRequest request) {
 
@@ -106,17 +120,30 @@ public class ApiExceptionHandler {
         Throwable cause = exception.getCause();
         String reason = cause == null ? "unknown" : cause.getClass().getSimpleName();
 
-        log.warn("Wallet temporarily unavailable, request_id={}, reason={}", requestId(request), reason);
+        log.warn("Coins service temporarily unavailable, request_id={}, reason={}", requestId(request), reason);
 
-        return response(HttpStatus.SERVICE_UNAVAILABLE, "coins_unavailable", "Wallet is temporarily unavailable.",
-            List.of(), request);
+        return unavailableResponse(request);
+    }
+
+    // Транзакция может не открыться ещё до входа в метод сервиса, поэтому обрабатываем ошибку и здесь.
+    @ExceptionHandler(CannotCreateTransactionException.class)
+    ResponseEntity<ApiErrorResponse> handleCannotCreateTransaction(HttpServletRequest request) {
+
+        log.warn("Database transaction could not be created, request_id={}", requestId(request));
+
+        return unavailableResponse(request);
     }
 
     @ExceptionHandler(Exception.class)
     ResponseEntity<ApiErrorResponse> handleUnexpected(Exception exception, HttpServletRequest request) {
 
-        log.error("Unhandled request failure, request_id={}, error_type={}",
-            requestId(request), exception.getClass().getName());
+        // Пишем тип ошибки, тип причины и места вызовов, но не сообщения исключений:
+        // сообщения могут содержать SQL, параметры запроса и другие приватные данные.
+        Throwable cause = exception.getCause();
+        log.error("Unhandled request failure, request_id={}, error_type={}, cause_type={}, stack_trace={}",
+            requestId(request), exception.getClass().getName(),
+            cause == null ? "none" : cause.getClass().getName(),
+            Arrays.toString(exception.getStackTrace()));
 
         return response(HttpStatus.INTERNAL_SERVER_ERROR, "internal_error", "Unexpected server error.", List.of(),
             request);
@@ -142,6 +169,15 @@ public class ApiExceptionHandler {
         return ResponseEntity.status(status)
             .header(HttpHeaders.CACHE_CONTROL, NO_STORE)
             .body(errorBody(code, message, details, request));
+    }
+
+    private ResponseEntity<ApiErrorResponse> unavailableResponse(HttpServletRequest request) {
+
+        // Предлагаем повторить запрос через секунду. Для начисления клиент должен использовать прежний ключ.
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+            .header(HttpHeaders.CACHE_CONTROL, NO_STORE)
+            .header(HttpHeaders.RETRY_AFTER, "1")
+            .body(errorBody("coins_unavailable", "Coins service is temporarily unavailable.", List.of(), request));
     }
 
     private ApiErrorResponse errorBody(String code,

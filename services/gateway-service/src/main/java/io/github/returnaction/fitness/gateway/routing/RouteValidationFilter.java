@@ -14,6 +14,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.jspecify.annotations.NonNull;
 import org.springframework.http.HttpHeaders;
 import org.springframework.security.web.util.matcher.RequestMatcher;
 import org.springframework.stereotype.Component;
@@ -36,13 +37,14 @@ public final class RouteValidationFilter extends OncePerRequestFilter {
     }
 
     @Override
-    protected boolean shouldNotFilter(HttpServletRequest request) {
+    protected boolean shouldNotFilter(@NonNull HttpServletRequest request) {
         return management.matches(request);
     }
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
-        FilterChain chain) throws ServletException, IOException {
+    protected void doFilterInternal(@NonNull HttpServletRequest request,
+                                    @NonNull HttpServletResponse response,
+                                    @NonNull FilterChain chain) throws ServletException, IOException {
         List<String> allowedMethods = allowedMethods(request);
         if (allowedMethods.isEmpty()) {
             errorWriter.write(response, HttpServletResponse.SC_NOT_FOUND, GatewayErrorCode.NOT_FOUND,
@@ -72,7 +74,6 @@ public final class RouteValidationFilter extends OncePerRequestFilter {
                 .toList();
     }
 
-    private record RouteMatcher(RequestMatcher matcher,
-                                String method) {
+    private record RouteMatcher(RequestMatcher matcher, String method) {
     }
 }

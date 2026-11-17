@@ -89,7 +89,7 @@ class JwtValidationTest {
     private JwksInitializer keys;
     @MockitoBean
     private Clock clock;
-    @MockitoSpyBean
+    @MockitoSpyBean(name = "jwtDecoder")
     private JwtDecoder decoder;
     @LocalServerPort
     private int port;
@@ -188,10 +188,12 @@ class JwtValidationTest {
 
     @Test
     void rejectsInvalidTimeIssuerAudienceAndSignature() throws Exception {
-        for (var entry : Map
-                .<String, Object>of("iat", NOW.plusSeconds(1).getEpochSecond(), "exp",
-                        NOW.plusSeconds(901).getEpochSecond(), "nbf", NOW.plusSeconds(1).getEpochSecond(), "iss",
-                        "wrong", "aud", List.of("wrong"))
+        for (var entry : Map.of(
+                "iat", NOW.plusSeconds(1).getEpochSecond(),
+                "exp", NOW.plusSeconds(901).getEpochSecond(),
+                "nbf", NOW.plusSeconds(1).getEpochSecond(),
+                "iss", "wrong",
+                "aud", List.of("wrong"))
                 .entrySet()) {
             var invalid = claims();
             invalid.put(entry.getKey(), entry.getValue());
@@ -289,20 +291,22 @@ class JwtValidationTest {
     @Test
     void forwardsCatalogOperationsToTheirOwnUpstreamWithOriginalHeadersAndBody() throws Exception {
         String token = sign(claims());
+        String idempotencyKey = UUID.randomUUID().toString();
         String body = "{ \"value\" : \"исходное тело\" }";
         try (var client = HttpClient.newHttpClient()) {
             for (var route : GatewayRouteCatalog.routes()) {
                 boolean accountsRoute = route.path().equals("/api/v1/accounts/me");
-                boolean coinsRoute = route.path().equals("/api/v1/coins/me");
+                boolean coinsRoute = route.path().startsWith("/api/v1/coins/");
                 var target = accountsRoute ? ACCOUNTS : coinsRoute ? COINS : UPSTREAM;
                 var other = accountsRoute ? UPSTREAM : ACCOUNTS;
                 int otherCalls = other.calls.get();
-                String requestBody = route.method().name().equals("GET") ? "" : body;
+                String requestBody = route.method().name().equals("GET")
+                        || route.path().equals("/api/v1/coins/daily-reward/claims") ? "" : body;
                 var outgoing = HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + route.path()))
                         .header("Authorization", "Bearer " + token)
                         .header("Content-Type", "application/json")
                         .header("Accept", "application/json")
-                        .header("Idempotency-Key", "operation-key")
+                        .header("Idempotency-Key", idempotencyKey)
                         .header("X-Request-Id", "forged-id")
                         .header("X-User-Id", "forged-user")
                         .header("X-Roles", "ADMIN")
@@ -325,7 +329,7 @@ class JwtValidationTest {
                 assertThat(received.body()).isEqualTo(requestBody);
                 assertThat(received.header("Content-Type")).isEqualTo("application/json");
                 assertThat(received.header("Accept")).isEqualTo("application/json");
-                assertThat(received.header("Idempotency-Key")).isEqualTo("operation-key");
+                assertThat(received.header("Idempotency-Key")).isEqualTo(idempotencyKey);
                 assertThat(received.header("Authorization"))
                         .isEqualTo(route.access() == RouteAccess.PUBLIC ? null : "Bearer " + token);
                 assertThat(received.header("X-Forwarded-For")).isEqualTo("127.0.0.1");
@@ -338,8 +342,8 @@ class JwtValidationTest {
         }
         assertThat(UPSTREAM.calls.get()).isEqualTo(5);
         assertThat(ACCOUNTS.calls.get()).isEqualTo(2);
-        assertThat(COINS.calls.get()).isEqualTo(1);
-        verify(sessions, times(4)).isActive(ArgumentMatchers.any(), ArgumentMatchers.any(),
+        assertThat(COINS.calls.get()).isEqualTo(3);
+        verify(sessions, times(6)).isActive(ArgumentMatchers.any(), ArgumentMatchers.any(),
                 ArgumentMatchers.any(), ArgumentMatchers.any());
     }
 

@@ -35,6 +35,8 @@ management:
 server:
   port: ${SERVER_PORT}
 coins:
+  daily-reward:
+    amount: 10 #todo сделать переменую и закинуть ее
   grpc:
     address: ${COINS_GRPC_ADDRESS}
     port: ${COINS_GRPC_PORT}

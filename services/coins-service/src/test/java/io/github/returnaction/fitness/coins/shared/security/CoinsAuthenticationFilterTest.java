@@ -31,10 +31,10 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
-class WalletAuthenticationFilterTest {
+class CoinsAuthenticationFilterTest {
 
     private final SecurityExceptionHandler errors = mock(SecurityExceptionHandler.class);
-    private final WalletAuthenticationFilter filter = new WalletAuthenticationFilter(errors);
+    private final CoinsAuthenticationFilter filter = new CoinsAuthenticationFilter(errors);
 
     @BeforeEach
     @AfterEach

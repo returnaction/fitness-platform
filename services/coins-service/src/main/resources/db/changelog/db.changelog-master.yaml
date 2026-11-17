@@ -2,3 +2,6 @@ databaseChangeLog:
   - include:
       file: changes/001-create-coin-wallets.yaml
       relativeToChangelogFile: true
+  - include:
+      file: changes/002-create-daily-reward.yaml
+      relativeToChangelogFile: true
