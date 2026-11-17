@@ -64,7 +64,7 @@
 
 39. Лимиты: title 1–120, description до 2000, `stakeAmount` 1–1 000 000, `durationDays` 1–30.
 40. Локальный Kafka Compose размещается в `deployment/compose.local-kafka.yaml` и не используется на сервере.
-41. Отсутствие кошелька Coins возвращается как `FAILED_PRECONDITION WALLET_NOT_FOUND` и маппится Challenge в `409 insufficient_coins` либо отдельный стабильный код; окончательный выбор фиксируется в T002.2.
+41. **Отсутствие кошелька Coins:** gRPC возвращает `FAILED_PRECONDITION` с reason `WALLET_NOT_FOUND`, не маскируя его под `INSUFFICIENT_FUNDS` и не сохраняя как бизнес-исход. Публично Challenge отвечает `409 insufficient_coins` (решение пользователя 2026-11-17); отдельный публичный код потребует изменения `spec.md` и `challenge-v1.yaml`.
 42. TTL идемпотентности и операций, rate limit и поведение при длительной недоступности БД остаются открытыми до отдельного решения.
 43. **Корневые `AGENTS.md` и `specs/README.md` не изменяются** в рамках подготовки Spec 020 по решению пользователя. Статус спецификации хранится только в её собственном каталоге; активный scope в корневых файлах добавляется отдельным решением пользователя.
 44. **Выбран вариант B — architecture-faithful MVP.** Пользователь 2026-11-17 выбрал сохранение Kafka, outbox/inbox, `BeginStakeSet`/`PutStakeBatch`/`FinalizeStakeSet`, `FreezeStakeSet`/`CompleteStakeCancellation`, `ListResultWinners` с курсором, детальных settlement-таблиц и lease/fencing. Lean-упрощения не применяются; возможные сокращения остаются кандидатами на будущие спецификации.

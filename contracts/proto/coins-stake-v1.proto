@@ -1,0 +1,286 @@
+syntax = "proto3";
+
+package fitness.coins.stake.v1;
+
+option java_multiple_files = true;
+option java_package = "io.github.returnaction.fitness.contracts.coins.stake.v1";
+option java_outer_classname = "CoinsStakeV1Proto";
+
+// Владелец контракта — coins-service, единственный вызывающий сервис —
+// challenge-service. Доступ только по mTLS: Coins проверяет service identity
+// вызывающего; пользовательский JWT по этому каналу не принимается и прав не
+// даёт. Идентификаторы операций не являются секретом и не заменяют проверку
+// прав.
+//
+// Все UUID передаются каноническими строками в нижнем регистре с дефисами.
+// Суммы — положительные int64 в монетах; верхнюю продуктовую границу ставки
+// проверяет challenge-service, Coins проверяет amount > 0 и переполнение.
+// Диагностический request_id передаётся в metadata вызова и в
+// google.rpc.ErrorInfo.metadata, а не в payload.
+//
+// Бизнес-исходы reserve/release возвращаются с gRPC OK и сохраняются вместе с
+// operation ID: повтор того же ID и payload возвращает сохранённый исход,
+// повтор с другим payload — ALREADY_EXISTS / OPERATION_ID_CONFLICT. Новый
+// окончательный отказ требует нового operation ID. WALLET_NOT_FOUND — не
+// бизнес-исход, а нарушение предусловия; публичный HTTP-ответ формирует
+// challenge-service.
+service StakeService {
+  // Резервирует ставку и создаёт hold одной транзакцией Coins.
+  rpc ReserveStake(ReserveStakeRequest) returns (ReserveStakeResponse);
+
+  // Освобождает hold не более одного раза.
+  rpc ReleaseStake(ReleaseStakeRequest) returns (ReleaseStakeResponse);
+
+  // Возвращает сохранённый исход reserve или release.
+  rpc GetStakeOperation(GetStakeOperationRequest) returns (GetStakeOperationResponse);
+
+  // Начинает пакетный seal набора ставок challenge.
+  rpc BeginStakeSet(BeginStakeSetRequest) returns (BeginStakeSetResponse);
+
+  // Принимает один пакет набора; номера пакетов начинаются с 0.
+  rpc PutStakeBatch(PutStakeBatchRequest) returns (PutStakeBatchResponse);
+
+  // Сверяет count/digest и активные holds, затем фиксирует SEALED.
+  rpc FinalizeStakeSet(FinalizeStakeSetRequest) returns (FinalizeStakeSetResponse);
+
+  // Переводит набор в CANCEL_DRAINING и запрещает новые резервы.
+  rpc FreezeStakeSet(FreezeStakeSetRequest) returns (FreezeStakeSetResponse);
+
+  // Завершает отмену после освобождения всех holds.
+  rpc CompleteStakeCancellation(CompleteStakeCancellationRequest) returns (CompleteStakeCancellationResponse);
+}
+
+message ReserveStakeRequest {
+  // Стабильный ID операции вступления. Не меняется при повторах и
+  // восстановлении.
+  string join_operation_id = 1;
+
+  // Владелец ставки. UUID формирует challenge-service на сервере.
+  string user_id = 2;
+
+  string challenge_id = 3;
+
+  // Сумма из сохранённого черновика challenge, а не из клиентского запроса.
+  int64 amount = 4;
+}
+
+// Бизнес-исходы ReserveStake. Все значения возвращаются с gRPC OK и
+// сохраняются по join_operation_id.
+enum ReserveOutcome {
+  RESERVE_OUTCOME_UNSPECIFIED = 0;
+  RESERVE_OUTCOME_RESERVED = 1;
+  RESERVE_OUTCOME_INSUFFICIENT_FUNDS = 2;
+  RESERVE_OUTCOME_ACTIVE_HOLD_EXISTS = 3;
+}
+
+message ReserveStakeResponse {
+  string join_operation_id = 1;
+  ReserveOutcome outcome = 2;
+
+  // Присутствует только при RESERVE_OUTCOME_RESERVED.
+  optional string hold_id = 3;
+}
+
+// Причина освобождения. Не меняется при повторе той же команды.
+enum ReleaseReason {
+  RELEASE_REASON_UNSPECIFIED = 0;
+  RELEASE_REASON_JOIN_NOT_CONFIRMED = 1;
+  RELEASE_REASON_CHALLENGE_CANCELLED = 2;
+}
+
+enum ReleaseOutcome {
+  RELEASE_OUTCOME_UNSPECIFIED = 0;
+  RELEASE_OUTCOME_RELEASED = 1;
+}
+
+message ReleaseStakeRequest {
+  // Стабильный ID операции возврата; создаётся challenge-service один раз на
+  // hold.
+  string release_operation_id = 1;
+  string hold_id = 2;
+  string challenge_id = 3;
+  ReleaseReason reason = 4;
+}
+
+message ReleaseStakeResponse {
+  string release_operation_id = 1;
+  string hold_id = 2;
+  ReleaseOutcome outcome = 3;
+}
+
+enum StakeOperationKind {
+  STAKE_OPERATION_KIND_UNSPECIFIED = 0;
+  STAKE_OPERATION_KIND_RESERVE = 1;
+  STAKE_OPERATION_KIND_RELEASE = 2;
+}
+
+message GetStakeOperationRequest {
+  // RESERVE или RELEASE. Seal, freeze и complete разрешаются повтором той же
+  // команды с тем же ID и payload, а не через этот метод.
+  StakeOperationKind kind = 1;
+  string operation_id = 2;
+}
+
+message GetStakeOperationResponse {
+  // Заполнено ровно одно поле, соответствующее kind запроса.
+  oneof result {
+    ReserveStakeResponse reserve = 1;
+    ReleaseStakeResponse release = 2;
+  }
+}
+
+// Строка закрываемого набора. Значения берутся из подтверждённых hold Coins,
+// а не из клиентского запроса.
+message SealedStake {
+  string hold_id = 1;
+  string user_id = 2;
+  int64 amount = 3;
+}
+
+message BeginStakeSetRequest {
+  // Стабильный ID seal-операции; создаётся challenge-service до первого
+  // вызова.
+  string seal_operation_id = 1;
+  string challenge_id = 2;
+
+  // Положительная версия набора.
+  int64 set_version = 3;
+
+  // Ожидаемое число строк во всём наборе.
+  int64 expected_count = 4;
+
+  // 64 lowercase hex символа SHA-256 от строк hold_id,user_id,amount,
+  // отсортированных по hold_id, через \n без конечного перевода строки.
+  string expected_digest = 5;
+}
+
+message BeginStakeSetResponse {
+  string seal_operation_id = 1;
+}
+
+message PutStakeBatchRequest {
+  string seal_operation_id = 1;
+
+  // Номер пакета от 0. Повтор номера с тем же payload безопасен.
+  int32 batch_number = 2;
+
+  // От 1 до 500 строк с уникальными hold_id и user_id во всём наборе.
+  repeated SealedStake stakes = 3;
+}
+
+message PutStakeBatchResponse {
+  string seal_operation_id = 1;
+  int32 batch_number = 2;
+}
+
+message FinalizeStakeSetRequest {
+  string seal_operation_id = 1;
+}
+
+message FinalizeStakeSetResponse {
+  string seal_operation_id = 1;
+  string challenge_id = 2;
+  int64 set_version = 3;
+  int64 stake_count = 4;
+  string set_digest = 5;
+}
+
+message FreezeStakeSetRequest {
+  string cancellation_id = 1;
+  string challenge_id = 2;
+}
+
+message FreezeStakeSetResponse {
+  string cancellation_id = 1;
+  string challenge_id = 2;
+}
+
+message CompleteStakeCancellationRequest {
+  string cancellation_id = 1;
+  string challenge_id = 2;
+}
+
+message CompleteStakeCancellationResponse {
+  string cancellation_id = 1;
+  string challenge_id = 2;
+}
+
+// Идемпотентность и конфликты:
+//
+// ReserveStake: RESERVED, INSUFFICIENT_FUNDS и ACTIVE_HOLD_EXISTS сохраняются
+// по join_operation_id и воспроизводятся при повторе. После freeze новый
+// reserve запрещён (STAKE_SET_CANCELLED), после SEALED — STAKE_SET_SEALED;
+// ранее сохранённый исход возвращается как есть. WALLET_NOT_FOUND не
+// сохраняется: повтор возможен после создания кошелька.
+//
+// ReleaseStake: первый успешный вызов сохраняет RELEASED по
+// release_operation_id. Повтор с тем же ID возвращает сохранённый исход;
+// другой ID для уже освобождённого hold — HOLD_NOT_RELEASABLE без второй
+// проводки.
+//
+// BeginStakeSet: повтор того же ID и payload возвращает сохранённый ответ;
+// другой payload с тем же ID — OPERATION_ID_CONFLICT. Один незавершённый seal
+// на challenge; другой ID — STAKE_SET_SEAL_IN_PROGRESS.
+//
+// PutStakeBatch: повтор номера и данных возвращает предыдущий ответ; тот же
+// номер с другими данными — OPERATION_ID_CONFLICT; дубли hold или user между
+// пакетами — INVALID_ARGUMENT. Балансы на этом шаге не меняются; уже принятые
+// пакеты при ошибке не изменяются.
+//
+// FinalizeStakeSet: под блокировкой набора сверяет ожидаемые count и digest с
+// принятыми пакетами и с активными holds. Несовпадение count/digest —
+// STAKE_SET_INCOMPLETE, несовпадение с резервами — STAKE_SET_MISMATCH;
+// состояние остаётся открытым, выплат нет. При успехе набор фиксируется
+// SEALED, повтор возвращает тот же ответ.
+//
+// FreezeStakeSet: повтор тех же cancellation ID и challenge ID возвращает
+// успех; другой cancellation ID для набора — OPERATION_ID_CONFLICT; Freeze
+// после расчёта — STAKE_SET_SETTLED. Release существующих holds разрешён.
+//
+// CompleteStakeCancellation: при любом активном hold — ACTIVE_HOLDS_REMAIN без
+// изменения состояния; при успехе набор фиксируется CANCELLED, повтор
+// возвращает успех.
+//
+// UNAVAILABLE и DEADLINE_EXCEEDED не доказывают отказ: результат может быть
+// неизвестен, повторяется тот же ID и payload. GetStakeOperation без
+// результата возвращает NOT_FOUND/OPERATION_NOT_FOUND; это не доказывает, что
+// конкурентная команда с тем же ID не завершится позже.
+//
+// Коды ошибок: клиент ветвится по gRPC code и reason. reason записывается в
+// UPPER_SNAKE_CASE в google.rpc.ErrorInfo с domain = "coins.fitness.internal";
+// текст message не является контрактом.
+//
+// INVALID_ARGUMENT     INVALID_ARGUMENT           Неверный UUID, amount <= 0,
+//                                                  batch вне 1..500, digest не
+//                                                  64 lowercase hex.
+// UNAUTHENTICATED      SERVICE_UNAUTHENTICATED    mTLS service identity не
+//                                                  подтверждена.
+// PERMISSION_DENIED    SERVICE_FORBIDDEN          Вызывающему не разрешены
+//                                                  stake-команды.
+// ALREADY_EXISTS       OPERATION_ID_CONFLICT      Тот же ID с другим payload.
+// NOT_FOUND            HOLD_NOT_FOUND             hold не найден.
+// NOT_FOUND            OPERATION_NOT_FOUND        Сохранённый исход неизвестен.
+// FAILED_PRECONDITION  HOLD_NOT_RELEASABLE        hold уже освобождён или
+//                                                  распределён.
+// FAILED_PRECONDITION  HOLD_CHALLENGE_MISMATCH    hold относится к другому
+//                                                  challenge.
+// FAILED_PRECONDITION  WALLET_NOT_FOUND           У пользователя нет кошелька;
+//                                                  повтор не поможет до его
+//                                                  создания.
+// FAILED_PRECONDITION  STAKE_SET_SEAL_IN_PROGRESS Для challenge уже идёт
+//                                                  другой seal.
+// FAILED_PRECONDITION  STAKE_SET_INCOMPLETE       Count/digest не совпали с
+//                                                  принятыми пакетами.
+// FAILED_PRECONDITION  STAKE_SET_MISMATCH         Набор не совпал с активными
+//                                                  holds.
+// FAILED_PRECONDITION  STAKE_SET_SEALED           Новый reserve после SEALED.
+// FAILED_PRECONDITION  STAKE_SET_CANCELLED        Новый reserve после freeze.
+// FAILED_PRECONDITION  STAKE_SET_SETTLED          Freeze после расчёта.
+// FAILED_PRECONDITION  ACTIVE_HOLDS_REMAIN        Complete при активных holds.
+// UNAVAILABLE          COINS_UNAVAILABLE           Временная недоступность.
+// DEADLINE_EXCEEDED    —                           Срок клиента истёк.
+// INTERNAL             INTERNAL_ERROR              Неожиданная ошибка без
+//                                                  данных БД и секретов.
+//
+// ListActiveHoldsForCancellation в MVP не реализуется: полноту отмены
+// проверяет CompleteStakeCancellation.

@@ -1,7 +1,7 @@
 # Проверка Spec 020
 
 > **Спецификация:** [spec.md](spec.md)
-> **Статус:** проверки не начинались; раздел — заготовка для доказательств.
+> **Статус:** проверки фиксируются по задачам; записи — в истории ниже.
 > **Ветка:** `feature/50-challenge-service-dev`
 > **Окружение:** macOS, Eclipse Temurin 25.0.5, Docker доступен, PostgreSQL локально, Python 3.13. `pwsh` локально не установлен; GitHub Actions использует `pwsh`.
 
@@ -124,3 +124,22 @@ Testcontainers-тесты требуют работающего Docker. Без D
 - Локальная проверка относительных Markdown-ссылок: 1006 ссылок, ошибок нет.
 - `git diff --check`: успешно.
 - Код, миграции, БД, commit, push и deploy не выполнялись.
+
+### 2026-11-17 — T002.1, OpenAPI Challenge
+
+- Создан `contracts/openapi/challenge-v1.yaml`.
+- `python -m openapi_spec_validator contracts/openapi/challenge-v1.yaml` в отдельном venv: `OK`.
+- Использованы лимиты, подтверждённые пользователем: title 1–120, description до 2000, stake 1–1 000 000, duration 1–30.
+- `git diff --check`: успешно.
+- Код, миграции, БД, commit, push и deploy не выполнялись.
+
+### 2026-11-17 — T002.2, gRPC-контракт ставок
+
+- Создан `contracts/proto/coins-stake-v1.proto`: `ReserveStake`, `ReleaseStake`, `GetStakeOperation`, `BeginStakeSet`, `PutStakeBatch`, `FinalizeStakeSet`, `FreezeStakeSet`, `CompleteStakeCancellation`. `ListActiveHoldsForCancellation` не включён по решению 16.
+- Пакет `fitness.coins.stake.v1`, Java-пакет `io.github.returnaction.fitness.contracts.coins.stake.v1`. Описаны бизнес-исходы reserve/release, идемпотентность по operation ID, `WALLET_NOT_FOUND` как `FAILED_PRECONDITION`, таблица gRPC-кодов и reason.
+- `fitness-grpc-contracts` 0.1.1 → 0.1.2. Обновлены зависимости: identity 0.1.2 (сервис 0.1.2), accounts 0.1.3, coins 0.1.3, gateway 0.1.3; `challenge-service` получил зависимость и версию 0.1.2.
+- `sh ./mvnw -B -ntp -pl contracts/grpc-contracts verify`: `BUILD SUCCESS`, тесты 4/4, SpotBugs 0.
+- `sh ./mvnw -B -ntp -pl services/challenge-service,services/coins-service -am clean test-compile`: `BUILD SUCCESS`.
+- `git diff --check`: успешно. Проверка относительных Markdown-ссылок Python-скриптом: 1003 ссылки, ошибок нет.
+- Код сервисов, БД, Kafka, deployment, commit, push и deploy не выполнялись.
+- Ограничение окружения: `./mvnw` в рабочей копии имеет mode `100644`, команды запускались через `sh ./mvnw`.

@@ -64,8 +64,7 @@
 - **Затрагивает:** T002.2, T005.2.
 - **Свидетельство:** кошелёк создаётся при регистрации, но контракт ReserveStake не описывает отсутствие строки.
 - **Варианты:** `FAILED_PRECONDITION WALLET_NOT_FOUND`; трактовать как `INSUFFICIENT_FUNDS`; `INTERNAL`.
-- **Рекомендация:** явный `WALLET_NOT_FOUND`, не маскировать под нехватку монет.
-- **Блокирует:** маппинг ошибки Challenge.
+- **Решение (2026-11-17):** в gRPC — явный `FAILED_PRECONDITION` с reason `WALLET_NOT_FOUND`, не бизнес-исход и не маскируется под `INSUFFICIENT_FUNDS`. Публично Challenge отвечает `409 insufficient_coins`; отдельный публичный код не вводится.
 
 ## 9. Сертификат источника результата
 
@@ -101,3 +100,5 @@
 - Наблюдаемость: `refundStatus` и `settlementStatus` в `GET challenge`.
 - Settlement: одна транзакция для двух holds, без escrow и large-bank worker.
 - Выбран вариант B: Kafka, outbox/inbox, batch seal, freeze/complete, `ListResultWinners` и детальные settlement-таблицы остаются в MVP.
+- Отсутствующий кошелёк Coins: `FAILED_PRECONDITION WALLET_NOT_FOUND`; публично `409 insufficient_coins`.
+- Пакет gRPC ставок: `fitness.coins.stake.v1` и `io.github.returnaction.fitness.contracts.coins.stake.v1`.
