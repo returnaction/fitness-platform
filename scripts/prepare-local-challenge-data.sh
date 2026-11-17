@@ -16,6 +16,7 @@ COINS_DB_PASSWORD="${COINS_DB_PASSWORD:-}"
 SEED_AMOUNT="${CHALLENGE_SEED_AMOUNT:-20}"
 USER1_EMAIL="${CHALLENGE_USER1_EMAIL:-challenge-seed-1@example.test}"
 USER2_EMAIL="${CHALLENGE_USER2_EMAIL:-challenge-seed-2@example.test}"
+USER3_EMAIL="${CHALLENGE_USER3_EMAIL:-challenge-seed-3@example.test}"
 
 for command in curl jq psql openssl python3; do
   command -v "$command" >/dev/null || { echo "Не найден $command" >&2; exit 1; }
@@ -26,6 +27,7 @@ if [[ -f "$DATA_FILE" ]]; then
   source "$DATA_FILE"
   USER1_EMAIL="${CHALLENGE_USER1_EMAIL:-$USER1_EMAIL}"
   USER2_EMAIL="${CHALLENGE_USER2_EMAIL:-$USER2_EMAIL}"
+  USER3_EMAIL="${CHALLENGE_USER3_EMAIL:-$USER3_EMAIL}"
   CHALLENGE_SEED_PASSWORD="${CHALLENGE_SEED_PASSWORD:-}"
 fi
 
@@ -155,10 +157,13 @@ SQL
 
 USER1_TOKEN="$(login_or_register "$USER1_EMAIL")"
 USER2_TOKEN="$(login_or_register "$USER2_EMAIL")"
+USER3_TOKEN="$(login_or_register "$USER3_EMAIL")"
 USER1_ID="$(user_id_from_token "$USER1_TOKEN")"
 USER2_ID="$(user_id_from_token "$USER2_TOKEN")"
+USER3_ID="$(user_id_from_token "$USER3_TOKEN")"
 USER1_BALANCE="$(credit_wallet "$USER1_ID")"
 USER2_BALANCE="$(credit_wallet "$USER2_ID")"
+USER3_BALANCE="$(credit_wallet "$USER3_ID")"
 
 mkdir -p "$(dirname "$DATA_FILE")"
 cat >"$DATA_FILE" <<EOF
@@ -171,9 +176,14 @@ CHALLENGE_USER2_EMAIL='$USER2_EMAIL'
 CHALLENGE_USER2_TOKEN='$USER2_TOKEN'
 CHALLENGE_USER1_BALANCE='$USER1_BALANCE'
 CHALLENGE_USER2_BALANCE='$USER2_BALANCE'
+CHALLENGE_USER3_ID='$USER3_ID'
+CHALLENGE_USER3_EMAIL='$USER3_EMAIL'
+CHALLENGE_USER3_TOKEN='$USER3_TOKEN'
+CHALLENGE_USER3_BALANCE='$USER3_BALANCE'
 EOF
 
-echo "Готовы две локальные сессии и кошельки."
+echo "Готовы три локальные сессии и кошельки."
 echo "Файл данных: $DATA_FILE (исключён из Git)"
 echo "user1=$USER1_ID balance=$USER1_BALANCE"
 echo "user2=$USER2_ID balance=$USER2_BALANCE"
+echo "user3=$USER3_ID balance=$USER3_BALANCE"
