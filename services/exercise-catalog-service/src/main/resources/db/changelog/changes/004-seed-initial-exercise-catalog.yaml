@@ -7,4 +7,4 @@ databaseChangeLog:
         - sqlFile:
             path: 004-seed-initial-exercise-catalog.sql
             relativeToChangelogFile: true
-            stripComments: false
+            stripComments: true
