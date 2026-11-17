@@ -543,3 +543,44 @@ Testcontainers-тесты требуют работающего Docker. Без D
 - `sh ./mvnw -B -ntp -pl services/coins-service -am test`: `BUILD SUCCESS`, contracts 5/5, coins 88/88.
 - `git diff --check`: успешно. Проверка относительных Markdown-ссылок Python-скриптом: ошибок нет.
 - Ограничение: реальный Kafka-брокер не поднимался; тест publisher использует mock `CoinEventPublisher`. Сквозная публикация и redelivery проверяются в T005.8/T006.1. Deploy не менялся.
+
+### 2026-11-17 — T005.8, тесты Coins
+
+- `StakeConcurrencyIntegrationTest` проверяет конкурентные сценарии:
+  - два release одного hold с разными operation ID: ровно один `RELEASED`, второй — `HoldNotReleasableException`, баланс восстановлен один раз;
+  - reserve третьего участника одновременно с `FinalizeStakeSet`: либо набор `SEALED` и reserve отклонён, либо reserve принят, а finalize отклонён по `StakeSetMismatchException`; промежуточного состояния нет;
+  - freeze набора одновременно с reserve: freeze всегда фиксирует `CANCEL_DRAINING`, reserve либо принят до freeze, либо отклонён.
+- Потерянные ответы покрыты существующими replay-тестами reserve, release, begin/put/finalize: повтор с тем же operation ID возвращает сохранённый результат и не создаёт вторую проводку.
+- Идемпотентность settlement и конфликт digest покрыты `SettlementServiceIntegrationTest`: повтор события, другой `event_id` для того же `resultId`, конфликт digest и отсутствие повторной выплаты.
+- `sh ./mvnw -B -ntp -pl services/coins-service -am test`: `BUILD SUCCESS`, contracts 5/5, coins 91/91.
+- `StakeConcurrencyIntegrationTest` повторён дважды подряд: 3/3 в каждом запуске.
+- `git diff --check`: успешно. Проверка относительных Markdown-ссылок Python-скриптом: ошибок нет.
+- Ограничение: тесты используют PostgreSQL Testcontainers; реальный Kafka-брокер и сетевые сбои не имитируются. Конкурентные сценарии проверяют один из допустимых порядков блокировок, а не все возможные тайминги. Deploy не менялся.
+
+### 2026-11-17 — T004.18–T004.20, тесты Challenge
+
+- T004.18: `ChallengeRepositoryIntegrationTest` покрывает pessimistic lock и `next_join_sequence`, увеличение `version`, частичный уникальный индекс активной операции и уникальность release intent на hold; `ChallengeOutboxIntegrationTest` — atomic commit/rollback, claim, lease, повтор и `published_at`.
+- T004.19: существующие flow-тесты покрывают `200/201/202/404/409/422`, идемпотентность, чужой draft и operation. Добавлен `ChallengeWebSecurityIntegrationTest`:
+  - `401` без токена с общим форматом ошибки;
+  - `400` для некорректного UUID в пути;
+  - `503` при недоступности хранилища без внутренних подробностей;
+  - `requestId` совпадает с `X-Request-Id` и присутствует в теле.
+- T004.20: добавлен `ChallengeConcurrencyIntegrationTest`:
+  - два одновременных join за последнее место: ровно один `200`, второй `409 challenge_full`, участников ровно двое;
+  - одновременные join и cancel: либо cancel `200` и join `409 challenge_cancelled`, либо join `200` и cancel `409 cancellation_not_allowed`; финальное состояние согласовано.
+- Потерянные ответы Coins до/после commit, восстановление publish/release/seal после рестарта worker и повтор seal покрыты `ChallengeRecoveryWorkerIntegrationTest`, `ChallengeSealFlowIntegrationTest`, `ChallengeJoinFlowIntegrationTest` и `ChallengeCancelFlowIntegrationTest`.
+- `ChallengeConcurrencyIntegrationTest` повторён трижды подряд: 2/2 в каждом запуске.
+- `git diff --check`: успешно. Проверка относительных Markdown-ссылок Python-скриптом: ошибок нет.
+- Ограничение: конкурентные HTTP-тесты используют PostgreSQL Testcontainers и mock Coins; проверяется один из допустимых порядков блокировок, не все тайминги. Deploy не менялся.
+
+### 2026-11-17 — T004.21, verify challenge-service
+
+- `sh ./mvnw -B -ntp -pl services/challenge-service -am verify`: `BUILD SUCCESS`, contracts 5/5, challenge 72/72.
+- SpotBugs: 0 bugs. Исправлено замечание `EI_EXPOSE_REP` в `ResultWinnersPage`: конструктор и accessor возвращают защитную копию списка.
+- Ограничение: mTLS-сервер результата и реальный Kafka-брокер по-прежнему не проверены end-to-end. Deploy не менялся.
+
+### 2026-11-17 — T005.9, verify coins-service
+
+- `sh ./mvnw -B -ntp -pl services/coins-service -am verify`: `BUILD SUCCESS`, contracts 5/5, coins 91/91.
+- SpotBugs: 0 bugs.
+- Ограничение: реальный Kafka-брокер и mTLS-клиент Challenge не проверены end-to-end; они входят в сквозной сценарий T006. Deploy не менялся.

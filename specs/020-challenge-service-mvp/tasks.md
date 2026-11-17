@@ -62,12 +62,12 @@
 
 ### Тесты
 
-- [ ] T004.18 — Repository-тесты Challenge. Зависит от T004.17. Критерий: блокировки, version, уникальность последнего места, release intent, операции и outbox.
-- [ ] T004.19 — Web/security-тесты Challenge. Зависит от T004.18. Критерий: `200/201/202/400/401/404/409/422/503`, идемпотентность, формат ошибок, `requestId`, чужой draft.
-- [ ] T004.20 — Concurrency и failure-тесты. Зависит от T004.19. Критерий: два join за последнее место, cancel против join, потерянный ответ Coins до/после commit, рестарт recovery, повтор seal.
-- [ ] T004.21 — Verify challenge-service. Зависит от T004.20. Критерий: `./mvnw -B -ntp -pl services/challenge-service -am verify` и SpotBugs проходят.
-- [ ] T005.8 — Тесты Coins. Зависит от T005.7. Критерий: гонки reserve/seal/release/freeze, потерянные ответы, двойной release исключён, settlement идемпотентен.
-- [ ] T005.9 — Verify coins-service. Зависит от T005.8. Критерий: `./mvnw -B -ntp -pl services/coins-service -am verify` и SpotBugs проходят.
+- [x] T004.18 — Repository-тесты Challenge. Зависит от T004.17. Критерий: блокировки, version, уникальность последнего места, release intent, операции и outbox.
+- [x] T004.19 — Web/security-тесты Challenge. Зависит от T004.18. Критерий: `200/201/202/400/401/404/409/422/503`, идемпотентность, формат ошибок, `requestId`, чужой draft.
+- [x] T004.20 — Concurrency и failure-тесты. Зависит от T004.19. Критерий: два join за последнее место, cancel против join, потерянный ответ Coins до/после commit, рестарт recovery, повтор seal.
+- [x] T004.21 — Verify challenge-service. Зависит от T004.20. Критерий: `./mvnw -B -ntp -pl services/challenge-service -am verify` и SpotBugs проходят.
+- [x] T005.8 — Тесты Coins. Зависит от T005.7. Критерий: гонки reserve/seal/release/freeze, потерянные ответы, двойной release исключён, settlement идемпотентен.
+- [x] T005.9 — Verify coins-service. Зависит от T005.8. Критерий: `./mvnw -B -ntp -pl services/coins-service -am verify` и SpotBugs проходят.
 
 ## Сквозная проверка и завершение
 
