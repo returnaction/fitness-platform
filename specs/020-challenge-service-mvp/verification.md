@@ -348,3 +348,15 @@ Testcontainers-тесты требуют работающего Docker. Без D
 - Проверка реальной базы: `databasechangelog` содержит changesets 001 и 002; `\dt` показывает 14 новых таблиц и `coin_wallets`.
 - `git diff --check`: успешно. Проверка относительных Markdown-ссылок Python-скриптом: ошибок нет.
 - Ограничение: доменный код Coins ещё отсутствует; production-миграции не выполнялись. Kafka и deploy не менялись.
+
+### 2026-11-17 — T005.2, резервирование ставки
+
+- `StakeReservationService` выполняет reserve одной транзакцией: блокирует строку `coin_stake_sets`, проверяет сохранённую операцию, активный hold и кошелёк.
+- При успехе создаёт `coin_holds.ACTIVE`, переносит сумму из `available` в `locked`, пишет одну ledger-запись `RESERVE` с `available_delta = -amount`, `locked_delta = +amount` и сохраняет исход операции в `coin_stake_operations` (JSONB).
+- Идемпотентность: тот же `(kind, id)` и request hash возвращает сохранённый результат; другой payload — `OperationIdConflictException`.
+- Исходы: `RESERVED` с `holdId`, `INSUFFICIENT_FUNDS`, `ACTIVE_HOLD_EXISTS`; отсутствие кошелька — `WalletNotFoundException` (gRPC-маппинг будет в T004.9).
+- `StakeRepository` использует явные SQL-запросы и `NamedParameterJdbcTemplate`; время строк задаёт PostgreSQL.
+- `ReserveStakeServiceIntegrationTest` на Testcontainers проверяет атомарность, replay, конфликт operation ID, недостаток средств, активный hold и отсутствующий кошелёк.
+- `sh ./mvnw -B -ntp -pl services/coins-service -am test`: `BUILD SUCCESS`, 55 тестов, 0 ошибок.
+- `git diff --check`: успешно. Проверка относительных Markdown-ссылок Python-скриптом: ошибок нет.
+- Ограничение: gRPC-метод `ReserveStake` и маппинг ошибок появятся в T004.9; seal/freeze — T005.4–T005.5. Kafka и deploy не менялись.
