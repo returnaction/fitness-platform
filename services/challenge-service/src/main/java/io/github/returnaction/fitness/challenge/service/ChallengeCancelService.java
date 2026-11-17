@@ -85,6 +85,10 @@ public class ChallengeCancelService {
                         existing.getStatus());
             }
             if (challenge.getStatus() != ChallengeStatus.OPEN) {
+                if (participants.countByChallengeId(challengeId) > 1) {
+                    throw new BusinessConflictException("cancellation_not_allowed",
+                            "Challenge has other participants.");
+                }
                 throw new BusinessConflictException("challenge_not_editable", "Challenge is not cancellable.");
             }
             if (participants.countByChallengeId(challengeId) > 1) {

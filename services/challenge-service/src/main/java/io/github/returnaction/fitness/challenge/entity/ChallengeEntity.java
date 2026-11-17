@@ -134,6 +134,17 @@ public class ChallengeEntity {
     }
 
     /**
+     * Переводит заполненный challenge в ACTIVE после подтверждённого seal.
+     */
+    public void activate(Instant now) {
+        status.requireTransitionTo(ChallengeStatus.ACTIVE);
+        status = ChallengeStatus.ACTIVE;
+        startedAt = now;
+        version++;
+        updatedAt = now;
+    }
+
+    /**
      * Применяет частичное изменение черновика. Вызывается только после проверки
      * состояния, владельца и ожидаемой версии под блокировкой строки.
      */

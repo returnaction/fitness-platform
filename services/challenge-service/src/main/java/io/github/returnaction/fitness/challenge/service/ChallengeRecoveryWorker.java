@@ -11,6 +11,7 @@ import io.github.returnaction.fitness.challenge.entity.ChallengeOperationEntity;
 import io.github.returnaction.fitness.challenge.repository.ChallengeOperationRepository;
 import io.github.returnaction.fitness.challenge.repository.ChallengeRecoveryRepository;
 import io.github.returnaction.fitness.challenge.repository.ChallengeReleaseIntentRepository;
+import io.github.returnaction.fitness.challenge.repository.ChallengeSealRepository;
 import io.github.returnaction.fitness.contracts.coins.stake.v1.CompleteStakeCancellationRequest;
 import io.github.returnaction.fitness.contracts.coins.stake.v1.FreezeStakeSetRequest;
 import io.github.returnaction.fitness.contracts.coins.stake.v1.GetStakeOperationRequest;
@@ -44,6 +45,8 @@ public class ChallengeRecoveryWorker {
     private final ChallengeReleaseIntentRepository releaseIntents;
     private final ChallengePublishService publishService;
     private final ChallengeJoinService joinService;
+    private final ChallengeSealService sealService;
+    private final ChallengeSealRepository sealRepository;
     private final CoinsStakeClient coins;
     private final PlatformTransactionManager transactionManager;
 
@@ -68,6 +71,15 @@ public class ChallengeRecoveryWorker {
                 recoverReleaseIntent(claim);
             } finally {
                 recovery.clearIntentLease(claim.id());
+            }
+        }
+        for (UUID challengeId : sealRepository.claimCollecting(batch, leaseSeconds)) {
+            try {
+                sealService.resume(challengeId);
+            } catch (RuntimeException exception) {
+                log.debug("Seal recovery is deferred, challenge_id={}", challengeId);
+            } finally {
+                sealRepository.clearLease(challengeId);
             }
         }
     }

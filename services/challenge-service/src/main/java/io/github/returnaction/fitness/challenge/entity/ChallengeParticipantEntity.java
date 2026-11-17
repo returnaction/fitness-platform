@@ -61,4 +61,11 @@ public class ChallengeParticipantEntity {
         createdAt = now;
         updatedAt = now;
     }
+
+    public void activate(Instant now) {
+        status.requireTransitionTo(ParticipationStatus.ACTIVE);
+        status = ParticipationStatus.ACTIVE;
+        version++;
+        updatedAt = now;
+    }
 }

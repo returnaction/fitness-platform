@@ -39,6 +39,16 @@ public interface ChallengeOperationRepository extends JpaRepository<ChallengeOpe
     Optional<ChallengeOperationEntity> findConfirmedPublishWithHold(
             @Param("challengeId") UUID challengeId, @Param("userId") UUID userId);
 
+    @Query(value = """
+            SELECT * FROM challenge_operations
+            WHERE challenge_id = :challengeId
+              AND status = 'CONFIRMED'
+              AND hold_id IS NOT NULL
+              AND kind IN ('PUBLISH', 'JOIN')
+            ORDER BY user_id
+            """, nativeQuery = true)
+    List<ChallengeOperationEntity> findConfirmedWithHold(@Param("challengeId") UUID challengeId);
+
     default List<ChallengeOperationEntity> findByChallengeIdAndStatus(UUID challengeId,
                                                                       ChallengeOperationStatus status) {
         return findByChallengeIdAndStatus(challengeId, status.name());

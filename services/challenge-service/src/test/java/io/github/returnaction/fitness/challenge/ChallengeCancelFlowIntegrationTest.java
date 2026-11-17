@@ -114,7 +114,7 @@ class ChallengeCancelFlowIntegrationTest {
 
         assertEquals(409, response.statusCode());
         assertEquals("cancellation_not_allowed", errorCode(response));
-        assertEquals("OPEN", challengeStatus(challengeId));
+        assertEquals("ACTIVE", challengeStatus(challengeId));
         verify(coins, never()).freezeStakeSet(any(FreezeStakeSetRequest.class));
     }
 

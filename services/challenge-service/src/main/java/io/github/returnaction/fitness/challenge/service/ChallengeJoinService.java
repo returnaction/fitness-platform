@@ -28,6 +28,7 @@ import java.time.Instant;
 import java.util.Objects;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -38,6 +39,7 @@ import tools.jackson.databind.ObjectMapper;
  * блокировкой challenge. При неудаче подтверждения hold освобождается.
  */
 @Service
+@Slf4j
 @RequiredArgsConstructor
 public class ChallengeJoinService {
 
@@ -49,6 +51,7 @@ public class ChallengeJoinService {
     private final ChallengeOperationRepository operations;
     private final IdempotencyService idempotency;
     private final CoinsStakeClient coins;
+    private final ChallengeSealService sealService;
     private final ObjectMapper objectMapper;
     private final PlatformTransactionManager transactionManager;
 
@@ -90,6 +93,11 @@ public class ChallengeJoinService {
             var body = new JoinCompletedResponse(challengeId, ParticipationStatus.JOINED);
             idempotency.store(userId, "POST", path, key, fingerprint,
                     new StoredHttpResponse(200, json(body), "{}"));
+            try {
+                sealService.sealIfFull(challengeId);
+            } catch (RuntimeException exception) {
+                log.warn("Seal deferred to recovery, challenge_id={}", challengeId, exception);
+            }
             return new JoinResult(200, body);
         } catch (CoinsOutcomeUnknownException exception) {
             return accepted(prepared.operationId());

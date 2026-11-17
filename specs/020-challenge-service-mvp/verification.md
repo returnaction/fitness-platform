@@ -469,3 +469,15 @@ Testcontainers-тесты требуют работающего Docker. Без D
 - `sh ./mvnw -B -ntp -pl services/challenge-service -am test`: `BUILD SUCCESS`, contracts 5/5, challenge 54/54.
 - `git diff --check`: успешно. Проверка относительных Markdown-ссылок Python-скриптом: ошибок нет.
 - Ограничение: восстановление seal появится вместе с T004.14; multi-instance lease-поведение проверяется в T004.20. Kafka и deploy не менялись.
+
+### 2026-11-17 — T004.14, seal и WHEN_FULL
+
+- `ChallengeSealService` после второго подтверждённого участия сохраняет снимок `challenge_stake_sets`/`challenge_stake_set_items` с версией и стабильным `sealOperationId`.
+- После commit выполняются `BeginStakeSet` → `PutStakeBatch` (один пакет) → `FinalizeStakeSet`; только после подтверждённого finalize challenge и участники становятся `ACTIVE`, набор — `SEALED`.
+- До подтверждённого seal challenge остаётся `OPEN`; повторный вызов не создаёт второй набор и использует тот же `sealOperationId`.
+- `ChallengeSealRepository` хранит снимок и выдаёт collecting-наборы recovery worker; `ChallengeRecoveryWorker` продолжает незавершённый seal.
+- Digest набора считается по `hold_id,user_id,amount`, отсортированным по строковому hold_id.
+- `ChallengeSealFlowIntegrationTest` проверяет `OPEN` до seal, `ACTIVE` после, статусы участников, повтор без второго begin и восстановление collecting-набора после неизвестного ответа.
+- `sh ./mvnw -B -ntp -pl services/challenge-service -am test`: `BUILD SUCCESS`, contracts 5/5, challenge 56/56.
+- `git diff --check`: успешно. Проверка относительных Markdown-ссылок Python-скриптом: ошибок нет.
+- Ограничение: гонка cancel/seal и multi-instance lease — T004.20. Kafka и deploy не менялись.
