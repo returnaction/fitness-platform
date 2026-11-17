@@ -532,3 +532,14 @@ Testcontainers-тесты требуют работающего Docker. Без D
 - `sh ./mvnw -B -ntp -pl services/coins-service -am test`: `BUILD SUCCESS`, contracts 5/5, coins 85/85.
 - `git diff --check`: успешно. Проверка относительных Markdown-ссылок Python-скриптом: ошибок нет.
 - Ограничение: mTLS-клиент Challenge не проверен end-to-end; реальный Kafka-брокер и публикация outbox появятся в T005.7. Escrow, pending/quarantine-таблицы и административное возобновление не входят в MVP. Deploy не менялся.
+
+### 2026-11-17 — T005.7, outbox publisher Coins
+
+- `CoinOutboxRepository` выполняет claim через `FOR UPDATE SKIP LOCKED`, lease, `lease_generation`, `markPublished` только после ack и `clearLease` при ошибке.
+- `CoinOutboxPublisher` публикует пачками; событие не удаляется и при ошибке остаётся доступным после истечения lease.
+- `KafkaCoinEventPublisher` публикует в `fitness.<event_type>.v1` с ключом `aggregateId`; для расчёта это `fitness.coins.settlement_completed.v1` и `challengeId`.
+- Добавлены producer-настройки Kafka, `@EnableScheduling` и gauge `coins_outbox_backlog`; в тестах планировщик отключён через `coins.outbox.fixed-delay=1h`.
+- `CoinOutboxIntegrationTest` проверяет публикацию ровно один раз, `published_at`, lease без параллельного claim, повторный claim после `clearLease` и сохранение события при ошибке публикации.
+- `sh ./mvnw -B -ntp -pl services/coins-service -am test`: `BUILD SUCCESS`, contracts 5/5, coins 88/88.
+- `git diff --check`: успешно. Проверка относительных Markdown-ссылок Python-скриптом: ошибок нет.
+- Ограничение: реальный Kafka-брокер не поднимался; тест publisher использует mock `CoinEventPublisher`. Сквозная публикация и redelivery проверяются в T005.8/T006.1. Deploy не менялся.

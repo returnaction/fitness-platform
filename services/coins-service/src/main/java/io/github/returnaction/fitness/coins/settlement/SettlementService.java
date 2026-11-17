@@ -1,5 +1,6 @@
 package io.github.returnaction.fitness.coins.settlement;
 
+import io.github.returnaction.fitness.coins.outbox.CoinOutboxRepository;
 import io.github.returnaction.fitness.coins.settlement.SettlementRepository.ActiveHold;
 import io.github.returnaction.fitness.coins.settlement.SettlementRepository.SealedHold;
 import io.github.returnaction.fitness.coins.settlement.SettlementRepository.SettlementSnapshot;
