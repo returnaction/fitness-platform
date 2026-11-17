@@ -7,4 +7,4 @@ databaseChangeLog:
         - sqlFile:
             path: 001-create-catalog-categories.sql
             relativeToChangelogFile: true
-            stripComments: false
+            stripComments: true
