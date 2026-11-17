@@ -64,7 +64,8 @@ Challenge: [challenge-v1.yaml](openapi/challenge-v1.yaml). Gateway добавл�
 | GET /api/v1/challenges/{challengeId}/result | ES256 JWT + CheckSession ACTIVE | Тот же путь Challenge |
 
 Gateway пересылает исходный Bearer, `Idempotency-Key`, тело, метод, путь и
-`X-Request-Id`; динамические UUID-сегменты сохраняются. Query string не
+`X-Request-Id`; динамические UUID-сегменты сохраняются и ограничены
+UUID-паттерном, поэтому не-UUID значение не маршрутизируется. Query string не
 поддерживается (400). Ответ upstream 503 отображается в публичный код
 `challenge_unavailable` согласно `x-gateway-policy.upstream-errors`; остальные
 ошибки Challenge передаются в едином формате с `requestId`. Внутренние gRPC

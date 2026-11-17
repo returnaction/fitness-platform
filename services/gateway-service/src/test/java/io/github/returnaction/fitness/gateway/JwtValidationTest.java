@@ -630,8 +630,8 @@ class JwtValidationTest {
     }
 
     private static String concretePath(String path) {
-        return path.replace("{challengeId}", CHALLENGE_ID)
-                .replace("{operationId}", OPERATION_ID);
+        return path.replaceAll("\\{challengeId(:[^/]*)?}", CHALLENGE_ID)
+                .replaceAll("\\{operationId(:[^/]*)?}", OPERATION_ID);
     }
 
     private HttpResponse<String> challengeRequest(HttpClient client, GatewayRoute route, String path,

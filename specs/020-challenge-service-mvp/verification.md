@@ -216,8 +216,9 @@ Testcontainers-тесты требуют работающего Docker. Без D
 ### 2026-11-17 — T003.5, динамические пути через прокси
 
 - `JwtValidationTest`: добавлена проверка `GET /api/v1/challenges/{challengeId}` и `GET /api/v1/challenge-operations/{operationId}` через реальный HTTP-прокси Gateway.
+- Динамические сегменты маршрутов ограничены UUID-паттерном `[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}`. Поэтому `GET /api/v1/challenges/drafts` больше не совпадает с `{challengeId}`, получает `405 method_not_allowed` и не вызывает upstream. Добавлен тест `dynamicSegmentsRequireUuidPattern`.
 - Mock upstream получает исходный конкретный путь с UUID; проверены статусы `200`, `404`, `409`, `422`, `503`, неизменённое тело, `Cache-Control: no-store`, исходный `Authorization` и канонический `X-Request-Id` вместо клиентского и upstream-значения.
 - Query string на обоих динамических путях отклоняется с `400 invalid_request`; upstream не вызывается.
-- `sh ./mvnw -B -ntp -pl services/gateway-service -am test`: `BUILD SUCCESS`, 52 теста, 0 ошибок.
+- `sh ./mvnw -B -ntp -pl services/gateway-service -am test`: `BUILD SUCCESS`, 53 теста, 0 ошибок.
 - `git diff --check`: успешно. Проверка относительных Markdown-ссылок Python-скриптом: ошибок нет.
 - Ограничение: полный `verify` и SpotBugs выполняются в T003.6. БД, Kafka, deploy и commit не выполнялись.

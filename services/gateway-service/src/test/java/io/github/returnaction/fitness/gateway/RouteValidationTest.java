@@ -53,6 +53,8 @@ class RouteValidationTest {
 
     private static final String CHALLENGE_ID = "550e8400-e29b-41d4-a716-446655440000";
     private static final String OPERATION_ID = "7c9e6679-7425-40de-944b-e07fc1f90ae7";
+    private static final String UUID_PATTERN =
+            "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
     private static final List<GatewayRoute> EXPECTED_ROUTES = List.of(
             new GatewayRoute(HttpMethod.POST, "/api/v1/auth/register", UpstreamId.IDENTITY, RouteAccess.PUBLIC),
             new GatewayRoute(HttpMethod.POST, "/api/v1/auth/login", UpstreamId.IDENTITY, RouteAccess.PUBLIC),
@@ -104,6 +106,7 @@ class RouteValidationTest {
             for (String bearer : List.of("", "Bearer invalid", "Bearer expired-token")) {
                 assertError(client, "POST", "/unknown?x=1", bearer, 404, "not_found");
                 assertError(client, "OPTIONS", "/unknown", bearer, 404, "not_found");
+                assertError(client, "GET", "/api/v1/challenges/drafts", bearer, 405, "method_not_allowed");
                 for (var route : GatewayRouteCatalog.routes()) {
                     String path = concretePath(route.path());
                     assertError(client, "DELETE", path + "?x=1", bearer, 405, "method_not_allowed");
@@ -148,7 +151,11 @@ class RouteValidationTest {
 
     @Test
     void policyMatchesOnlyCatalogOperationsAndProtectedRouteStaysClosed() throws Exception {
-        assertThat(GatewayRouteCatalog.routes()).containsExactlyElementsOf(EXPECTED_ROUTES);
+        assertThat(GatewayRouteCatalog.routes().stream()
+                .map(route -> new GatewayRoute(route.method(), normalizePath(route.path()),
+                        route.upstream(), route.access()))
+                .toList())
+                .containsExactlyElementsOf(EXPECTED_ROUTES);
         try (var client = HttpClient.newHttpClient()) {
             for (var route : GatewayRouteCatalog.routes()) {
                 String path = concretePath(route.path());
@@ -167,6 +174,20 @@ class RouteValidationTest {
                 .stream()
                 .filter(registration -> registration.getClassName().endsWith(".RouteValidationFilter"))
                 .count()).isZero();
+    }
+
+    @Test
+    void dynamicSegmentsRequireUuidPattern() {
+        assertThat(GatewayRouteCatalog.routes())
+                .filteredOn(route -> route.path().contains("{challengeId"))
+                .hasSize(6)
+                .allSatisfy(route -> assertThat(route.path()).contains("{challengeId:" + UUID_PATTERN + "}"));
+
+        var operationRoutes = GatewayRouteCatalog.routes().stream()
+                .filter(route -> route.path().contains("{operationId"))
+                .toList();
+        assertThat(operationRoutes).hasSize(1);
+        assertThat(operationRoutes.getFirst().path()).contains("{operationId:" + UUID_PATTERN + "}");
     }
 
     @Test
@@ -195,8 +216,12 @@ class RouteValidationTest {
     }
 
     private static String concretePath(String path) {
-        return path.replace("{challengeId}", CHALLENGE_ID)
-                .replace("{operationId}", OPERATION_ID);
+        return path.replaceAll("\\{challengeId(:[^/]*)?}", CHALLENGE_ID)
+                .replaceAll("\\{operationId(:[^/]*)?}", OPERATION_ID);
+    }
+
+    private static String normalizePath(String path) {
+        return path.replaceAll("\\{([a-zA-Z]+):[^/]*}", "{$1}");
     }
 
     private static String allowedMethods(String path) {
