@@ -243,3 +243,16 @@ Testcontainers-тесты требуют работающего Docker. Без D
 - `sh ./mvnw -B -ntp -pl services/challenge-service -am test`: `BUILD SUCCESS`, contracts 5/5, challenge 1/1; контекст стартует с Liquibase и JPA.
 - `git diff --check`: успешно. Проверка относительных Markdown-ссылок Python-скриптом: ошибок нет.
 - Ограничение: таблиц и миграций нет, это T004.2 и требует отдельного разрешения на БД. Kafka-брокер в этой задаче не использовался; deploy и commit не выполнялись.
+
+### 2026-11-17 — T004.2, миграции fitness_challenge
+
+- Пользователь разрешил работу с локальной БД. Созданы роль `fitness_challenge_app` и база `fitness_challenge` с владельцем этой роли; пароль хранится только в игнорируемом `.env`.
+- Liquibase changeset `001-create-challenge-tables` применён к пустой базе: `EXECUTED`.
+- Созданы 12 таблиц из `plan.md`: `challenges`, `challenge_participants`, `challenge_operations`, `challenge_stake_sets`, `challenge_stake_set_items`, `challenge_release_intents`, `challenge_results`, `challenge_result_winners`, `challenge_settlement_status`, `challenge_outbox`, `challenge_inbox`, `challenge_idempotency_records`.
+- CHECK соответствуют спеке: статусы, лимиты title/description/stake/duration, обязательные поля публикации, положительные суммы и версии, digest 32 байта, единственный `UNIQUE` результат на challenge, `UNIQUE(hold_id)` release intent, `UNIQUE(user_id, method, path, key)` идемпотентности.
+- Частичный уникальный индекс `ux_challenge_operations_active` запрещает более одной незавершённой операции на `(challenge_id, user_id)`; завершённая операция не блокирует новую.
+- Новый `ChallengeSchemaMigrationIntegrationTest` на Testcontainers проверяет список таблиц, CHECK публикации, уникальность release intent и частичный индекс операций.
+- `sh ./mvnw -B -ntp -pl services/challenge-service -am test`: `BUILD SUCCESS`, contracts 5/5, challenge 4/4.
+- Проверка реальной базы: `\dt` показывает 12 таблиц challenge и таблицы Liquibase; `databasechangelog` содержит changeset `001-create-challenge-tables`.
+- `git diff --check`: успешно. Проверка относительных Markdown-ссылок Python-скриптом: ошибок нет.
+- Ограничение: rollback changeset не описан; доменный код и API ещё отсутствуют. Kafka, deploy и commit не выполнялись.
