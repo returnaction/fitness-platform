@@ -431,3 +431,15 @@ Testcontainers-тесты требуют работающего Docker. Без D
 - `sh ./mvnw -B -ntp -pl services/challenge-service -am test`: `BUILD SUCCESS`, contracts 5/5, challenge 43/43.
 - `git diff --check`: успешно. Проверка относительных Markdown-ссылок Python-скриптом: ошибок нет.
 - Ограничение: recovery worker для `PENDING` и release hold при сбое подтверждения — T004.13; Kafka и deploy не менялись.
+
+### 2026-11-17 — T004.11, вступление в челлендж
+
+- `ChallengeJoinService` сначала сохраняет durable `JOIN`-операцию и вызывает `ReserveStake` Coins; место проверяется только после подтверждённого резерва, под блокировкой строки challenge.
+- При подтверждении атомарно резервируется `next_join_sequence`, создаётся участие `JOINED`, операция фиксируется `CONFIRMED`.
+- Ошибки: `already_joined`, `challenge_full`, `challenge_started`, `challenge_cancelled`, `insufficient_coins`, `stake_conflict`; чужой/неопубликованный черновик — `404`.
+- Если после резерва место уже занято или состояние изменилось, вызывается `ReleaseStake` с причиной `JOIN_NOT_CONFIRMED`; окончательный `409` возвращается только после успешного release, иначе `202`.
+- Неизвестный исход Coins оставляет операцию `PENDING` и возвращает `202`.
+- `ChallengeJoinFlowIntegrationTest` покрывает успех/replay, повторное вступление и состояния, бизнес-исходы Coins, `202` и release при занятом месте.
+- `sh ./mvnw -B -ntp -pl services/challenge-service -am test`: `BUILD SUCCESS`, contracts 5/5, challenge 48/48.
+- `git diff --check`: успешно. Проверка относительных Markdown-ссылок Python-скриптом: ошибок нет.
+- Ограничение: гонка двух join за последнее место — T004.20; durable release intent — T004.12. Kafka и deploy не менялись.

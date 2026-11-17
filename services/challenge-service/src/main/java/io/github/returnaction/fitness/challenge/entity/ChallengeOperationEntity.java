@@ -62,6 +62,12 @@ public class ChallengeOperationEntity {
         updatedAt = now;
     }
 
+    public void markReserved(UUID holdId, Instant now) {
+        this.holdId = holdId;
+        status = ChallengeOperationStatus.RESERVED;
+        updatedAt = now;
+    }
+
     public void confirm(UUID holdId, Instant now) {
         this.holdId = holdId;
         status = ChallengeOperationStatus.CONFIRMED;

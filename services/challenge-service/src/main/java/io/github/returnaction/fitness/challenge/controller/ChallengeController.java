@@ -3,10 +3,12 @@ package io.github.returnaction.fitness.challenge.controller;
 import io.github.returnaction.fitness.challenge.dto.ChallengeDetailsResponse;
 import io.github.returnaction.fitness.challenge.dto.CreateDraftRequest;
 import io.github.returnaction.fitness.challenge.dto.DraftResponse;
+import io.github.returnaction.fitness.challenge.dto.JoinRequest;
 import io.github.returnaction.fitness.challenge.dto.OperationResponse;
 import io.github.returnaction.fitness.challenge.dto.UpdateDraftRequest;
 import io.github.returnaction.fitness.challenge.dto.VersionRequest;
 import io.github.returnaction.fitness.challenge.service.ChallengeDraftService;
+import io.github.returnaction.fitness.challenge.service.ChallengeJoinService;
 import io.github.returnaction.fitness.challenge.service.ChallengePublishService;
 import jakarta.validation.Valid;
 import java.util.UUID;
@@ -31,6 +33,7 @@ public class ChallengeController {
 
     private final ChallengeDraftService service;
     private final ChallengePublishService publishService;
+    private final ChallengeJoinService joinService;
 
     @PostMapping("/api/v1/challenges/drafts")
     public ResponseEntity<DraftResponse> createDraft(
@@ -62,6 +65,18 @@ public class ChallengeController {
             @RequestHeader(name = "Idempotency-Key", required = false) String idempotencyKey,
             @Valid @RequestBody VersionRequest request) {
         var result = publishService.publish(userId, challengeId, idempotencyKey, request);
+        return ResponseEntity.status(result.status())
+                .header(HttpHeaders.CACHE_CONTROL, NO_STORE)
+                .body(result.body());
+    }
+
+    @PostMapping("/api/v1/challenges/{challengeId}/joins")
+    public ResponseEntity<?> join(
+            @AuthenticationPrincipal UUID userId,
+            @PathVariable UUID challengeId,
+            @RequestHeader(name = "Idempotency-Key", required = false) String idempotencyKey,
+            @Valid @RequestBody JoinRequest request) {
+        var result = joinService.join(userId, challengeId, idempotencyKey);
         return ResponseEntity.status(result.status())
                 .header(HttpHeaders.CACHE_CONTROL, NO_STORE)
                 .body(result.body());

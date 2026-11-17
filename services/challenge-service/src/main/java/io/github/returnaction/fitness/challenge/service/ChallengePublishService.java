@@ -1,5 +1,6 @@
 package io.github.returnaction.fitness.challenge.service;
 
+import io.github.returnaction.fitness.challenge.coins.CoinsReserveRejection;
 import io.github.returnaction.fitness.challenge.coins.CoinsStakeClient;
 import io.github.returnaction.fitness.challenge.coins.exception.CoinsOperationConflictException;
 import io.github.returnaction.fitness.challenge.coins.exception.CoinsOutcomeUnknownException;
@@ -79,24 +80,18 @@ public class ChallengePublishService {
 
         try {
             var response = coins.reserveStake(reserve);
-            if (response.getOutcome() == ReserveOutcome.RESERVE_OUTCOME_RESERVED) {
-                UUID holdId = UUID.fromString(response.getHoldId());
-                confirm(userId, challengeId, prepared.operationId(), holdId);
-                var body = new PublishCompletedResponse(challengeId, ChallengeStatus.OPEN,
-                        ParticipationStatus.JOINED);
-                idempotency.store(userId, "POST", path, key, fingerprint,
-                        new StoredHttpResponse(200, json(body), "{}"));
-                return new PublishResult(200, body);
+            CoinsReserveRejection.throwIfRejected(response.getOutcome(),
+                    code -> fail(prepared.operationId(), code));
+            if (response.getOutcome() != ReserveOutcome.RESERVE_OUTCOME_RESERVED) {
+                throw new IllegalStateException("Unsupported reserve outcome");
             }
-            if (response.getOutcome() == ReserveOutcome.RESERVE_OUTCOME_INSUFFICIENT_FUNDS) {
-                fail(prepared.operationId(), "insufficient_coins");
-                throw new BusinessConflictException("insufficient_coins", "Not enough coins.");
-            }
-            if (response.getOutcome() == ReserveOutcome.RESERVE_OUTCOME_ACTIVE_HOLD_EXISTS) {
-                fail(prepared.operationId(), "stake_conflict");
-                throw new BusinessConflictException("stake_conflict", "User already has an active stake.");
-            }
-            throw new IllegalStateException("Unsupported reserve outcome");
+            UUID holdId = UUID.fromString(response.getHoldId());
+            confirm(userId, challengeId, prepared.operationId(), holdId);
+            var body = new PublishCompletedResponse(challengeId, ChallengeStatus.OPEN,
+                    ParticipationStatus.JOINED);
+            idempotency.store(userId, "POST", path, key, fingerprint,
+                    new StoredHttpResponse(200, json(body), "{}"));
+            return new PublishResult(200, body);
         } catch (CoinsOutcomeUnknownException exception) {
             return accepted(prepared.operationId());
         } catch (CoinsOperationConflictException exception) {
