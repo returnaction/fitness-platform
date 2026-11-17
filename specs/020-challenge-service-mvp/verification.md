@@ -584,3 +584,21 @@ Testcontainers-тесты требуют работающего Docker. Без D
 - `sh ./mvnw -B -ntp -pl services/coins-service -am verify`: `BUILD SUCCESS`, contracts 5/5, coins 91/91.
 - SpotBugs: 0 bugs.
 - Ограничение: реальный Kafka-брокер и mTLS-клиент Challenge не проверены end-to-end; они входят в сквозной сценарий T006. Deploy не менялся.
+
+### 2026-11-17 — T006.1, локальная Kafka и подготовка данных
+
+- Добавлен `deployment/compose.local-kafka.yaml`: один broker/controller в KRaft, без ZooKeeper и без PostgreSQL; production `compose.yaml`, release scripts и секреты не менялись.
+- `docker compose -f deployment/compose.local-kafka.yaml config --quiet`: успешно.
+- `docker compose -f deployment/compose.local-kafka.yaml up -d`: контейнер `fitness-local-kafka` запущен и перешёл в `healthy`.
+- Созданы топики `fitness.challenge.finished.v1` и `fitness.coins.settlement_completed.v1` (3 партиции, replication factor 1); `kafka-topics.sh --list` подтверждает оба имени.
+- Добавлен `scripts/prepare-local-challenge-data.sh`: регистрирует/логинит двух пользователей через Identity, получает две сессии, идемпотентно пополняет два кошелька Coins через локальный ledger и пишет токены только в игнорируемый `secrets/challenge-local-test-data.env`.
+- `bash -n scripts/prepare-local-challenge-data.sh`: успешно. SQL-пополнение проверено на временном кошельке: повтор не увеличивает баланс второй раз.
+- В `deployment/README.md` добавлена локальная инструкция; production-раздел не менялся.
+- По решению пользователя созданы локальные БД `fitness_identity`, `fitness_accounts`, роли приложений и `.env` для Identity, Accounts, Coins, Gateway и Challenge; пароли и токены находятся только в игнорируемых файлах.
+- Для локального окружения созданы mTLS-сертификаты и ES256 JWT-ключи в `secrets/`; mTLS-сертификаты переведены на RSA, потому что LibreSSL создавал EC-сертификаты с явными параметрами, которые JDK не принимает.
+- Исправлен конфликт портов: Kafka перенесена на `localhost:29092`, потому что Coins gRPC занимает `9092`; обновлены `deployment/compose.local-kafka.yaml`, `.env.example` Coins/Challenge и локальные `.env`.
+- Запущены Accounts, Coins, Identity и Gateway; `readiness` всех четырёх сервисов — `200`.
+- `scripts/prepare-local-challenge-data.sh` выполнен: созданы два пользователя, две сессии и два кошелька с балансом 20.
+- Обе сессии проверены через Gateway: `GET /api/v1/coins/me` вернул `200` и `{"availableBalance":20,"lockedBalance":0}` для каждого пользователя.
+- Kafka остаётся `healthy`; топики присутствуют. Секреты, пароли и токены в Git не добавлены.
+- Ограничение: локальный контур использует тестовую накачку кошельков через ledger с типом `SETTLEMENT`, а не пользовательское начисление; это только тестовые данные. Deploy и production Compose не менялись.
