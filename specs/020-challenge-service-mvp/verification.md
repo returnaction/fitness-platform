@@ -280,3 +280,14 @@ Testcontainers-тесты требуют работающего Docker. Без D
 - `sh ./mvnw -B -ntp -pl services/challenge-service -am test`: `BUILD SUCCESS`, contracts 5/5, challenge 16/16.
 - `git diff --check`: успешно. Проверка относительных Markdown-ссылок Python-скриптом: ошибок нет.
 - Ограничение: сервисный слой и HTTP API ещё отсутствуют; блокировки проверены на Testcontainers PostgreSQL. БД, Kafka и deploy не менялись.
+
+### 2026-11-17 — T004.5, claims-фильтр и security chain
+
+- Добавлена зависимость `nimbus-jose-jwt` для разбора forwarded Bearer JWT.
+- `ChallengeAuthenticationFilter` для путей `/api/v1/challenges*` и `/api/v1/challenge-operations*`: извлекает UUID из `sub`, известные роли из `roles`, кладёт `UsernamePasswordAuthenticationToken` в `SecurityContext` и очищает контекст в `finally`. Подпись, срок и сессию по-прежнему проверяет Gateway.
+- `SecurityConfiguration`: stateless, CSRF/basic/form/logout отключены; Actuator health/info/prometheus доступны без токена, `/api/**` требует аутентификации, остальные пути запрещены.
+- Unit-тесты фильтра: principal и роли, отсутствие/битый токен, не-UUID `sub`, неверный тип `roles`, пропуск Actuator и неизвестных путей, очистка контекста.
+- Существующий тест приложения подтверждает доступность Actuator и закрытость `/unknown`.
+- `sh ./mvnw -B -ntp -pl services/challenge-service -am test`: `BUILD SUCCESS`, contracts 5/5, challenge 19/19.
+- `git diff --check`: успешно. Проверка относительных Markdown-ссылок Python-скриптом: ошибок нет.
+- Ограничение: единый формат тела `401/403` и точный security handler — T004.6. Контроллеров API ещё нет; БД, Kafka и deploy не менялись.
