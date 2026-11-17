@@ -66,7 +66,7 @@ public class StakeReservationService {
 
     private ReserveStakeResult store(ReserveStakeCommand command, byte[] requestHash,
                                      ReserveStakeResult result) {
-        repository.insertReserveOperation(command.joinOperationId(), command.challengeId(), requestHash,
+        repository.insertOperation(RESERVE_KIND, command.joinOperationId(), command.challengeId(), requestHash,
                 objectMapper.writeValueAsString(result));
         return result;
     }

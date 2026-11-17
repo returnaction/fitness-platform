@@ -360,3 +360,14 @@ Testcontainers-тесты требуют работающего Docker. Без D
 - `sh ./mvnw -B -ntp -pl services/coins-service -am test`: `BUILD SUCCESS`, 55 тестов, 0 ошибок.
 - `git diff --check`: успешно. Проверка относительных Markdown-ссылок Python-скриптом: ошибок нет.
 - Ограничение: gRPC-метод `ReserveStake` и маппинг ошибок появятся в T004.9; seal/freeze — T005.4–T005.5. Kafka и deploy не менялись.
+
+### 2026-11-17 — T005.3, освобождение ставки
+
+- `ReleaseStakeService` под блокировкой набора и hold переводит hold в `RELEASED`, возвращает сумму из `locked` в `available`, пишет ledger `RELEASE` (`available_delta = +amount`, `locked_delta = -amount`) и сохраняет исход операции.
+- Повтор с тем же release operation ID и payload возвращает сохранённый результат без второй проводки; другой payload — `OperationIdConflictException`.
+- Другой operation ID для уже освобождённого или распределённого hold — `HoldNotReleasableException`; hold другого challenge — `HoldChallengeMismatchException`; неизвестный hold — `HoldNotFoundException`.
+- `StakeRepository` дополнен явными SQL-запросами `lockHold`, `markHoldReleased`, `insertReleaseLedger` и общим `insertOperation`.
+- `ReleaseStakeServiceIntegrationTest` на Testcontainers проверяет одноразовость, replay, второй release, чужой challenge, неизвестный hold и конфликт причины.
+- `sh ./mvnw -B -ntp -pl services/coins-service -am test`: `BUILD SUCCESS`, 60 тестов, 0 ошибок.
+- `git diff --check`: успешно. Проверка относительных Markdown-ссылок Python-скриптом: ошибок нет.
+- Ограничение: gRPC-метод `ReleaseStake` — T004.9; freeze/complete — T005.5. Kafka и deploy не менялись.

@@ -17,6 +17,7 @@ public class StakeRepository {
 
     private static final String CHALLENGE_ID = "challengeId";
     private static final String USER_ID = "userId";
+    private static final String HOLD_ID = "holdId";
 
     private final NamedParameterJdbcTemplate jdbc;
 
@@ -120,20 +121,66 @@ public class StakeRepository {
                 .addValue(CHALLENGE_ID, challengeId));
     }
 
-    public void insertReserveOperation(UUID joinOperationId, UUID challengeId, byte[] requestHash,
-                                       String resultJson) {
+    public void insertReleaseLedger(UUID id, UUID userId, UUID releaseOperationId, UUID challengeId,
+                                    long amount) {
+        jdbc.update("""
+                INSERT INTO coin_ledger_entries
+                    (id, user_id, operation_id, entry_index, type,
+                     available_delta, locked_delta, challenge_id)
+                VALUES (:id, :userId, :operationId, 0, 'RELEASE',
+                        :availableDelta, :lockedDelta, :challengeId)
+                """, new MapSqlParameterSource()
+                .addValue("id", id)
+                .addValue(USER_ID, userId)
+                .addValue("operationId", releaseOperationId)
+                .addValue("availableDelta", amount)
+                .addValue("lockedDelta", -amount)
+                .addValue(CHALLENGE_ID, challengeId));
+    }
+
+    public Optional<HoldSnapshot> lockHold(UUID holdId) {
+        return jdbc.query("""
+                SELECT id, user_id, challenge_id, amount, status
+                FROM coin_holds
+                WHERE id = :holdId
+                FOR UPDATE
+                """, new MapSqlParameterSource(HOLD_ID, holdId),
+                (resultSet, rowNumber) -> new HoldSnapshot(
+                        resultSet.getObject("id", UUID.class),
+                        resultSet.getObject("user_id", UUID.class),
+                        resultSet.getObject("challenge_id", UUID.class),
+                        resultSet.getLong("amount"),
+                        resultSet.getString("status")))
+                .stream()
+                .findFirst();
+    }
+
+    public void markHoldReleased(UUID holdId) {
+        jdbc.update("""
+                UPDATE coin_holds
+                SET status = 'RELEASED', updated_at = CURRENT_TIMESTAMP
+                WHERE id = :holdId
+                """, new MapSqlParameterSource(HOLD_ID, holdId));
+    }
+
+    public void insertOperation(String kind, UUID id, UUID challengeId, byte[] requestHash,
+                                String resultJson) {
         jdbc.update("""
                 INSERT INTO coin_stake_operations
                     (kind, id, challenge_id, request_hash, result)
-                VALUES ('RESERVE', :id, :challengeId, :requestHash, CAST(:result AS jsonb))
+                VALUES (:kind, :id, :challengeId, :requestHash, CAST(:result AS jsonb))
                 """, new MapSqlParameterSource()
-                .addValue("id", joinOperationId)
+                .addValue("kind", kind)
+                .addValue("id", id)
                 .addValue(CHALLENGE_ID, challengeId)
                 .addValue("requestHash", requestHash)
                 .addValue("result", resultJson));
     }
 
     public record WalletBalances(long availableBalance, long lockedBalance) {
+    }
+
+    public record HoldSnapshot(UUID id, UUID userId, UUID challengeId, long amount, String status) {
     }
 
     public static final class OperationSnapshot {
