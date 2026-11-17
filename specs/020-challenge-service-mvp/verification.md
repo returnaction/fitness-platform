@@ -625,3 +625,14 @@ Testcontainers-тесты требуют работающего Docker. Без D
 - Повтор join победителя с сохранённым `Idempotency-Key`: `200` и сохранённый ответ; количество `RESERVE` осталось 3, второй hold не создан.
 - `git diff --check`: успешно. Проверка относительных Markdown-ссылок: ошибок нет.
 - Ограничение: гонка проверена в одном локальном запуске; массовые конкурентные нагрузки и реальный брокер под нагрузкой не проверялись. Deploy не менялся.
+
+### 2026-11-17 — T006.4, отмена и возврат
+
+- Обычная отмена через Gateway: `POST .../cancel` → `200`, `status=CANCELLED`, `refundStatus=COMPLETED`.
+- В Coins hold переведён в `RELEASED`, созданы ровно одна `FREEZE`, одна `RELEASE` и одна `COMPLETE_CANCELLATION`; в Challenge release intent `CONFIRMED`.
+- Кошелёк после отмены: `availableBalance=10`, `lockedBalance=10` (остался только hold другого challenge).
+- Повторная отмена с новым `Idempotency-Key` вернула `200 COMPLETED` и не создала вторую release-операцию.
+- Проверен отказ Coins: процесс Coins остановлен, затем `POST .../cancel` → `200`, `status=CANCELLED`, `refundStatus=PENDING`; release intent остался `PENDING`.
+- После запуска Coins recovery worker перевёл возврат в `COMPLETED`; в Coins hold `RELEASED`, по одной операции `FREEZE`, `RELEASE`, `COMPLETE_CANCELLATION`, кошелёк вернулся к `availableBalance=10`, `lockedBalance=10`.
+- `git diff --check`: успешно. Проверка относительных Markdown-ссылок: ошибок нет.
+- Ограничение: недоступность Coins имитирована остановкой локального процесса; время recovery зависит от интервала worker 5 секунд. Deploy не менялся.
