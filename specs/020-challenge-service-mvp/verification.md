@@ -183,3 +183,13 @@ Testcontainers-тесты требуют работающего Docker. Без D
 - `sh ./mvnw -B -ntp -pl services/gateway-service -am test`: `BUILD SUCCESS`, 50 тестов, 0 ошибок.
 - `git diff --check`: успешно. Проверка относительных Markdown-ссылок Python-скриптом: ошибок нет.
 - Ограничение: `services/gateway-service/.env.example` и `deployment/env/gateway.env.example` ещё не содержат `CHALLENGE_HTTP_BASE_URL`; это задача T003.2. Маршруты Challenge ещё не добавлены (T003.3). БД, Kafka, deploy и commit не выполнялись.
+
+### 2026-11-17 — T003.2, конфигурация по средам
+
+- `services/gateway-service/.env.example`: `CHALLENGE_HTTP_BASE_URL=http://127.0.0.1:8083`.
+- `deployment/env/gateway.env.example`: `CHALLENGE_HTTP_BASE_URL=http://challenge-service:8083`.
+- `application.yaml` (placeholder) и `test-environment.properties` (значение) уже содержат переменную после T003.1; проверены повторно.
+- `services/gateway-service/README.md`: указан локальный адрес Challenge.
+- Проверка grep: переменная присутствует во всех четырёх файлах.
+- `git diff --check`: успешно. Проверка относительных Markdown-ссылок Python-скриптом: ошибок нет.
+- Код, маршруты, БД, Kafka, deploy и commit не выполнялись.

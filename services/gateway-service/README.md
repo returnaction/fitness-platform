@@ -20,7 +20,8 @@ Local — профиль по умолчанию. Если .env ещё нет, �
 `http://127.0.0.1:8081`. Это origin без пути `/api/v1/accounts/me`.
 Для Coins обязательна переменная `COINS_HTTP_BASE_URL`, локально
 `http://127.0.0.1:8082`; это origin без пути `/api/v1/coins/me`.
-Для Challenge обязательна переменная `CHALLENGE_HTTP_BASE_URL`; без неё
+Для Challenge обязательна переменная `CHALLENGE_HTTP_BASE_URL`, локально
+`http://127.0.0.1:8083`; это origin без пути `/api/v1/challenges`. Без неё
 приложение не стартует, даже пока маршруты Challenge не подключены.
 Ключи сервисов в конфигурации и enum — `ACCOUNT`, `COINS` и `CHALLENGE`.
 В существующий .env добавляйте отсутствующие параметры, сохраняя свои значения.
