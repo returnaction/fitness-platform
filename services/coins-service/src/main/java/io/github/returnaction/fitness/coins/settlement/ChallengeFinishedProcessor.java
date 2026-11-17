@@ -3,7 +3,6 @@ package io.github.returnaction.fitness.coins.settlement;
 import io.github.returnaction.fitness.coins.challenge.ChallengeResultClient;
 import io.github.returnaction.fitness.coins.challenge.ChallengeResultRejectedException;
 import io.github.returnaction.fitness.coins.stake.RequestHash;
-import java.security.MessageDigest;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;

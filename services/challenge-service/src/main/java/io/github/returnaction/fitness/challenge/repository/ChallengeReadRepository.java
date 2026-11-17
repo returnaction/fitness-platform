@@ -51,7 +51,7 @@ public class ChallengeReadRepository {
                       AND winner.user_id = :viewerId
                 WHERE result.challenge_id = :challengeId
                 """, Map.of("challengeId", challengeId, "viewerId", viewerId),
-                (resultSet, rowNumber) -> new ResultProjection(
+                (resultSet, _) -> new ResultProjection(
                         resultSet.getObject("id", UUID.class),
                         resultSet.getString("outcome"),
                         resultSet.getObject("created_at", OffsetDateTime.class).toInstant(),
