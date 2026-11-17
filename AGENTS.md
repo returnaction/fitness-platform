@@ -6,28 +6,34 @@ instructions in nested directories supplement the root instructions.
 
 ## SDD Scope and Workflow
 
-No specification is currently active. Completed specifications remain in `specs/`
-as historical requirements and verification records; they do not authorize new work.
-When the user selects the next specification, fill in the scope template below.
-Do not choose a feature or a system-design roadmap item on the user's behalf.
+Completed specifications remain in `specs/` as historical requirements and
+verification records; they do not authorize new work.
 
-### Scope template for the next specification
+### Active specification
 
-- **Specification:** not selected; directory format: `specs/<number>-<name>/`.
-- **Branch:** not selected; follow the Git Branches rules below.
-- **Status:** not started; use the specification's actual status once selected.
-- **Goal and acceptance criteria:** record in `spec.md`.
-- **Included scope:** record the agreed services, APIs, clients and deliverables.
-- **Excluded scope:** record explicit exclusions and agreed limitations.
-- **Plan and tasks:** link to `plan.md` and `tasks.md` in the selected directory.
-- **Verification:** record required checks and evidence in `verification.md`.
-- **Authorized work:** record whether the user authorized preparation, specific
-  tasks or continued implementation. Approval of requirements alone does not
-  authorize implementation.
-- **Execution mode:** after each task, report evidence and stop for review unless
-  the user explicitly authorizes continued work.
-- **Questions and decisions:** record in `questions.md`, with affected tasks,
-  evidence, options, recommendation and any blocked scope.
+- **Specification:** `specs/007-exercise-catalog-readonly-mvp/`.
+- **Branch:** `52-exercise-catalog-service`, created from the current `main`.
+- **Status:** `draft` — selected by the user 2026-11-17; implementation has not
+  started.
+- **Goal and acceptance criteria:** [spec.md](specs/007-exercise-catalog-readonly-mvp/spec.md).
+- **Included scope:** separate read-only Exercise Catalog database and service,
+  Liquibase schema and approved seed data, read-only REST through Gateway, and
+  Challenge-to-Catalog gRPC validation as defined in `spec.md`.
+- **Excluded scope:** admin API and administration tables, Kafka/outbox, manual
+  data edits, and changes to Challenge, Video Proof or Moderation beyond the
+  agreed integration.
+- **Plan and tasks:** [plan.md](specs/007-exercise-catalog-readonly-mvp/plan.md)
+  and [tasks.md](specs/007-exercise-catalog-readonly-mvp/tasks.md).
+- **Verification:** record required checks and evidence in `verification.md` if
+  created for this specification; tasks currently define the required checks.
+- **Authorized work:** the user authorized selecting this specification and
+  recording it in this file. No implementation task is authorized yet.
+- **Execution mode:** after each authorized task, report evidence and stop for
+  review unless the user explicitly authorizes continued work.
+- **Questions and decisions:** record material questions and decisions in
+  `questions.md`, with affected tasks, evidence, options, recommendation and
+  any blocked scope. The open decisions currently listed in `spec.md` and
+  `tasks.md` remain unresolved.
 
 Replace these placeholders only with information established by the user or
 verified in the repository. Do not create a specification or branch merely to
