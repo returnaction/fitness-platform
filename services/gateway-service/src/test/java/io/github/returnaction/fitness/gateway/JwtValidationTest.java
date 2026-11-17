@@ -406,6 +406,52 @@ class JwtValidationTest {
     }
 
     @Test
+    void challengeDynamicPathsForwardStatusBodyAndHeadersAndRejectQueryString() throws Exception {
+        String token = sign(claims());
+        try (var client = HttpClient.newHttpClient()) {
+            for (String path : List.of("/api/v1/challenges/" + CHALLENGE_ID,
+                    "/api/v1/challenge-operations/" + OPERATION_ID)) {
+                for (int status : List.of(200, 404, 409, 422, 503)) {
+                    CHALLENGE_UPSTREAM.status.set(status);
+                    int before = CHALLENGE_UPSTREAM.calls.get();
+                    var request = HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + path))
+                            .header("Authorization", "Bearer " + token)
+                            .header("X-Request-Id", "forged-id")
+                            .GET()
+                            .build();
+                    var response = client.send(request, HttpResponse.BodyHandlers.ofString());
+                    assertThat(response.statusCode()).isEqualTo(status);
+                    assertThat(response.body()).isEqualTo("{\"result\":\"unchanged\"}");
+                    assertThat(response.headers().firstValue("Cache-Control")).contains("no-store");
+                    String id = response.headers().firstValue("X-Request-Id").orElseThrow();
+                    assertThat(UUID.fromString(id)).isNotNull();
+                    assertThat(id).isNotEqualTo("forged-id").isNotEqualTo("upstream-id");
+                    var received = CHALLENGE_UPSTREAM.received.get();
+                    assertThat(received.method()).isEqualTo("GET");
+                    assertThat(received.path()).isEqualTo(path);
+                    assertThat(received.header("Authorization")).isEqualTo("Bearer " + token);
+                    assertThat(received.header("X-Request-Id")).isEqualTo(id);
+                    assertThat(CHALLENGE_UPSTREAM.calls.get()).isEqualTo(before + 1);
+                }
+
+                CHALLENGE_UPSTREAM.status.set(200);
+                int before = CHALLENGE_UPSTREAM.calls.get();
+                var rejected = HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + path + "?expand=1"))
+                        .header("Authorization", "Bearer " + token)
+                        .GET()
+                        .build();
+                var response = client.send(rejected, HttpResponse.BodyHandlers.ofString());
+                assertThat(response.statusCode()).isEqualTo(400);
+                assertThat(response.body()).contains("invalid_request");
+                assertThat(CHALLENGE_UPSTREAM.calls.get()).isEqualTo(before);
+            }
+        }
+        assertThat(UPSTREAM.calls.get()).isZero();
+        assertThat(ACCOUNTS.calls.get()).isZero();
+        assertThat(COINS.calls.get()).isZero();
+    }
+
+    @Test
     void preservesDownstreamErrorsAndRedirectsWithoutRetriesOrCookieReuse() throws Exception {
         try (var client = HttpClient.newHttpClient()) {
             for (int status : List.of(422, 307, 503)) {
