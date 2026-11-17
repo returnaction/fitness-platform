@@ -46,6 +46,32 @@ coins_unavailable передаются с единым телом ошибки �
 `x-gateway-policy.upstream-errors` описывает ошибки upstream; `errors` сохраняет
 коды самого Gateway. Недоступный upstream (502) отличается от ответа Coins 503.
 
+## Контракт Challenge (Spec 020; маршруты зарегистрированы, сквозная проверка — отдельная задача)
+
+Владелец тел, успешных ответов, бизнес-ошибок, идемпотентности и транзакций —
+Challenge: [challenge-v1.yaml](openapi/challenge-v1.yaml). Gateway добавляет
+только `$ref` на восемь путей и не дублирует схемы:
+
+| Метод и путь | Авторизация Gateway | Upstream |
+| --- | --- | --- |
+| POST /api/v1/challenges/drafts | ES256 JWT + CheckSession ACTIVE | Тот же путь Challenge |
+| GET /api/v1/challenges/{challengeId} | ES256 JWT + CheckSession ACTIVE | Тот же путь Challenge |
+| PATCH /api/v1/challenges/{challengeId}/draft | ES256 JWT + CheckSession ACTIVE | Тот же путь Challenge |
+| POST /api/v1/challenges/{challengeId}/publish | ES256 JWT + CheckSession ACTIVE | Тот же путь Challenge |
+| POST /api/v1/challenges/{challengeId}/joins | ES256 JWT + CheckSession ACTIVE | Тот же путь Challenge |
+| POST /api/v1/challenges/{challengeId}/cancel | ES256 JWT + CheckSession ACTIVE | Тот же путь Challenge |
+| GET /api/v1/challenge-operations/{operationId} | ES256 JWT + CheckSession ACTIVE | Тот же путь Challenge |
+| GET /api/v1/challenges/{challengeId}/result | ES256 JWT + CheckSession ACTIVE | Тот же путь Challenge |
+
+Gateway пересылает исходный Bearer, `Idempotency-Key`, тело, метод, путь и
+`X-Request-Id`; динамические UUID-сегменты сохраняются и ограничены
+UUID-паттерном, поэтому не-UUID значение не маршрутизируется. Query string не
+поддерживается (400). Ответ upstream 503 отображается в публичный код
+`challenge_unavailable` согласно `x-gateway-policy.upstream-errors`; остальные
+ошибки Challenge передаются в едином формате с `requestId`. Внутренние gRPC
+`FinalizeResult` и `ListResultWinners` через Gateway недоступны и в каталог
+маршрутов не входят.
+
 ## Проверки авторизации
 
 JWT: ES256/P-256, доверенные issuer/audience, обязательные UUID sub/sid/jti,

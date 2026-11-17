@@ -2,7 +2,10 @@ package io.github.returnaction.fitness.coins.wallet;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.CALLS_REAL_METHODS;
+import static org.mockito.Mockito.mock;
 
+import io.github.returnaction.fitness.coins.stake.grpc.StakeGrpcService;
 import io.github.returnaction.fitness.coins.wallet.grpc.WalletCreationGrpcService;
 import io.github.returnaction.fitness.coins.wallet.grpc.SecureGrpcServer;
 import io.github.returnaction.fitness.coins.wallet.grpc.TestMtlsCertificates;
@@ -186,7 +189,8 @@ class WalletCreationIntegrationTest {
         try (var socket = new ServerSocket(0)) {
             port = socket.getLocalPort();
         }
-        var server = new SecureGrpcServer(grpcService, "127.0.0.1", port, certificates.serverCertificate().toString(),
+        var server = new SecureGrpcServer(grpcService, mock(StakeGrpcService.class, CALLS_REAL_METHODS), "127.0.0.1", port,
+                certificates.serverCertificate().toString(),
                 certificates.serverPrivateKey().toString(), certificates.caCertificate().toString());
         var identity = NettyChannelBuilder.forAddress("localhost", port)
                 .sslContext(GrpcSslContexts.forClient()

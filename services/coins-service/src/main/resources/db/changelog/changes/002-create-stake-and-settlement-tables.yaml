@@ -1,0 +1,10 @@
+databaseChangeLog:
+  - changeSet:
+      id: 002-create-stake-and-settlement-tables
+      author: spec-020
+      dbms: postgresql
+      changes:
+        - sqlFile:
+            path: 002-create-stake-and-settlement-tables.sql
+            relativeToChangelogFile: true
+            stripComments: false

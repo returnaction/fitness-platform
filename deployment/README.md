@@ -42,6 +42,32 @@ Java runtime находится в образе. PostgreSQL установлен
 | [compose.env.example](compose.env.example) | Шаблон переменных `*_IMAGE` с точными адресами образов |
 | [env/README.md](env/README.md) и `env/*.env.example` | Шаблоны настроек, из которых создаются настоящие файлы на сервере |
 | [generate-dev-crypto.sh](scripts/generate-dev-crypto.sh) | Первоначальное создание серверных mTLS/JWT-материалов |
+| [compose.local-kafka.yaml](compose.local-kafka.yaml) | Локальная Kafka в KRaft для сквозной проверки; не входит в серверную выкладку |
+
+## Локальная Kafka для сквозной проверки
+
+Серверный [compose.yaml](compose.yaml) не меняется. Для локальной проверки
+Challenge используется отдельный Compose с одним broker/controller в KRaft и
+без PostgreSQL:
+
+```bash
+docker compose -f deployment/compose.local-kafka.yaml up -d
+docker compose -f deployment/compose.local-kafka.yaml ps
+```
+
+Broker доступен на `localhost:29092`. PostgreSQL, Identity, Accounts, Coins,
+Gateway и Challenge запускаются отдельно; их `.env` и сертификаты остаются
+локальными и не коммитятся. Проверка Compose без запуска:
+
+```bash
+docker compose -f deployment/compose.local-kafka.yaml config --quiet
+```
+
+Для подготовки двух локальных пользователей, сессий и кошельков с монетами
+используется [prepare-local-challenge-data.sh](../scripts/prepare-local-challenge-data.sh).
+Скрипт читает пароль БД Coins из `services/coins-service/.env` или
+`COINS_DB_PASSWORD`, регистрирует/логинит двух пользователей через Identity и
+пишет токены только в игнорируемый `secrets/challenge-local-test-data.env`.
 
 Python-скрипты release запускаются на GitHub runner. На сервере выкладкой
 занимается Bash; исходники Java там не собираются.

@@ -22,7 +22,9 @@
 
 - [Identity REST API v1](openapi/identity-auth-v1.yaml) — регистрация, вход и обновление сессии;
 - [Accounts Creation gRPC v1](proto/accounts-profile-creation-v1.proto);
-- [Coins Creation gRPC v1](proto/coins-wallet-creation-v1.proto).
+- [Coins Creation gRPC v1](proto/coins-wallet-creation-v1.proto);
+- [Coins Stake gRPC v1](proto/coins-stake-v1.proto) — резервы, возвраты, пакетный seal и отмена ставок; контракт Spec 020, реализация ещё не начата;
+- [Challenge Results gRPC v1](proto/challenge-results-v1.proto) — внутренняя фиксация результата и постраничное чтение победителей; контракт Spec 020, реализация ещё не начата.
 
 Для `CreateProfileIfAbsent` и `CreateWalletIfAbsent` поля запроса одинаковые. Пример значений
 полей protobuf (JSON показан только для наглядности; вызов выполняется по gRPC):
@@ -43,7 +45,7 @@
 
 `grpc-contracts` не запускает сетевой сервер и не содержит бизнес-логики. Это
 общий JAR с единственными сгенерированными Java-классами контракта.
-Identity, Accounts и Coins подключают его как Maven dependency; вручную
+Identity, Accounts, Coins, Gateway и Challenge подключают его как Maven dependency; вручную
 копировать generated-код или `.proto` в сервисы нельзя.
 
 # Контракты между сервисами (gRPC)
@@ -78,7 +80,7 @@ Identity, Accounts и Coins подключают его как Maven dependency;
 <dependency>
     <groupId>io.github.returnaction.fitness</groupId>
     <artifactId>fitness-grpc-contracts</artifactId>
-    <version>0.1.1</version>
+    <version>0.1.2</version>
 </dependency>
 
 ```
@@ -109,6 +111,7 @@ Identity, Accounts и Coins подключают его как Maven dependency;
 ```powershell
 python -m pip install -r contracts/openapi/requirements-validation.txt
 python -m openapi_spec_validator contracts/openapi/accounts-profile-v1.yaml
+python -m openapi_spec_validator contracts/openapi/challenge-v1.yaml
 python -m openapi_spec_validator contracts/openapi/coins-wallet-v1.yaml
 python -m openapi_spec_validator contracts/openapi/gateway-v1.yaml
 python -m openapi_spec_validator contracts/openapi/identity-auth-v1.yaml

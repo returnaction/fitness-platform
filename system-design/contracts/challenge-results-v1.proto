@@ -3,6 +3,10 @@ package fitness.challenge.v1;
 option java_multiple_files = true;
 option java_package = "fitness.challenge.v1";
 
+// ИСТОРИЧЕСКИЙ ЧЕРНОВИК. Действующий контракт, который компилируется и
+// используется сервисами, — contracts/proto/challenge-results-v1.proto.
+// Этот файл сохранён как проектная история и не должен подключаться к сборке.
+
 // Список фиксируется Challenge до события окончательного результата.
 service ChallengeResultService {
   rpc ListResultWinners(ListResultWinnersRequest) returns (ListResultWinnersResponse);

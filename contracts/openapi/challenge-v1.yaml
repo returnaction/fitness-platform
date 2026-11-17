@@ -1,0 +1,899 @@
+openapi: 3.1.0
+info:
+  title: Fitness Challenge API
+  version: 1.0.0
+  description: >-
+    Owner-контракт Spec 020. Challenge владеет черновиком, участием, ставками
+    и результатом. Gateway проверяет JWT и сессию; Challenge получает UUID
+    пользователя только из sub forwarded Bearer JWT. Query string запрещён.
+    Все изменяющие методы требуют Idempotency-Key UUID. Если итог Coins ещё
+    неизвестен, операция возвращает 202 со statusUrl и не выдаёт 409 или 503
+    за окончательный отказ. Сумма ставки и ID участника не принимаются от
+    клиента. Публичного назначения победителя нет. Ошибки используют общий
+    формат с requestId; details необязателен. Общие транспортные ошибки
+    Gateway описаны в ../gateway-v1.md.
+servers:
+  - url: http://127.0.0.1:8088
+    description: Local Gateway
+tags:
+  - name: Challenges
+    description: Дуэльные challenge со ставкой монет.
+  - name: ChallengeOperations
+    description: Состояние долговечных операций publish и join.
+  - name: ChallengeResults
+    description: Окончательный результат challenge.
+paths:
+  /api/v1/challenges/drafts:
+    post:
+      tags: [Challenges]
+      operationId: createChallengeDraft
+      summary: Создать черновик
+      description: >-
+        Создаёт пустой черновик текущего пользователя. Монеты не резервируются,
+        участие не создаётся. Повтор с тем же Idempotency-Key возвращает
+        сохранённый ответ; другое тело — 409 idempotency_key_conflict.
+      security:
+        - BearerAccess: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              maxProperties: 0
+      responses:
+        '201':
+          description: Черновик создан.
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+            Location:
+              description: Путь созданного черновика.
+              schema: {type: string, pattern: '^/api/v1/challenges/[0-9a-f-]{36}$'}
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DraftCreated'
+              example: {id: 550e8400-e29b-41d4-a716-446655440000, status: DRAFT, version: 1}
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /api/v1/challenges/{challengeId}:
+    parameters:
+      - $ref: '#/components/parameters/ChallengeId'
+    get:
+      tags: [Challenges]
+      operationId: getChallenge
+      summary: Прочитать challenge
+      description: >-
+        Чужой DRAFT скрывается под 404 challenge_not_found. Опубликованный
+        challenge доступен аутентифицированному пользователю. Наличие ID не
+        даёт права вступления. Собственный черновик может содержать null в
+        незаполненных полях.
+      security:
+        - BearerAccess: []
+      responses:
+        '200':
+          description: Детали challenge и состояние текущего пользователя.
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChallengeDetails'
+              example:
+                id: 550e8400-e29b-41d4-a716-446655440000
+                title: Неделя отжиманий
+                description: Тренируемся вместе
+                status: OPEN
+                mode: HEAD_TO_HEAD
+                visibility: PUBLIC
+                stakeAmount: 10
+                participants: {min: 2, max: 2, joined: 1}
+                start: {mode: WHEN_FULL, scheduledAt: null, startedAt: null}
+                durationDays: 7
+                viewer: {isParticipant: true, isCreator: true, participationStatus: JOINED}
+                refundStatus: NONE
+                settlementStatus: UNKNOWN
+                version: 2
+                createdAt: '2026-11-17T12:00:00Z'
+                updatedAt: '2026-11-17T12:05:00Z'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /api/v1/challenges/{challengeId}/draft:
+    parameters:
+      - $ref: '#/components/parameters/ChallengeId'
+    patch:
+      tags: [Challenges]
+      operationId: updateChallengeDraft
+      summary: Изменить черновик
+      description: >-
+        Частичный PATCH доступен только создателю и только в DRAFT. version
+        обязательна и проверяется атомарно. Явный null очищает nullable поле;
+        отсутствие поля его не меняет. Неизвестное поле — 422 validation_error.
+        Повтор с тем же Idempotency-Key возвращает сохранённый ответ.
+      security:
+        - BearerAccess: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateDraftRequest'
+            example:
+              version: 1
+              title: Неделя отжиманий
+              description: Тренируемся вместе
+              stakeAmount: 10
+              durationDays: 7
+      responses:
+        '200':
+          description: Изменения сохранены.
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DraftUpdated'
+              example: {id: 550e8400-e29b-41d4-a716-446655440000, status: DRAFT, version: 2}
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /api/v1/challenges/{challengeId}/publish:
+    parameters:
+      - $ref: '#/components/parameters/ChallengeId'
+    post:
+      tags: [Challenges]
+      operationId: publishChallenge
+      summary: Опубликовать черновик
+      description: >-
+        Проверяет сохранённый черновик и резервирует ставку создателя. Сумма и
+        условия берутся из черновика, а не из запроса. 200 возвращается только
+        после подтверждённого резерва и участия создателя; 202 — если итог Coins
+        ещё неизвестен. При нехватке монет 409 insufficient_coins, черновик
+        остаётся DRAFT.
+      security:
+        - BearerAccess: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VersionRequest'
+            example: {version: 2}
+      responses:
+        '200':
+          description: Challenge опубликован, создатель участвует.
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublishCompleted'
+              example: {id: 550e8400-e29b-41d4-a716-446655440000, status: OPEN, participationStatus: JOINED}
+        '202':
+          $ref: '#/components/responses/OperationAccepted'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /api/v1/challenges/{challengeId}/joins:
+    parameters:
+      - $ref: '#/components/parameters/ChallengeId'
+    post:
+      tags: [Challenges]
+      operationId: joinChallenge
+      summary: Вступить в опубликованный challenge
+      description: >-
+        Сначала резервирует ставку в Coins, затем под блокировкой строки
+        challenge повторно проверяет место и состояние. Место не блокируется
+        на время проверки баланса. Если подтверждение места невозможно,
+        резерв освобождается; окончательный 409 challenge_full возвращается
+        только после подтверждённого возврата, иначе 202.
+      security:
+        - BearerAccess: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              maxProperties: 0
+      responses:
+        '200':
+          description: Участие подтверждено.
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JoinCompleted'
+              example: {challengeId: 550e8400-e29b-41d4-a716-446655440000, participationStatus: JOINED}
+        '202':
+          $ref: '#/components/responses/OperationAccepted'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /api/v1/challenges/{challengeId}/cancel:
+    parameters:
+      - $ref: '#/components/parameters/ChallengeId'
+    post:
+      tags: [Challenges]
+      operationId: cancelChallenge
+      summary: Отменить challenge
+      description: >-
+        Доступно только создателю и только пока нет других подтверждённых
+        участников. Возврат ставки выполняется через release intent; refundStatus
+        остаётся PENDING до подтверждения Coins и становится COMPLETED только
+        после завершения возврата.
+      security:
+        - BearerAccess: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              maxProperties: 0
+      responses:
+        '200':
+          description: Challenge отменён; возврат может ещё выполняться.
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CancelResponse'
+              example:
+                challengeId: 550e8400-e29b-41d4-a716-446655440000
+                status: CANCELLED
+                refundStatus: PENDING
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /api/v1/challenge-operations/{operationId}:
+    parameters:
+      - $ref: '#/components/parameters/OperationId'
+    get:
+      tags: [ChallengeOperations]
+      operationId: getChallengeOperation
+      summary: Прочитать свою операцию
+      description: >-
+        Доступно владельцу операции. Чужая или неизвестная операция — 404
+        operation_not_found. Состояние описывает операцию, а не challenge.
+      security:
+        - BearerAccess: []
+      responses:
+        '200':
+          description: Текущее состояние операции.
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OperationResponse'
+              example:
+                operationId: 7c9e6679-7425-40de-944b-e07fc1f90ae7
+                kind: JOIN
+                status: PENDING
+                challengeId: 550e8400-e29b-41d4-a716-446655440000
+                result: null
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /api/v1/challenges/{challengeId}/result:
+    parameters:
+      - $ref: '#/components/parameters/ChallengeId'
+    get:
+      tags: [ChallengeResults]
+      operationId: getChallengeResult
+      summary: Прочитать результат challenge
+      description: >-
+        До фиксации результата возвращается PENDING, после — FINAL; для
+        отменённого challenge — CANCELLED. Размер начисления и статус ledger
+        принадлежат Coins и здесь не выводятся. viewerOutcome вычисляется для
+        текущего участника; для неучастника — null.
+      security:
+        - BearerAccess: []
+      responses:
+        '200':
+          description: Состояние результата.
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChallengeResultResponse'
+              example:
+                challengeId: 550e8400-e29b-41d4-a716-446655440000
+                status: FINAL
+                result:
+                  resultId: 8b1b3f8e-2f3e-4f0a-9d5e-2f7a1c4b6d90
+                  outcome: DRAW
+                  finalizedAt: '2026-11-17T18:15:00Z'
+                  viewerOutcome: DRAW
+                  winnersCount: 2
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+components:
+  securitySchemes:
+    BearerAccess:
+      $ref: './identity-auth-v1.yaml#/components/securitySchemes/BearerAccess'
+  parameters:
+    ChallengeId:
+      name: challengeId
+      in: path
+      required: true
+      description: UUID challenge. Невалидный UUID — 400 invalid_request.
+      schema:
+        type: string
+        format: uuid
+    OperationId:
+      name: operationId
+      in: path
+      required: true
+      description: UUID операции publish/join. Невалидный UUID — 400 invalid_request.
+      schema:
+        type: string
+        format: uuid
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: >-
+        UUID одного клиентского действия. Повтор с тем же ключом и телом
+        возвращает сохранённый результат; другое тело — 409
+        idempotency_key_conflict. Ключ не является секретом и не логируется.
+      schema:
+        type: string
+        format: uuid
+  headers:
+    RequestId:
+      description: Идентификатор запроса, созданный Gateway.
+      schema: {type: string, format: uuid}
+    NoStore:
+      description: Ответ не сохраняется в кэшах.
+      schema: {type: string, const: no-store}
+  schemas:
+    DraftCreated:
+      type: object
+      additionalProperties: false
+      required: [id, status, version]
+      properties:
+        id: {$ref: '#/components/schemas/ChallengeIdValue'}
+        status: {type: string, const: DRAFT}
+        version: {$ref: '#/components/schemas/VersionValue'}
+    DraftUpdated:
+      type: object
+      additionalProperties: false
+      required: [id, status, version]
+      properties:
+        id: {$ref: '#/components/schemas/ChallengeIdValue'}
+        status: {type: string, const: DRAFT}
+        version: {$ref: '#/components/schemas/VersionValue'}
+    UpdateDraftRequest:
+      type: object
+      additionalProperties: false
+      required: [version]
+      properties:
+        version: {$ref: '#/components/schemas/VersionValue'}
+        title:
+          type: [string, 'null']
+          minLength: 1
+          maxLength: 120
+          description: Обязателен при публикации; null допустим только в черновике.
+        description:
+          type: [string, 'null']
+          maxLength: 2000
+          description: Необязательное описание; null очищает значение.
+        stakeAmount:
+          type: [integer, 'null']
+          format: int64
+          minimum: 1
+          maximum: 1000000
+          description: Ставка в целых виртуальных монетах; обязательна при публикации.
+        durationDays:
+          type: [integer, 'null']
+          minimum: 1
+          maximum: 30
+          description: Длительность 1–30 дней; в MVP не создаёт дни и задания.
+    VersionRequest:
+      type: object
+      additionalProperties: false
+      required: [version]
+      properties:
+        version: {$ref: '#/components/schemas/VersionValue'}
+    PublishCompleted:
+      type: object
+      additionalProperties: false
+      required: [id, status, participationStatus]
+      properties:
+        id: {$ref: '#/components/schemas/ChallengeIdValue'}
+        status: {type: string, const: OPEN}
+        participationStatus: {type: string, const: JOINED}
+    JoinCompleted:
+      type: object
+      additionalProperties: false
+      required: [challengeId, participationStatus]
+      properties:
+        challengeId: {$ref: '#/components/schemas/ChallengeIdValue'}
+        participationStatus: {type: string, const: JOINED}
+    OperationAccepted:
+      type: object
+      additionalProperties: false
+      required: [operationId, status, statusUrl]
+      properties:
+        operationId:
+          type: string
+          format: uuid
+        status: {type: string, const: PENDING}
+        statusUrl:
+          type: string
+          pattern: '^/api/v1/challenge-operations/[0-9a-f-]{36}$'
+    OperationFailure:
+      type: object
+      additionalProperties: false
+      required: [code]
+      properties:
+        code:
+          type: string
+          description: Стабильный код причины без внутренних подробностей.
+    OperationResponse:
+      type: object
+      additionalProperties: false
+      required: [operationId, kind, status, challengeId, result]
+      properties:
+        operationId:
+          type: string
+          format: uuid
+        kind:
+          type: string
+          enum: [PUBLISH, JOIN]
+        status:
+          type: string
+          enum: [PENDING, SUCCEEDED, FAILED]
+        challengeId: {$ref: '#/components/schemas/ChallengeIdValue'}
+        result:
+          oneOf:
+            - $ref: '#/components/schemas/PublishCompleted'
+            - $ref: '#/components/schemas/JoinCompleted'
+            - $ref: '#/components/schemas/OperationFailure'
+            - type: 'null'
+    CancelResponse:
+      type: object
+      additionalProperties: false
+      required: [challengeId, status, refundStatus]
+      properties:
+        challengeId: {$ref: '#/components/schemas/ChallengeIdValue'}
+        status: {type: string, const: CANCELLED}
+        refundStatus:
+          $ref: '#/components/schemas/RefundStatus'
+    ChallengeDetails:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - title
+        - description
+        - status
+        - mode
+        - visibility
+        - stakeAmount
+        - participants
+        - start
+        - durationDays
+        - viewer
+        - refundStatus
+        - settlementStatus
+        - version
+        - createdAt
+        - updatedAt
+      properties:
+        id: {$ref: '#/components/schemas/ChallengeIdValue'}
+        title:
+          type: [string, 'null']
+          maxLength: 120
+          description: null только у незаполненного собственного черновика.
+        description:
+          type: [string, 'null']
+          maxLength: 2000
+        status:
+          type: string
+          enum: [DRAFT, OPEN, ACTIVE, AWAITING_RESULTS, FINISHED, CANCELLED]
+          description: AWAITING_RESULTS зарезервирован и в MVP не выставляется.
+        mode: {type: string, const: HEAD_TO_HEAD}
+        visibility: {type: string, const: PUBLIC}
+        stakeAmount:
+          type: [integer, 'null']
+          format: int64
+          minimum: 1
+          maximum: 1000000
+          description: null только у незаполненного черновика.
+        participants:
+          type: object
+          additionalProperties: false
+          required: [min, max, joined]
+          properties:
+            min: {type: integer, const: 2}
+            max: {type: integer, const: 2}
+            joined:
+              type: integer
+              minimum: 0
+              maximum: 2
+        start:
+          type: object
+          additionalProperties: false
+          required: [mode, scheduledAt, startedAt]
+          properties:
+            mode: {type: string, const: WHEN_FULL}
+            scheduledAt:
+              type: [string, 'null']
+              format: date-time
+              description: В MVP всегда null.
+            startedAt:
+              type: [string, 'null']
+              format: date-time
+        durationDays:
+          type: [integer, 'null']
+          minimum: 1
+          maximum: 30
+          description: null только у незаполненного черновика.
+        viewer:
+          type: object
+          additionalProperties: false
+          required: [isParticipant, isCreator, participationStatus]
+          properties:
+            isParticipant: {type: boolean}
+            isCreator: {type: boolean}
+            participationStatus:
+              type: [string, 'null']
+              enum: [JOINED, ACTIVE, WINNER, COMPLETED, null]
+        refundStatus:
+          $ref: '#/components/schemas/RefundStatus'
+        settlementStatus:
+          $ref: '#/components/schemas/SettlementStatus'
+        version: {$ref: '#/components/schemas/VersionValue'}
+        createdAt: {type: string, format: date-time}
+        updatedAt: {type: string, format: date-time}
+    ChallengeResultResponse:
+      type: object
+      additionalProperties: false
+      required: [challengeId, status, result]
+      properties:
+        challengeId: {$ref: '#/components/schemas/ChallengeIdValue'}
+        status:
+          type: string
+          enum: [PENDING, FINAL, CANCELLED]
+        result:
+          oneOf:
+            - $ref: '#/components/schemas/FinalResult'
+            - type: 'null'
+    FinalResult:
+      type: object
+      additionalProperties: false
+      required: [resultId, outcome, finalizedAt, viewerOutcome, winnersCount]
+      properties:
+        resultId:
+          type: string
+          format: uuid
+        outcome:
+          type: string
+          enum: [SINGLE_WINNER, MULTIPLE_WINNERS, DRAW]
+          description: MULTIPLE_WINNERS зарезервирован; в MVP отклоняется.
+        finalizedAt: {type: string, format: date-time}
+        viewerOutcome:
+          type: [string, 'null']
+          enum: [WON, LOST, DRAW, null]
+        winnersCount:
+          type: integer
+          minimum: 1
+          maximum: 2
+    RefundStatus:
+      type: string
+      enum: [NONE, PENDING, COMPLETED]
+      description: NONE — возврат не требуется; PENDING — Coins ещё не подтвердил; COMPLETED — возврат подтверждён.
+    SettlementStatus:
+      type: string
+      enum: [UNKNOWN, PENDING, COMPLETED]
+      description: UNKNOWN — результата ещё нет; PENDING — результат есть, расчёт Coins не подтверждён; COMPLETED — событие Coins применено.
+    ChallengeIdValue:
+      type: string
+      format: uuid
+    VersionValue:
+      type: integer
+      format: int64
+      minimum: 1
+      maximum: 9223372036854775807
+    ErrorResponse:
+      $ref: './identity-auth-v1.yaml#/components/schemas/ErrorResponse'
+  responses:
+    InvalidRequest:
+      description: Некорректный JSON, UUID, query string или отсутствующий Idempotency-Key; код invalid_request.
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/RequestId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: invalid_request
+              message: Check the request format.
+              requestId: da6add51-47f8-4603-a9ce-17e440a8da64
+    Unauthorized:
+      description: Нет действующего access token или некорректный forwarded Bearer JWT; код unauthenticated.
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/RequestId'
+        WWW-Authenticate:
+          schema: {type: string, const: Bearer}
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: unauthenticated
+              message: Authentication required.
+              requestId: da6add51-47f8-4603-a9ce-17e440a8da64
+    NotFound:
+      description: Чужой/неизвестный challenge или операция; коды challenge_not_found и operation_not_found.
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/RequestId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            challenge_not_found:
+              value:
+                error:
+                  code: challenge_not_found
+                  message: Challenge is not found.
+                  requestId: da6add51-47f8-4603-a9ce-17e440a8da64
+            operation_not_found:
+              value:
+                error:
+                  code: operation_not_found
+                  message: Operation is not found.
+                  requestId: da6add51-47f8-4603-a9ce-17e440a8da64
+    Conflict:
+      description: >-
+        Стабильные бизнес-конфликты: version_conflict, challenge_not_editable,
+        challenge_not_publishable, insufficient_coins, stake_conflict,
+        challenge_full, already_joined, challenge_started, challenge_cancelled,
+        cancellation_not_allowed, idempotency_key_conflict. challenge_full
+        возвращается только после подтверждённого возврата резерва.
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/RequestId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            insufficient_coins:
+              value:
+                error:
+                  code: insufficient_coins
+                  message: Not enough available coins.
+                  requestId: da6add51-47f8-4603-a9ce-17e440a8da64
+            challenge_full:
+              value:
+                error:
+                  code: challenge_full
+                  message: Challenge has no free places.
+                  requestId: da6add51-47f8-4603-a9ce-17e440a8da64
+            version_conflict:
+              value:
+                error:
+                  code: version_conflict
+                  message: Challenge was changed.
+                  requestId: da6add51-47f8-4603-a9ce-17e440a8da64
+            idempotency_key_conflict:
+              value:
+                error:
+                  code: idempotency_key_conflict
+                  message: Idempotency key was used with another request.
+                  requestId: da6add51-47f8-4603-a9ce-17e440a8da64
+    ValidationError:
+      description: Нарушены правила полей или состояния; код validation_error. details содержит field и code.
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/RequestId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: validation_error
+              message: Check the submitted data.
+              details:
+                - field: stakeAmount
+                  code: out_of_range
+              requestId: da6add51-47f8-4603-a9ce-17e440a8da64
+    UnsupportedMediaType:
+      description: Content-Type запроса не application/json; код unsupported_media_type.
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/RequestId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: unsupported_media_type
+              message: Content type is not supported.
+              requestId: da6add51-47f8-4603-a9ce-17e440a8da64
+    InternalError:
+      description: Непредвиденный сбой без внутренних подробностей; код internal_error.
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/RequestId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: internal_error
+              message: Unexpected server error.
+              requestId: da6add51-47f8-4603-a9ce-17e440a8da64
+    Unavailable:
+      description: >-
+        Временная недоступность БД или невозможность сохранить/прочитать
+        операцию; код service_unavailable. Неизвестный итог Coins — не 503, а
+        202 с операцией. Публичный Gateway может вернуть challenge_unavailable.
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/RequestId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: service_unavailable
+              message: Challenge is temporarily unavailable.
+              requestId: da6add51-47f8-4603-a9ce-17e440a8da64
+    OperationAccepted:
+      description: Операция сохранена и ещё выполняется; итог Coins неизвестен.
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/RequestId'
+        Cache-Control:
+          $ref: '#/components/headers/NoStore'
+        Location:
+          description: Адрес чтения операции.
+          schema: {type: string, pattern: '^/api/v1/challenge-operations/[0-9a-f-]{36}$'}
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/OperationAccepted'
+          example:
+            operationId: 7c9e6679-7425-40de-944b-e07fc1f90ae7
+            status: PENDING
+            statusUrl: /api/v1/challenge-operations/7c9e6679-7425-40de-944b-e07fc1f90ae7

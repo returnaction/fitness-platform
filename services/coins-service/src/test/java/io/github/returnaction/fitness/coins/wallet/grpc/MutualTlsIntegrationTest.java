@@ -2,11 +2,13 @@ package io.github.returnaction.fitness.coins.wallet.grpc;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.CALLS_REAL_METHODS;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 import io.github.returnaction.fitness.coins.wallet.service.WalletCreationService;
+import io.github.returnaction.fitness.coins.stake.grpc.StakeGrpcService;
 import io.github.returnaction.fitness.contracts.coins.wallet.creation.v1.WalletCreationServiceGrpc;
 import io.github.returnaction.fitness.contracts.coins.wallet.creation.v1.CreateWalletIfAbsentRequest;
 import io.github.returnaction.fitness.contracts.coins.wallet.creation.v1.CreationStatus;
@@ -71,6 +73,7 @@ class MutualTlsIntegrationTest {
             port = socket.getLocalPort();
         }
         WalletCreationService creation = mock(WalletCreationService.class);
+        StakeGrpcService stake = mock(StakeGrpcService.class, CALLS_REAL_METHODS);
         Path invalidCertificate = directory.resolve("invalid.pem");
         if (malformed) {
             Files.writeString(invalidCertificate, "not a PEM certificate");
@@ -83,6 +86,7 @@ class MutualTlsIntegrationTest {
                                     certFile.toString(), "coins.grpc.private-key", keyFile.toString(),
                                     "coins.grpc.trust-certificate", caFile.toString())));
             context.registerBean(WalletCreationService.class, () -> creation);
+            context.registerBean(StakeGrpcService.class, () -> stake);
             context.register(WalletCreationGrpcService.class, SecureGrpcServer.class);
             context.refresh();
             assertThat(context.getBean(SecureGrpcServer.class).isRunning()).isTrue();
@@ -93,9 +97,11 @@ class MutualTlsIntegrationTest {
                         .setRequestId(UUID.randomUUID().toString())
                         .setRegistrationOperationId(UUID.randomUUID().toString())
                         .build();
-                assertThatThrownBy(() -> WalletCreationServiceGrpc.newBlockingStub(anonymous)
-                        .withDeadlineAfter(5, TimeUnit.SECONDS)
-                        .createWalletIfAbsent(request));
+                var anonymousStub = WalletCreationServiceGrpc.newBlockingStub(anonymous)
+                        .withDeadlineAfter(5, TimeUnit.SECONDS);
+                assertThatThrownBy(() -> anonymousStub.createWalletIfAbsent(request))
+                        .satisfies(error -> assertThat(Status.fromThrowable(error).getCode())
+                                .isEqualTo(Status.Code.UNAVAILABLE));
             } finally {
                 anonymous.shutdownNow();
             }
@@ -108,6 +114,7 @@ class MutualTlsIntegrationTest {
                                     invalidCertificate.toString(), "coins.grpc.private-key", keyFile.toString(),
                                     "coins.grpc.trust-certificate", caFile.toString())));
             context.registerBean(WalletCreationService.class, () -> creation);
+            context.registerBean(StakeGrpcService.class, () -> stake);
             context.register(WalletCreationGrpcService.class, SecureGrpcServer.class);
             assertThatThrownBy(context::refresh).isInstanceOf(org.springframework.beans.BeansException.class);
         }
@@ -182,10 +189,11 @@ class MutualTlsIntegrationTest {
             CreateWalletIfAbsentRequest anonymousRequest = request.toBuilder()
                     .setUserId(anonymousUser.toString())
                     .build();
-            assertThatThrownBy(() -> WalletCreationServiceGrpc.newBlockingStub(anonymous)
-                    .withDeadlineAfter(5, TimeUnit.SECONDS)
-                    .createWalletIfAbsent(anonymousRequest))
-                    .satisfies(error -> assertThat(Status.fromThrowable(error).isOk()).isFalse());
+            var anonymousStub = WalletCreationServiceGrpc.newBlockingStub(anonymous)
+                    .withDeadlineAfter(5, TimeUnit.SECONDS);
+            assertThatThrownBy(() -> anonymousStub.createWalletIfAbsent(anonymousRequest))
+                    .satisfies(error -> assertThat(Status.fromThrowable(error).getCode())
+                            .isEqualTo(Status.Code.UNAVAILABLE));
             verify(creation, never()).createWalletIfAbsent(anonymousUser);
             for (ManagedChannel invalid : List.of(expired, foreign)) {
                 UUID rejectedUser = UUID.randomUUID();

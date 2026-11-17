@@ -1,0 +1,160 @@
+syntax = "proto3";
+
+package fitness.challenge.results.v1;
+
+option java_multiple_files = true;
+option java_package = "io.github.returnaction.fitness.contracts.challenge.results.v1";
+option java_outer_classname = "ChallengeResultsV1Proto";
+
+// Владелец контракта — challenge-service. Контракт внутренний и не
+// публикуется через Gateway:
+//
+// FinalizeResult вызывает только доверенный источник результата с отдельным
+// сертификатом (SAN задаётся конфигурацией). Coins, Gateway и пользовательские
+// сессии этот метод вызывать не могут.
+//
+// ListResultWinners вызывает только coins-service по mTLS: список нужен для
+// расчёта банка после события challenge.finished. Курсор привязан к result_id,
+// права вызывающего проверяются на каждой странице.
+//
+// Все UUID передаются каноническими строками в нижнем регистре с дефисами.
+// Пользовательские JWT по этому каналу не принимаются и прав не дают.
+service ChallengeResultService {
+  // Фиксирует окончательный результат и список победителей одной локальной
+  // транзакцией challenge-service вместе со статусами участия и outbox
+  // challenge.finished.
+  rpc FinalizeResult(FinalizeResultRequest) returns (FinalizeResultResponse);
+
+  // Возвращает неизменяемый список победителей страницами.
+  rpc ListResultWinners(ListResultWinnersRequest) returns (ListResultWinnersResponse);
+}
+
+enum ResultOutcome {
+  RESULT_OUTCOME_UNSPECIFIED = 0;
+
+  // Один победитель получает весь банк.
+  RESULT_OUTCOME_SINGLE_WINNER = 1;
+
+  // Ничья один на один: каждый участник получает свою ставку.
+  RESULT_OUTCOME_DRAW = 2;
+
+  // Зарезервирован для будущих групповых режимов. В MVP отклоняется.
+  RESULT_OUTCOME_MULTIPLE_WINNERS = 3;
+}
+
+message FinalizeResultRequest {
+  // Стабильный ID окончательного результата; создаётся источником один раз и
+  // не меняется при повторах.
+  string result_id = 1;
+
+  string challenge_id = 2;
+
+  // Версия закрытого набора ставок, к которому относится результат.
+  int64 set_version = 3;
+
+  // 64 lowercase hex символа digest закрытого набора; должен совпадать с
+  // подтверждённым FinalizeStakeSet.
+  string set_digest = 4;
+
+  ResultOutcome outcome = 5;
+
+  // Версия правил расчёта, например equal-pool-v1.
+  string rule_version = 6;
+
+  // Уникальные user UUID получателей; порядок не важен, дубли отклоняются.
+  repeated string winner_user_ids = 7;
+}
+
+message FinalizeResultResponse {
+  string result_id = 1;
+  string challenge_id = 2;
+  int64 set_version = 3;
+  ResultOutcome outcome = 4;
+
+  // Число получателей и digest вычисляет challenge-service из сохранённого
+  // списка; они совпадают с полями события challenge.finished.
+  int64 winner_count = 5;
+  string winners_digest = 6;
+}
+
+message ListResultWinnersRequest {
+  string result_id = 1;
+
+  // Непрозрачный курсор, подписанный HMAC и привязанный к result_id. Пустая
+  // строка — начало обхода.
+  string cursor = 2;
+
+  // Размер страницы; 0 означает 100, допустимо 1..500.
+  int32 limit = 3;
+}
+
+message ListResultWinnersResponse {
+  // User UUID по возрастанию; страница не перезаписывает уже прочитанные
+  // данные.
+  repeated string user_ids = 1;
+
+  // Пустая строка означает конец обхода.
+  string next_cursor = 2;
+}
+
+// Проверки FinalizeResult:
+//
+// - challenge существует, находится в ACTIVE и набор ставок SEALED; иначе
+//   FAILED_PRECONDITION CHALLENGE_NOT_ACTIVE или STAKE_SET_NOT_SEALED.
+// - set_version и set_digest совпадают с подтверждённым набором; иначе
+//   FAILED_PRECONDITION STAKE_SET_MISMATCH.
+// - MULTIPLE_WINNERS в MVP отклоняется с UNSUPPORTED_OUTCOME.
+// - SINGLE_WINNER требует ровно одного получателя, DRAW — ровно двух; все
+//   получатели должны быть участниками challenge. Нарушение —
+//   WINNER_COUNT_MISMATCH или WINNER_NOT_PARTICIPANT.
+// - winners_digest — SHA-256 (lowercase hex) от user UUID в lowercase с
+//   дефисами, отсортированных лексикографически, через \n без конечного
+//   перевода строки.
+// - Результат, получатели, digest, статусы участия, FINISHED и outbox
+//   фиксируются одной транзакцией; числом и digest владеет challenge-service.
+//
+// Идемпотентность:
+//
+// - повтор result_id с тем же payload возвращает сохранённый результат;
+// - тот же result_id с другим payload — ALREADY_EXISTS RESULT_ID_CONFLICT;
+// - другой result_id для уже зафиксированного challenge — ALREADY_EXISTS
+//   CHALLENGE_RESULT_EXISTS.
+//
+// ListResultWinners:
+//
+// - читает только неизменяемый сохранённый список; живые участники и ставки не
+//   используются;
+// - первая страница — пустой cursor; limit 1..500, 0 означает 100;
+// - неверная подпись или привязка курсора — INVALID_ARGUMENT INVALID_CURSOR;
+// - неизвестный result_id — NOT_FOUND RESULT_NOT_FOUND;
+// - повтор страницы безопасен и не меняет данные;
+// - вызов не выполняется от пользовательской сессии и недоступен через Gateway.
+//
+// Коды ошибок: клиент ветвится по gRPC code и reason. reason записывается в
+// UPPER_SNAKE_CASE в google.rpc.ErrorInfo с domain =
+// "challenge.fitness.internal"; текст message не является контрактом.
+//
+// INVALID_ARGUMENT     INVALID_ARGUMENT           Неверный UUID, пустой список,
+//                                                  неверный digest, limit,
+//                                                  cursor другого результата.
+// UNAUTHENTICATED      SERVICE_UNAUTHENTICATED    mTLS service identity не
+//                                                  подтверждена.
+// PERMISSION_DENIED    SERVICE_FORBIDDEN          Вызывающему не разрешён метод.
+// ALREADY_EXISTS       RESULT_ID_CONFLICT         Тот же result_id с другим
+//                                                  payload.
+// ALREADY_EXISTS       CHALLENGE_RESULT_EXISTS    У challenge уже есть другой
+//                                                  результат.
+// NOT_FOUND            RESULT_NOT_FOUND           Результат неизвестен.
+// FAILED_PRECONDITION  CHALLENGE_NOT_ACTIVE       Challenge не в ACTIVE.
+// FAILED_PRECONDITION  STAKE_SET_NOT_SEALED       Набор ставок не SEALED.
+// FAILED_PRECONDITION  STAKE_SET_MISMATCH         set_version или set_digest
+//                                                  не совпали.
+// FAILED_PRECONDITION  UNSUPPORTED_OUTCOME        Неподдерживаемый исход.
+// FAILED_PRECONDITION  WINNER_COUNT_MISMATCH      Число получателей не
+//                                                  соответствует исходу.
+// FAILED_PRECONDITION  WINNER_NOT_PARTICIPANT     Получатель не участвовал в
+//                                                  challenge.
+// UNAVAILABLE          CHALLENGE_UNAVAILABLE      Временная недоступность.
+// DEADLINE_EXCEEDED    —                           Срок клиента истёк.
+// INTERNAL             INTERNAL_ERROR              Неожиданная ошибка без
+//                                                  данных БД и секретов.

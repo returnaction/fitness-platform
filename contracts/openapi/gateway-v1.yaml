@@ -6,7 +6,8 @@ info:
     Identity owns the referenced auth operations. Gateway additionally enforces
     the limits and transport errors in ../gateway-v1.md. Accounts owns the own-profile
     operations added by Spec 014. Coins owns the wallet operation specified by
-    Spec 017. No other paths are public.
+    Spec 017. Challenge owns the challenge operations specified by Spec 020.
+    No other paths are public.
 servers:
   - url: http://127.0.0.1:8088
     description: Local development only
@@ -17,6 +18,8 @@ tags:
     description: 'Gateway → accounts-service: чтение и обновление своего профиля.'
   - name: Coins
     description: 'Gateway → coins-service: чтение своего баланса.'
+  - name: Challenge
+    description: 'Gateway → challenge-service: черновики, публикация, вступление, отмена, чтение операции и результата.'
 paths:
   /api/v1/auth/register:
     $ref: './identity-auth-v1.yaml#/paths/~1api~1v1~1auth~1register'
@@ -32,15 +35,58 @@ paths:
     $ref: './accounts-profile-v1.yaml#/paths/~1api~1v1~1accounts~1me'
   /api/v1/coins/me:
     $ref: './coins-wallet-v1.yaml#/paths/~1api~1v1~1coins~1me'
+  /api/v1/challenges/drafts:
+    $ref: './challenge-v1.yaml#/paths/~1api~1v1~1challenges~1drafts'
+  /api/v1/challenges/{challengeId}:
+    $ref: './challenge-v1.yaml#/paths/~1api~1v1~1challenges~1{challengeId}'
+  /api/v1/challenges/{challengeId}/draft:
+    $ref: './challenge-v1.yaml#/paths/~1api~1v1~1challenges~1{challengeId}~1draft'
+  /api/v1/challenges/{challengeId}/publish:
+    $ref: './challenge-v1.yaml#/paths/~1api~1v1~1challenges~1{challengeId}~1publish'
+  /api/v1/challenges/{challengeId}/joins:
+    $ref: './challenge-v1.yaml#/paths/~1api~1v1~1challenges~1{challengeId}~1joins'
+  /api/v1/challenges/{challengeId}/cancel:
+    $ref: './challenge-v1.yaml#/paths/~1api~1v1~1challenges~1{challengeId}~1cancel'
+  /api/v1/challenge-operations/{operationId}:
+    $ref: './challenge-v1.yaml#/paths/~1api~1v1~1challenge-operations~1{operationId}'
+  /api/v1/challenges/{challengeId}/result:
+    $ref: './challenge-v1.yaml#/paths/~1api~1v1~1challenges~1{challengeId}~1result'
 components:
   securitySchemes:
     BearerAccess:
       $ref: './identity-auth-v1.yaml#/components/securitySchemes/BearerAccess'
 x-gateway-policy:
-  protected-paths: [/api/v1/auth/logout-all, /api/v1/accounts/me, /api/v1/coins/me]
+  protected-paths:
+    - /api/v1/auth/logout-all
+    - /api/v1/accounts/me
+    - /api/v1/coins/me
+    - /api/v1/challenges/drafts
+    - /api/v1/challenges/{challengeId}
+    - /api/v1/challenges/{challengeId}/draft
+    - /api/v1/challenges/{challengeId}/publish
+    - /api/v1/challenges/{challengeId}/joins
+    - /api/v1/challenges/{challengeId}/cancel
+    - /api/v1/challenge-operations/{operationId}
+    - /api/v1/challenges/{challengeId}/result
   upstream-errors:
     /api/v1/coins/me:
       '503': coins_unavailable
+    /api/v1/challenges/drafts:
+      '503': challenge_unavailable
+    /api/v1/challenges/{challengeId}:
+      '503': challenge_unavailable
+    /api/v1/challenges/{challengeId}/draft:
+      '503': challenge_unavailable
+    /api/v1/challenges/{challengeId}/publish:
+      '503': challenge_unavailable
+    /api/v1/challenges/{challengeId}/joins:
+      '503': challenge_unavailable
+    /api/v1/challenges/{challengeId}/cancel:
+      '503': challenge_unavailable
+    /api/v1/challenge-operations/{operationId}:
+      '503': challenge_unavailable
+    /api/v1/challenges/{challengeId}/result:
+      '503': challenge_unavailable
   session-check: grpc-mtls-every-request
   retries: 0
   max-body-bytes: 16384

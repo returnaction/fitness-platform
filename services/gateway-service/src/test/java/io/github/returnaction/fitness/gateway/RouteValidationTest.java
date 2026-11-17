@@ -8,6 +8,7 @@ import jakarta.servlet.ServletContext;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import org.mockito.Mockito;
+import org.springframework.http.HttpMethod;
 import org.springframework.mock.web.MockHttpServletResponse;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -20,6 +21,7 @@ import java.net.http.HttpResponse;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import io.github.returnaction.fitness.gateway.configuration.properties.UpstreamProperties;
 import io.github.returnaction.fitness.gateway.routing.GatewayRoute;
 import io.github.returnaction.fitness.gateway.routing.GatewayRouteCatalog;
@@ -32,9 +34,11 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
+import org.springframework.http.server.PathContainer;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.web.util.pattern.PathPatternParser;
 import tools.jackson.databind.ObjectMapper;
 
 /**
@@ -46,6 +50,36 @@ import tools.jackson.databind.ObjectMapper;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("test")
 class RouteValidationTest {
+
+    private static final String CHALLENGE_ID = "550e8400-e29b-41d4-a716-446655440000";
+    private static final String OPERATION_ID = "7c9e6679-7425-40de-944b-e07fc1f90ae7";
+    private static final String UUID_PATTERN =
+            "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
+    private static final List<GatewayRoute> EXPECTED_ROUTES = List.of(
+            new GatewayRoute(HttpMethod.POST, "/api/v1/auth/register", UpstreamId.IDENTITY, RouteAccess.PUBLIC),
+            new GatewayRoute(HttpMethod.POST, "/api/v1/auth/login", UpstreamId.IDENTITY, RouteAccess.PUBLIC),
+            new GatewayRoute(HttpMethod.POST, "/api/v1/auth/refresh", UpstreamId.IDENTITY, RouteAccess.PUBLIC),
+            new GatewayRoute(HttpMethod.POST, "/api/v1/auth/logout", UpstreamId.IDENTITY, RouteAccess.PUBLIC),
+            new GatewayRoute(HttpMethod.POST, "/api/v1/auth/logout-all", UpstreamId.IDENTITY, RouteAccess.AUTHENTICATED),
+            new GatewayRoute(HttpMethod.GET, "/api/v1/accounts/me", UpstreamId.ACCOUNT, RouteAccess.AUTHENTICATED),
+            new GatewayRoute(HttpMethod.PUT, "/api/v1/accounts/me", UpstreamId.ACCOUNT, RouteAccess.AUTHENTICATED),
+            new GatewayRoute(HttpMethod.GET, "/api/v1/coins/me", UpstreamId.COINS, RouteAccess.AUTHENTICATED),
+            new GatewayRoute(HttpMethod.POST, "/api/v1/challenges/drafts", UpstreamId.CHALLENGE,
+                    RouteAccess.AUTHENTICATED),
+            new GatewayRoute(HttpMethod.GET, "/api/v1/challenges/{challengeId}", UpstreamId.CHALLENGE,
+                    RouteAccess.AUTHENTICATED),
+            new GatewayRoute(HttpMethod.PATCH, "/api/v1/challenges/{challengeId}/draft", UpstreamId.CHALLENGE,
+                    RouteAccess.AUTHENTICATED),
+            new GatewayRoute(HttpMethod.POST, "/api/v1/challenges/{challengeId}/publish", UpstreamId.CHALLENGE,
+                    RouteAccess.AUTHENTICATED),
+            new GatewayRoute(HttpMethod.POST, "/api/v1/challenges/{challengeId}/joins", UpstreamId.CHALLENGE,
+                    RouteAccess.AUTHENTICATED),
+            new GatewayRoute(HttpMethod.POST, "/api/v1/challenges/{challengeId}/cancel", UpstreamId.CHALLENGE,
+                    RouteAccess.AUTHENTICATED),
+            new GatewayRoute(HttpMethod.GET, "/api/v1/challenge-operations/{operationId}", UpstreamId.CHALLENGE,
+                    RouteAccess.AUTHENTICATED),
+            new GatewayRoute(HttpMethod.GET, "/api/v1/challenges/{challengeId}/result", UpstreamId.CHALLENGE,
+                    RouteAccess.AUTHENTICATED));
 
     @MockitoBean
     private SessionVerificationClient sessions;
@@ -72,13 +106,13 @@ class RouteValidationTest {
             for (String bearer : List.of("", "Bearer invalid", "Bearer expired-token")) {
                 assertError(client, "POST", "/unknown?x=1", bearer, 404, "not_found");
                 assertError(client, "OPTIONS", "/unknown", bearer, 404, "not_found");
+                assertError(client, "GET", "/api/v1/challenges/drafts", bearer, 405, "method_not_allowed");
                 for (var route : GatewayRouteCatalog.routes()) {
-                    String unsupportedMethod = route.path().startsWith("/api/v1/accounts/me")
-                            || route.path().startsWith("/api/v1/coins/me") ? "POST" : "GET";
-                    assertError(client, unsupportedMethod, route.path() + "?x=1", bearer, 405, "method_not_allowed");
-                    assertError(client, "OPTIONS", route.path(), bearer, 405, "method_not_allowed");
-                    assertError(client, "HEAD", route.path(), bearer, 405, null);
-                    assertError(client, route.method().name(), route.path() + "?x=1", bearer, 400, "invalid_request");
+                    String path = concretePath(route.path());
+                    assertError(client, "DELETE", path + "?x=1", bearer, 405, "method_not_allowed");
+                    assertError(client, "OPTIONS", path, bearer, 405, "method_not_allowed");
+                    assertError(client, "HEAD", path, bearer, 405, null);
+                    assertError(client, route.method().name(), path + "?x=1", bearer, 400, "invalid_request");
                 }
             }
         }
@@ -90,7 +124,7 @@ class RouteValidationTest {
             try (var socket = new Socket("127.0.0.1", port)) {
                 socket.setSoTimeout(3000);
                 socket.getOutputStream()
-                        .write((route.method().name() + " " + route.path() + "? HTTP/1.1\r\n"
+                        .write((route.method().name() + " " + concretePath(route.path()) + "? HTTP/1.1\r\n"
                                 + "Host: localhost\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")
                                 .getBytes(StandardCharsets.US_ASCII));
                 socket.getOutputStream().flush();
@@ -117,15 +151,20 @@ class RouteValidationTest {
 
     @Test
     void policyMatchesOnlyCatalogOperationsAndProtectedRouteStaysClosed() throws Exception {
-        assertThat(GatewayRouteCatalog.routes()).hasSize(8);
+        assertThat(GatewayRouteCatalog.routes().stream()
+                .map(route -> new GatewayRoute(route.method(), normalizePath(route.path()),
+                        route.upstream(), route.access()))
+                .toList())
+                .containsExactlyElementsOf(EXPECTED_ROUTES);
         try (var client = HttpClient.newHttpClient()) {
             for (var route : GatewayRouteCatalog.routes()) {
-                var request = new MockHttpServletRequest(route.method().name(), route.path());
+                String path = concretePath(route.path());
+                var request = new MockHttpServletRequest(route.method().name(), path);
                 boolean protectedRoute = route.access() == RouteAccess.AUTHENTICATED;
                 assertThat(policy.protectedRequests().matches(request)).isEqualTo(protectedRoute);
                 assertThat(policy.publicRequests().matches(request)).isEqualTo(!protectedRoute);
                 if (protectedRoute) {
-                    assertError(client, route.method().name(), route.path(), "", 401, "invalid_access_token");
+                    assertError(client, route.method().name(), path, "", 401, "invalid_access_token");
                 }
             }
         }
@@ -138,11 +177,26 @@ class RouteValidationTest {
     }
 
     @Test
+    void dynamicSegmentsRequireUuidPattern() {
+        assertThat(GatewayRouteCatalog.routes())
+                .filteredOn(route -> route.path().contains("{challengeId"))
+                .hasSize(6)
+                .allSatisfy(route -> assertThat(route.path()).contains("{challengeId:" + UUID_PATTERN + "}"));
+
+        var operationRoutes = GatewayRouteCatalog.routes().stream()
+                .filter(route -> route.path().contains("{operationId"))
+                .toList();
+        assertThat(operationRoutes).hasSize(1);
+        assertThat(operationRoutes.getFirst().path()).contains("{operationId:" + UUID_PATTERN + "}");
+    }
+
+    @Test
     void catalogValidationRejectsEmptyDuplicateAndMissingUpstream() {
         var upstreams = new UpstreamProperties(
                 Map.of(UpstreamId.IDENTITY, new UpstreamProperties.Settings(URI.create("http://localhost:1")),
                         UpstreamId.ACCOUNT, new UpstreamProperties.Settings(URI.create("http://localhost:2")),
-                        UpstreamId.COINS, new UpstreamProperties.Settings(URI.create("http://localhost:3"))));
+                        UpstreamId.COINS, new UpstreamProperties.Settings(URI.create("http://localhost:3")),
+                        UpstreamId.CHALLENGE, new UpstreamProperties.Settings(URI.create("http://localhost:4"))));
         var routes = GatewayRouteCatalog.routes();
         GatewayRouteValidator.validate(routes, upstreams);
         var missingAccountUpstreams = new UpstreamProperties(Map.of(UpstreamId.IDENTITY,
@@ -161,6 +215,28 @@ class RouteValidationTest {
                 .isInstanceOf(IllegalStateException.class);
     }
 
+    private static String concretePath(String path) {
+        return path.replaceAll("\\{challengeId(:[^/]*)?}", CHALLENGE_ID)
+                .replaceAll("\\{operationId(:[^/]*)?}", OPERATION_ID);
+    }
+
+    private static String normalizePath(String path) {
+        return path.replaceAll("\\{([a-zA-Z]+):[^/]*}", "{$1}");
+    }
+
+    private static String allowedMethods(String path) {
+        int query = path.indexOf('?');
+        String pathOnly = query < 0 ? path : path.substring(0, query);
+        var parser = new PathPatternParser();
+        var parsed = PathContainer.parsePath(pathOnly);
+        return GatewayRouteCatalog.routes().stream()
+                .filter(route -> parser.parse(route.path()).matches(parsed))
+                .map(route -> route.method().name())
+                .distinct()
+                .sorted()
+                .collect(Collectors.joining(", "));
+    }
+
     private void assertError(HttpClient client, String method, String path, String bearer, int status,
         String code) throws Exception {
         var builder = HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + path))
@@ -175,9 +251,7 @@ class RouteValidationTest {
         assertThat(response.headers().firstValue("Access-Control-Allow-Origin")).isEmpty();
         assertThat(response.headers().firstValue("Access-Control-Allow-Methods")).isEmpty();
         if (status == 405) {
-            String expected = path.startsWith("/api/v1/accounts/me") ? "GET, PUT"
-                    : path.startsWith("/api/v1/coins/me") ? "GET" : "POST";
-            assertThat(response.headers().firstValue("Allow")).contains(expected);
+            assertThat(response.headers().firstValue("Allow")).contains(allowedMethods(path));
         }
         String id = response.headers().firstValue("X-Request-Id").orElseThrow();
         assertThat(UUID.fromString(id)).isNotNull();

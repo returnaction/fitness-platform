@@ -28,8 +28,8 @@ TLS / авторизации. Все UUID в proto ниже — канониче
 формат и диапазон `amount`. Идентификаторы не являются секретом. Только
 авторизованный Challenge имеет право выполнять команды и читать их состояние.
 
-**Приоритет:** проектные контракты собраны в [coins-stake-v1.proto](../../contracts/coins-stake-v1.proto)
-и [challenge-results-v1.proto](../../contracts/challenge-results-v1.proto). Для закрытия больших наборов одиночный `SealStakeSet` заменён
+**Приоритет:** проектные контракты собраны в [coins-stake-v1.proto](../../../contracts/proto/coins-stake-v1.proto)
+и [challenge-results-v1.proto](../../../contracts/proto/challenge-results-v1.proto). Для закрытия больших наборов одиночный `SealStakeSet` заменён
 методами `BeginStakeSet` / `PutStakeBatch` / `FinalizeStakeSet`. Сообщения
 этих методов описаны в разделе «Закрытие набора частями», а DTO отмены — в
 [контракте отмены](../challenge/21-challenge-cancellation-draft.md). Старые фрагменты в этом
@@ -40,7 +40,7 @@ gRPC передаёт protobuf. Внутренний ID пользователя
 телефона как доказательство права: Challenge формирует данные на сервере, а
 Coins проверяет полномочия вызывающего сервиса.
 
-Единственное описание методов и DTO — [coins-stake-v1.proto](../../contracts/coins-stake-v1.proto).
+Единственное описание методов и DTO — [coins-stake-v1.proto](../../../contracts/proto/coins-stake-v1.proto).
 
 
 `hold_id` присутствует только при `RESERVED`. Отказ из-за недостатка монет и
@@ -372,7 +372,7 @@ inbox, дубли `resultId` и `challengeId` — бизнес-уникальн�
 транзакционными шагами с escrow по [контракту большого банка](35-coins-large-settlement.md).
 Пропускная способность и размеры batch требуют нагрузочных испытаний.
 
-Единственное описание методов и DTO — [coins-stake-v1.proto](../../contracts/coins-stake-v1.proto).
+Единственное описание методов и DTO — [coins-stake-v1.proto](../../../contracts/proto/coins-stake-v1.proto).
 
 
 - `Begin`: положительные версия и количество, 64 lowercase hex символа digest;

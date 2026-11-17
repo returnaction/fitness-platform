@@ -48,7 +48,7 @@
   запускаемый файл.
   -->
     <artifactId>accounts-service</artifactId>
-    <version>0.1.2</version>
+    <version>0.1.3</version>
     <name>Accounts Service</name>
     <description>Profile ownership service for the Fitness Platform.</description>
 
@@ -84,7 +84,7 @@
         <dependency>
             <groupId>io.github.returnaction.fitness</groupId>
             <artifactId>fitness-grpc-contracts</artifactId>
-            <version>0.1.1</version>
+            <version>0.1.2</version>
         </dependency>
       <!-- Spring Web (MVC): создание REST API (контроллеры, эндпоинты) -->
         <dependency>

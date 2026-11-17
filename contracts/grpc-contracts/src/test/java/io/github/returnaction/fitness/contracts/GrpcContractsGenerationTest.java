@@ -4,6 +4,12 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import io.github.returnaction.fitness.contracts.accounts.profile.creation.v1.ProfileCreationServiceGrpc;
 import io.github.returnaction.fitness.contracts.accounts.profile.creation.v1.CreateProfileIfAbsentRequest;
+import io.github.returnaction.fitness.contracts.challenge.results.v1.ChallengeResultServiceGrpc;
+import io.github.returnaction.fitness.contracts.challenge.results.v1.FinalizeResultRequest;
+import io.github.returnaction.fitness.contracts.challenge.results.v1.ResultOutcome;
+import io.github.returnaction.fitness.contracts.coins.stake.v1.ReserveOutcome;
+import io.github.returnaction.fitness.contracts.coins.stake.v1.ReserveStakeRequest;
+import io.github.returnaction.fitness.contracts.coins.stake.v1.StakeServiceGrpc;
 import io.github.returnaction.fitness.contracts.coins.wallet.creation.v1.WalletCreationServiceGrpc;
 import io.github.returnaction.fitness.contracts.coins.wallet.creation.v1.CreateWalletIfAbsentRequest;
 import io.github.returnaction.fitness.contracts.identity.session.v1.IdentitySessionServiceGrpc;
@@ -45,5 +51,56 @@ class GrpcContractsGenerationTest {
         assertEquals("00000000-0000-4000-8000-000000000003", request.getUserId());
         assertEquals("fitness.coins.wallet.creation.v1.WalletCreationService/CreateWalletIfAbsent",
                 WalletCreationServiceGrpc.getCreateWalletIfAbsentMethod().getFullMethodName());
+    }
+
+    @Test
+    void generatesCoinsStakeContract() {
+        ReserveStakeRequest request = ReserveStakeRequest.newBuilder()
+                .setJoinOperationId("00000000-0000-4000-8000-000000000004")
+                .setUserId("00000000-0000-4000-8000-000000000003")
+                .setChallengeId("00000000-0000-4000-8000-000000000005")
+                .setAmount(10L)
+                .build();
+
+        assertEquals("00000000-0000-4000-8000-000000000004", request.getJoinOperationId());
+        assertEquals(10L, request.getAmount());
+        assertEquals(2, ReserveOutcome.RESERVE_OUTCOME_INSUFFICIENT_FUNDS.getNumber());
+        assertEquals("fitness.coins.stake.v1.StakeService/ReserveStake",
+                StakeServiceGrpc.getReserveStakeMethod().getFullMethodName());
+        assertEquals("fitness.coins.stake.v1.StakeService/ReleaseStake",
+                StakeServiceGrpc.getReleaseStakeMethod().getFullMethodName());
+        assertEquals("fitness.coins.stake.v1.StakeService/GetStakeOperation",
+                StakeServiceGrpc.getGetStakeOperationMethod().getFullMethodName());
+        assertEquals("fitness.coins.stake.v1.StakeService/BeginStakeSet",
+                StakeServiceGrpc.getBeginStakeSetMethod().getFullMethodName());
+        assertEquals("fitness.coins.stake.v1.StakeService/PutStakeBatch",
+                StakeServiceGrpc.getPutStakeBatchMethod().getFullMethodName());
+        assertEquals("fitness.coins.stake.v1.StakeService/FinalizeStakeSet",
+                StakeServiceGrpc.getFinalizeStakeSetMethod().getFullMethodName());
+        assertEquals("fitness.coins.stake.v1.StakeService/FreezeStakeSet",
+                StakeServiceGrpc.getFreezeStakeSetMethod().getFullMethodName());
+        assertEquals("fitness.coins.stake.v1.StakeService/CompleteStakeCancellation",
+                StakeServiceGrpc.getCompleteStakeCancellationMethod().getFullMethodName());
+    }
+
+    @Test
+    void generatesChallengeResultContract() {
+        FinalizeResultRequest request = FinalizeResultRequest.newBuilder()
+                .setResultId("00000000-0000-4000-8000-000000000006")
+                .setChallengeId("00000000-0000-4000-8000-000000000005")
+                .setSetVersion(1L)
+                .setSetDigest("a".repeat(64))
+                .setOutcome(ResultOutcome.RESULT_OUTCOME_DRAW)
+                .setRuleVersion("equal-pool-v1")
+                .addWinnerUserIds("00000000-0000-4000-8000-000000000003")
+                .addWinnerUserIds("00000000-0000-4000-8000-000000000007")
+                .build();
+
+        assertEquals("00000000-0000-4000-8000-000000000006", request.getResultId());
+        assertEquals(2, request.getWinnerUserIdsCount());
+        assertEquals("fitness.challenge.results.v1.ChallengeResultService/FinalizeResult",
+                ChallengeResultServiceGrpc.getFinalizeResultMethod().getFullMethodName());
+        assertEquals("fitness.challenge.results.v1.ChallengeResultService/ListResultWinners",
+                ChallengeResultServiceGrpc.getListResultWinnersMethod().getFullMethodName());
     }
 }

@@ -1,0 +1,7 @@
+databaseChangeLog:
+  - include:
+      file: changes/001-create-challenge-tables.yaml
+      relativeToChangelogFile: true
+  - include:
+      file: changes/003-add-recovery-leases.yaml
+      relativeToChangelogFile: true

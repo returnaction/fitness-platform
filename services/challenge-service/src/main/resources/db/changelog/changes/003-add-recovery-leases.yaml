@@ -1,0 +1,10 @@
+databaseChangeLog:
+  - changeSet:
+      id: 003-add-recovery-leases
+      author: spec-020
+      dbms: postgresql
+      changes:
+        - sqlFile:
+            path: 003-add-recovery-leases.sql
+            relativeToChangelogFile: true
+            stripComments: false

@@ -26,6 +26,7 @@ import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
 public final class TestMtlsCertificates {
 
     private static final String IDENTITY_URI = "spiffe://fitness.local/identity-service";
+    private static final String CHALLENGE_URI = "spiffe://fitness.local/challenge-service";
     private static final String SERVER_HOST = "localhost";
 
     private final Path caCertificate;
@@ -33,14 +34,18 @@ public final class TestMtlsCertificates {
     private final Path serverPrivateKey;
     private final Path identityCertificate;
     private final Path identityPrivateKey;
+    private final Path challengeCertificate;
+    private final Path challengePrivateKey;
 
     private TestMtlsCertificates(Path caCertificate, Path serverCertificate, Path serverPrivateKey,
-        Path identityCertificate, Path identityPrivateKey) {
+        Path identityCertificate, Path identityPrivateKey, Path challengeCertificate, Path challengePrivateKey) {
         this.caCertificate = caCertificate;
         this.serverCertificate = serverCertificate;
         this.serverPrivateKey = serverPrivateKey;
         this.identityCertificate = identityCertificate;
         this.identityPrivateKey = identityPrivateKey;
+        this.challengeCertificate = challengeCertificate;
+        this.challengePrivateKey = challengePrivateKey;
     }
 
     public static TestMtlsCertificates create(Path directory) throws Exception {
@@ -56,11 +61,17 @@ public final class TestMtlsCertificates {
         X509Certificate identityCertificate = certificate(caName, new X500Name("CN=identity"), identityKeyPair,
                 caKeyPair, new GeneralName(GeneralName.uniformResourceIdentifier, IDENTITY_URI), false);
 
+        KeyPair challengeKeyPair = keyPair();
+        X509Certificate challengeCertificate = certificate(caName, new X500Name("CN=challenge"), challengeKeyPair,
+                caKeyPair, new GeneralName(GeneralName.uniformResourceIdentifier, CHALLENGE_URI), false);
+
         return new TestMtlsCertificates(pem(directory.resolve("ca.pem"), caCertificate),
                 pem(directory.resolve("server.pem"), serverCertificate),
                 pem(directory.resolve("server.key"), serverKeyPair.getPrivate()),
                 pem(directory.resolve("identity.pem"), identityCertificate),
-                pem(directory.resolve("identity.key"), identityKeyPair.getPrivate()));
+                pem(directory.resolve("identity.key"), identityKeyPair.getPrivate()),
+                pem(directory.resolve("challenge.pem"), challengeCertificate),
+                pem(directory.resolve("challenge.key"), challengeKeyPair.getPrivate()));
     }
 
     public Path caCertificate() {
@@ -81,6 +92,14 @@ public final class TestMtlsCertificates {
 
     public Path identityPrivateKey() {
         return identityPrivateKey;
+    }
+
+    public Path challengeCertificate() {
+        return challengeCertificate;
+    }
+
+    public Path challengePrivateKey() {
+        return challengePrivateKey;
     }
 
     private static KeyPair keyPair() throws Exception {

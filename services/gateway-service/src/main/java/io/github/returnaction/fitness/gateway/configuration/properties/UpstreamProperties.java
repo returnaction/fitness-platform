@@ -33,6 +33,19 @@ public record UpstreamProperties(@NotEmpty Map<UpstreamId, @NotNull @Valid Setti
         return services == null ? null : Map.copyOf(services);
     }
 
+    @AssertTrue(message = "Every known upstream must be configured")
+    public boolean isEveryUpstreamConfigured() {
+        if (services == null) {
+            return true;
+        }
+        for (UpstreamId upstreamId : UpstreamId.values()) {
+            if (!services.containsKey(upstreamId)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     public record Settings(@NotNull URI baseUrl) {
 
         @AssertTrue(message = "Base URL must be an HTTP(S) origin")

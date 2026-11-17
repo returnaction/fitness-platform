@@ -36,8 +36,10 @@ import com.nimbusds.jose.crypto.MACSigner;
 import com.nimbusds.jose.jwk.Curve;
 import com.nimbusds.jose.jwk.ECKey;
 import com.nimbusds.jose.jwk.gen.ECKeyGenerator;
+import io.github.returnaction.fitness.gateway.routing.GatewayRoute;
 import io.github.returnaction.fitness.gateway.routing.GatewayRouteCatalog;
 import io.github.returnaction.fitness.gateway.routing.RouteAccess;
+import io.github.returnaction.fitness.gateway.routing.UpstreamId;
 import io.github.returnaction.fitness.gateway.security.jwks.JwksInitializer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.AfterAll;
@@ -65,12 +67,14 @@ class JwtValidationTest {
     private static final TestUpstream UPSTREAM = new TestUpstream();
     private static final TestUpstream ACCOUNTS = new TestUpstream();
     private static final TestUpstream COINS = new TestUpstream();
+    private static final TestUpstream CHALLENGE_UPSTREAM = new TestUpstream();
 
     @DynamicPropertySource
     static void upstream(DynamicPropertyRegistry registry) {
         registry.add("gateway.upstreams.services.IDENTITY.base-url", UPSTREAM::baseUrl);
         registry.add("gateway.upstreams.services.ACCOUNT.base-url", ACCOUNTS::baseUrl);
         registry.add("gateway.upstreams.services.COINS.base-url", COINS::baseUrl);
+        registry.add("gateway.upstreams.services.CHALLENGE.base-url", CHALLENGE_UPSTREAM::baseUrl);
     }
 
     @AfterAll
@@ -78,12 +82,15 @@ class JwtValidationTest {
         UPSTREAM.close();
         ACCOUNTS.close();
         COINS.close();
+        CHALLENGE_UPSTREAM.close();
     }
 
     @MockitoBean
     private SessionVerificationClient sessions;
 
     private static final Instant NOW = Instant.parse("2026-11-12T12:00:00Z");
+    private static final String CHALLENGE_ID = "550e8400-e29b-41d4-a716-446655440000";
+    private static final String OPERATION_ID = "7c9e6679-7425-40de-944b-e07fc1f90ae7";
     private static final ECKey KEY = key();
     @MockitoBean
     private JwksInitializer keys;
@@ -107,8 +114,10 @@ class JwtValidationTest {
         UPSTREAM.calls.set(0);
         ACCOUNTS.calls.set(0);
         COINS.calls.set(0);
+        CHALLENGE_UPSTREAM.calls.set(0);
         ACCOUNTS.status.set(200);
         COINS.status.set(200);
+        CHALLENGE_UPSTREAM.status.set(200);
         UPSTREAM.status.set(200);
         when(sessions.isActive(ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any(),
                 ArgumentMatchers.any())).thenReturn(true);
@@ -292,13 +301,17 @@ class JwtValidationTest {
         String body = "{ \"value\" : \"исходное тело\" }";
         try (var client = HttpClient.newHttpClient()) {
             for (var route : GatewayRouteCatalog.routes()) {
-                boolean accountsRoute = route.path().equals("/api/v1/accounts/me");
-                boolean coinsRoute = route.path().equals("/api/v1/coins/me");
-                var target = accountsRoute ? ACCOUNTS : coinsRoute ? COINS : UPSTREAM;
-                var other = accountsRoute ? UPSTREAM : ACCOUNTS;
+                String path = concretePath(route.path());
+                var target = switch (route.upstream()) {
+                    case ACCOUNT -> ACCOUNTS;
+                    case COINS -> COINS;
+                    case CHALLENGE -> CHALLENGE_UPSTREAM;
+                    case IDENTITY -> UPSTREAM;
+                };
+                var other = target == UPSTREAM ? ACCOUNTS : UPSTREAM;
                 int otherCalls = other.calls.get();
                 String requestBody = route.method().name().equals("GET") ? "" : body;
-                var outgoing = HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + route.path()))
+                var outgoing = HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + path))
                         .header("Authorization", "Bearer " + token)
                         .header("Content-Type", "application/json")
                         .header("Accept", "application/json")
@@ -321,7 +334,7 @@ class JwtValidationTest {
                 assertThat(response.headers().firstValue("Cache-Control")).contains("no-store");
                 var received = target.received.get();
                 assertThat(received.method()).isEqualTo(route.method().name());
-                assertThat(received.path()).isEqualTo(route.path());
+                assertThat(received.path()).isEqualTo(path);
                 assertThat(received.body()).isEqualTo(requestBody);
                 assertThat(received.header("Content-Type")).isEqualTo("application/json");
                 assertThat(received.header("Accept")).isEqualTo("application/json");
@@ -339,8 +352,103 @@ class JwtValidationTest {
         assertThat(UPSTREAM.calls.get()).isEqualTo(5);
         assertThat(ACCOUNTS.calls.get()).isEqualTo(2);
         assertThat(COINS.calls.get()).isEqualTo(1);
-        verify(sessions, times(4)).isActive(ArgumentMatchers.any(), ArgumentMatchers.any(),
+        assertThat(CHALLENGE_UPSTREAM.calls.get()).isEqualTo(8);
+        verify(sessions, times(12)).isActive(ArgumentMatchers.any(), ArgumentMatchers.any(),
                 ArgumentMatchers.any(), ArgumentMatchers.any());
+    }
+
+    @Test
+    void challengeRoutesRequireJwtAndActiveSessionAndForwardBearerAndRequestId() throws Exception {
+        var challengeRoutes = GatewayRouteCatalog.routes().stream()
+                .filter(route -> route.upstream() == UpstreamId.CHALLENGE)
+                .toList();
+        assertThat(challengeRoutes).hasSize(8);
+        String token = sign(claims());
+        try (var client = HttpClient.newHttpClient()) {
+            for (var route : challengeRoutes) {
+                String path = concretePath(route.path());
+                assertThat(challengeRequest(client, route, path, "").statusCode()).isEqualTo(401);
+                assertThat(challengeRequest(client, route, path, "Bearer bad").statusCode()).isEqualTo(401);
+
+                when(sessions.isActive(ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any(),
+                        ArgumentMatchers.any())).thenReturn(false);
+                assertThat(challengeRequest(client, route, path, "Bearer " + token).statusCode()).isEqualTo(401);
+
+                when(sessions.isActive(ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any(),
+                        ArgumentMatchers.any()))
+                        .thenThrow(new SessionVerificationUnavailableException("private diagnostics"));
+                var unavailable = challengeRequest(client, route, path, "Bearer " + token);
+                assertThat(unavailable.statusCode()).isEqualTo(503);
+                assertThat(unavailable.body()).contains("identity_unavailable").doesNotContain("private diagnostics");
+
+                doReturn(true).when(sessions).isActive(ArgumentMatchers.any(), ArgumentMatchers.any(),
+                        ArgumentMatchers.any(), ArgumentMatchers.any());
+                var valid = challengeRequest(client, route, path, "Bearer " + token);
+                assertThat(valid.statusCode()).isEqualTo(200);
+                assertThat(valid.body()).isEqualTo("{\"result\":\"unchanged\"}");
+
+                String generated = valid.headers().firstValue("X-Request-Id").orElseThrow();
+                assertThat(UUID.fromString(generated)).isNotNull();
+                assertThat(generated).isNotEqualTo("client-id");
+                var received = CHALLENGE_UPSTREAM.received.get();
+                assertThat(received.method()).isEqualTo(route.method().name());
+                assertThat(received.path()).isEqualTo(path);
+                assertThat(received.header("Authorization")).isEqualTo("Bearer " + token);
+                assertThat(received.header("X-Request-Id")).isEqualTo(generated);
+            }
+        }
+        assertThat(CHALLENGE_UPSTREAM.calls.get()).isEqualTo(8);
+        assertThat(UPSTREAM.calls.get()).isZero();
+        assertThat(ACCOUNTS.calls.get()).isZero();
+        assertThat(COINS.calls.get()).isZero();
+        verify(sessions, times(24)).isActive(ArgumentMatchers.any(), ArgumentMatchers.any(),
+                ArgumentMatchers.any(), ArgumentMatchers.any());
+    }
+
+    @Test
+    void challengeDynamicPathsForwardStatusBodyAndHeadersAndRejectQueryString() throws Exception {
+        String token = sign(claims());
+        try (var client = HttpClient.newHttpClient()) {
+            for (String path : List.of("/api/v1/challenges/" + CHALLENGE_ID,
+                    "/api/v1/challenge-operations/" + OPERATION_ID)) {
+                for (int status : List.of(200, 404, 409, 422, 503)) {
+                    CHALLENGE_UPSTREAM.status.set(status);
+                    int before = CHALLENGE_UPSTREAM.calls.get();
+                    var request = HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + path))
+                            .header("Authorization", "Bearer " + token)
+                            .header("X-Request-Id", "forged-id")
+                            .GET()
+                            .build();
+                    var response = client.send(request, HttpResponse.BodyHandlers.ofString());
+                    assertThat(response.statusCode()).isEqualTo(status);
+                    assertThat(response.body()).isEqualTo("{\"result\":\"unchanged\"}");
+                    assertThat(response.headers().firstValue("Cache-Control")).contains("no-store");
+                    String id = response.headers().firstValue("X-Request-Id").orElseThrow();
+                    assertThat(UUID.fromString(id)).isNotNull();
+                    assertThat(id).isNotEqualTo("forged-id").isNotEqualTo("upstream-id");
+                    var received = CHALLENGE_UPSTREAM.received.get();
+                    assertThat(received.method()).isEqualTo("GET");
+                    assertThat(received.path()).isEqualTo(path);
+                    assertThat(received.header("Authorization")).isEqualTo("Bearer " + token);
+                    assertThat(received.header("X-Request-Id")).isEqualTo(id);
+                    assertThat(CHALLENGE_UPSTREAM.calls.get()).isEqualTo(before + 1);
+                }
+
+                CHALLENGE_UPSTREAM.status.set(200);
+                int before = CHALLENGE_UPSTREAM.calls.get();
+                var rejected = HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + path + "?expand=1"))
+                        .header("Authorization", "Bearer " + token)
+                        .GET()
+                        .build();
+                var response = client.send(rejected, HttpResponse.BodyHandlers.ofString());
+                assertThat(response.statusCode()).isEqualTo(400);
+                assertThat(response.body()).contains("invalid_request");
+                assertThat(CHALLENGE_UPSTREAM.calls.get()).isEqualTo(before);
+            }
+        }
+        assertThat(UPSTREAM.calls.get()).isZero();
+        assertThat(ACCOUNTS.calls.get()).isZero();
+        assertThat(COINS.calls.get()).isZero();
     }
 
     @Test
@@ -519,6 +627,25 @@ class JwtValidationTest {
         }
         assertThat(UPSTREAM.calls.get()).isZero();
         assertThat(ACCOUNTS.calls.get()).isZero();
+    }
+
+    private static String concretePath(String path) {
+        return path.replaceAll("\\{challengeId(:[^/]*)?}", CHALLENGE_ID)
+                .replaceAll("\\{operationId(:[^/]*)?}", OPERATION_ID);
+    }
+
+    private HttpResponse<String> challengeRequest(HttpClient client, GatewayRoute route, String path,
+        String authorization) throws Exception {
+        var builder = HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + path))
+                .header("X-Request-Id", "client-id")
+                .header("Content-Type", "application/json")
+                .method(route.method().name(), "GET".equals(route.method().name())
+                        ? HttpRequest.BodyPublishers.noBody()
+                        : HttpRequest.BodyPublishers.ofString("{}"));
+        if (!authorization.isEmpty()) {
+            builder.header("Authorization", authorization);
+        }
+        return client.send(builder.build(), HttpResponse.BodyHandlers.ofString());
     }
 
     private HttpResponse<String> coinsRequest(HttpClient client, String token) throws Exception {
