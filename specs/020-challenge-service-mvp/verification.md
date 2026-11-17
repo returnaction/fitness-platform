@@ -41,24 +41,24 @@ Testcontainers-тесты требуют работающего Docker. Без D
 
 | Проверка | Ожидание | Факт |
 | --- | --- | --- |
-| Publish через Gateway с действующей сессией | `200`/`202`, резерв создателя в Coins, создатель `JOINED` | — |
-| Publish без монет | `409 insufficient_coins`, черновик остаётся `DRAFT`, hold нет | — |
-| Join второго участника | `200`/`202`; после seal challenge `ACTIVE`, набор `SEALED` | — |
-| Два параллельных join за последнее место | один подтверждён, второй получает `409 challenge_full` только после release | — |
-| Join без токена | `401 unauthenticated` в едином формате с `requestId` | — |
-| Чужая операция | `404 operation_not_found` | — |
-| Cancel создателем без других участников | `CANCELLED`, hold освобождён один раз, `refundStatus PENDING → COMPLETED` | — |
-| Cancel после вступления второго | `409 cancellation_not_allowed` | — |
-| Внутренний result `SINGLE_WINNER` | `FINAL`, winners и digest зафиксированы, outbox создан | — |
-| Settlement после результата | баланс победителя +банк, `settlementStatus COMPLETED`, событие выпущено | — |
-| `DRAW` | обе ставки возвращены, `winnersCount=2`, побед в статистике 0 | — |
-| Повтор с тем же `Idempotency-Key` | сохранённый ответ, без второго резерва | — |
-| Повтор с другим телом | `409 idempotency_key_conflict` | — |
-| Потерянный ответ Coins | операция остаётся `PENDING`, клиент получает `202`, повтор по operation ID не создаёт второй резерв | — |
-| Coins недоступна | для начатой операции `202`; `503` только при невозможности сохранить/прочитать операцию | — |
-| Рестарт recovery worker | незавершённая операция продолжена без дубля hold | — |
-| Внутренний `FinalizeResult` через публичный Gateway | маршрут отсутствует; прямой вызов без mTLS отклонён | — |
-| Повтор `coins.settlement_completed` | баланс не меняется второй раз, `settlementStatus` остаётся `COMPLETED` | — |
+| Publish через Gateway с действующей сессией | `200`/`202`, резерв создателя в Coins, создатель `JOINED` | `200`, hold 10 `ACTIVE`, создатель `JOINED` |
+| Publish без монет | `409 insufficient_coins`, черновик остаётся `DRAFT`, hold нет | `409 insufficient_coins` в `ChallengePublishFlowIntegrationTest` |
+| Join второго участника | `200`/`202`; после seal challenge `ACTIVE`, набор `SEALED` | `200`, `ACTIVE`, `SEALED`, 2 hold `ACTIVE` |
+| Два параллельных join за последнее место | один подтверждён, второй получает `409 challenge_full` только после release | один `200`, второй `409 challenge_full`; loser hold `RELEASED`, `RELEASE=1` |
+| Join без токена | `401 unauthenticated` в едином формате с `requestId` | `401 invalid_access_token`, `requestId=6bb06af3-e3f9-4e49-8c50-5260a507719f` |
+| Чужая операция | `404 operation_not_found` | `ChallengeDraftFlowIntegrationTest` |
+| Cancel создателем без других участников | `CANCELLED`, hold освобождён один раз, `refundStatus PENDING → COMPLETED` | `CANCELLED`, `COMPLETED`; после отказа Coins `PENDING → COMPLETED` |
+| Cancel после вступления второго | `409 cancellation_not_allowed` | `ChallengeCancelFlowIntegrationTest`, `ChallengeConcurrencyIntegrationTest` |
+| Внутренний result `SINGLE_WINNER` | `FINAL`, winners и digest зафиксированы, outbox создан | `FINAL`, result `6dc1cf4a...`, outbox event `2270a0ff...` |
+| Settlement после результата | баланс победителя +банк, `settlementStatus COMPLETED`, событие выпущено | победитель 20, `COMPLETED`, settlement `a42f9c4a...`, событие `61d0cdf9...` |
+| `DRAW` | обе ставки возвращены, `winnersCount=2`, побед в статистике 0 | `ChallengeResultFlowIntegrationTest`, `SettlementServiceIntegrationTest` |
+| Повтор с тем же `Idempotency-Key` | сохранённый ответ, без второго резерва | повтор join `200`, `RESERVE` не увеличился |
+| Повтор с другим телом | `409 idempotency_key_conflict` | `ChallengeDraftFlowIntegrationTest` |
+| Потерянный ответ Coins | операция остаётся `PENDING`, клиент получает `202`, повтор по operation ID не создаёт второй резерв | publish `202`, operation `PENDING`; recovery по тому же operation ID |
+| Coins недоступна | для начатой операции `202`; `503` только при невозможности сохранить/прочитать операцию | publish `202`; `503` проверен для недоступной БД Challenge |
+| Рестарт recovery worker | незавершённая операция продолжена без дубля hold | `ChallengeRecoveryWorkerIntegrationTest`; локальный recovery после того же operation ID |
+| Внутренний `FinalizeResult` через публичный Gateway | маршрут отсутствует; прямой вызов без mTLS отклонён | gRPC через Gateway недоступен; `FinalizeResult` вызван только по mTLS на 9094 |
+| Повтор `coins.settlement_completed` | баланс не меняется второй раз, `settlementStatus` остаётся `COMPLETED` | повтор `challenge.finished`: балансы не изменились, settlements 1, inbox 1 |
 
 ## План проверок по модулям
 
@@ -661,3 +661,29 @@ Testcontainers-тесты требуют работающего Docker. Без D
 - После запуска Coins recovery worker завершил операцию после получения reserve по тому же operation ID; challenge перешёл в `OPEN`, операция — в `CONFIRMED`.
 - `git diff --check`: успешно. Проверка относительных Markdown-ссылок: ошибок нет.
 - Ограничение: `NOT_FOUND` от Coins не считается доказательством отсутствия команды, поэтому операция ожидает; для локального завершения reserve был отправлен повторно с тем же ID. Это соответствует текущей политике recovery, но не заменяет production-механизм разбора. Deploy не менялся.
+
+### 2026-11-17 — T006.7, сводные доказательства
+
+- Локальный контур: PostgreSQL вне Docker, Kafka `fitness-local-kafka` в KRaft на `localhost:29092`, сервисы Accounts, Coins, Identity, Gateway и Challenge запущены с профилем `local`.
+- Данные: `scripts/prepare-local-challenge-data.sh` создал три тестовые сессии и кошельки; балансы проверялись через `GET /api/v1/coins/me`.
+- Команды инфраструктуры:
+  - `docker compose -f deployment/compose.local-kafka.yaml up -d`;
+  - `docker compose -f deployment/compose.local-kafka.yaml config --quiet`;
+  - `bash scripts/prepare-local-challenge-data.sh`.
+- Команды проверок:
+  - `sh ./mvnw -B -ntp -pl services/challenge-service -am verify`;
+  - `sh ./mvnw -B -ntp -pl services/coins-service -am verify`;
+  - `git diff --check`;
+  - проверка относительных Markdown-ссылок Python-скриптом.
+- Наблюдённые `requestId`:
+  - `401` без токена: `6bb06af3-e3f9-4e49-8c50-5260a507719f`;
+  - `409 challenge_full` в гонке: `39f811cd-9b99-4449-8aca-c2a54ceb6ecb`;
+  - `503` при недоступной БД Challenge: `79421f88-f377-4e45-9846-cb0ede52c497`.
+- Идентификаторы результата и событий:
+  - result: `6dc1cf4a-98fd-4b57-bdc3-a7a6150f8f44`;
+  - settlement: `a42f9c4a-8885-4650-ade2-474e060a7f2d`;
+  - `challenge.finished`: `2270a0ff-928c-46e1-be4a-1703286ae5b7`;
+  - `coins.settlement_completed`: `61d0cdf9-fe66-4bde-9c28-8d63b9978e60`.
+- Результаты: publish `200`, join `200`, повторный join без второго резерва, гонка `200/409`, cancel `PENDING → COMPLETED`, result `FINAL`, settlement `COMPLETED`, повтор события без изменения баланса.
+- Проверки сборки: challenge 73/73, SpotBugs 0; coins 91/91, SpotBugs 0.
+- Ограничения: нет нагрузочного теста Kafka, redelivery/хаос не имитировались; production-источник результата не определён; mTLS-вызов результата выполнен тестовым клиентом; Gateway возвращает `invalid_access_token` вместо ожидаемого планом `unauthenticated`, выравнивание кода требует отдельного решения; Postman-коллекция обновляется в T006.8. Секреты, пароли и токены в Git не добавлялись. Deploy не менялся.
