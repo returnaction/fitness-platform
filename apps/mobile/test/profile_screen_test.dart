@@ -9,6 +9,10 @@ import 'package:fitness_app/features/coins/model/daily_reward_claim.dart';
 import 'package:fitness_app/features/coins/model/daily_reward_status.dart';
 import 'package:fitness_app/features/auth/auth_controller.dart';
 import 'package:fitness_app/features/auth/auth_repository.dart';
+import 'package:fitness_app/features/home/home_controller.dart';
+import 'package:fitness_app/features/home/wallet_balance.dart';
+import 'package:fitness_app/features/home/wallet_repository.dart';
+import 'package:fitness_app/features/home/wallet_store.dart';
 import 'package:fitness_app/features/profile/profile.dart';
 import 'package:fitness_app/features/profile/profile_controller.dart';
 import 'package:fitness_app/features/profile/profile_repository.dart';
@@ -30,13 +34,25 @@ void main() {
   Future<ProfileController> open(WidgetTester tester, Api api,
       {TestAuth? auth}) async {
     final store = ProfileStore(Disk());
+    final walletStore = WalletStore(Disk());
     final controller = ProfileController(api, store, () async => 'account');
+    final homeController = HomeController(
+      WalletApi(),
+      walletStore,
+      () async => 'account',
+    );
     addTearDown(controller.dispose);
+    addTearDown(homeController.dispose);
+    addTearDown(walletStore.dispose);
     addTearDown(store.dispose);
     await tester.pumpWidget(ProviderScope(
       overrides: [
         dailyRewardRepositoryProvider.overrideWithValue(_Rewards()),
         profileControllerProvider.overrideWithValue(controller),
+        profileStoreProvider.overrideWithValue(store),
+        walletStoreProvider.overrideWithValue(walletStore),
+        homeControllerProvider.overrideWithValue(homeController),
+        walletRepositoryProvider.overrideWithValue(WalletApi()),
         authControllerProvider.overrideWith(() => auth ?? TestAuth()),
       ],
       child: const MaterialApp(home: AppShellScreen()),
@@ -179,6 +195,12 @@ class Api implements ProfileRepository {
   Future<Profile> getOwnProfile() { gets++; return read(); }
   @override
   Future<Profile> updateOwnProfile(Profile profile) => throw UnimplementedError();
+}
+
+class WalletApi implements WalletRepository {
+  @override
+  Future<WalletBalance> getOwnWalletBalance() async =>
+      const WalletBalance(availableBalance: 120, lockedBalance: 20);
 }
 
 class Disk implements SecureValueStore {

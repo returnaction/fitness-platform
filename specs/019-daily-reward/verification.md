@@ -1,5 +1,36 @@
 # Проверка спецификации 019
 
+## Разрешение конфликтов с main, 2026-11-17
+
+По запросу пользователя выполнено объединение origin/main 150948b в рабочее
+дерево feature/49-daily-reward-ui (исходный HEAD b27d9d4), без создания коммита.
+Разрешены пять конфликтов: app_shell_screen.dart, home_screen.dart,
+auth_ui_test.dart, profile_screen_test.dart и specs/README.md.
+
+Сохранены Home с обоими балансами и подарком, выход только в Profile,
+уведомления на 5 секунд и обновление шапки из status/claims. Независимые
+изменения main для сохранённых аккаунтов, wallet-компонентов и их тестов
+сохранены. Home использует DailyRewardController как единый источник балансов;
+отдельный walletProvider одновременно с ним в шапке не запускается.
+Пришедший из main тест Home адаптирован к этому контракту, проверки Profile
+сохраняют обе группы сценариев. AGENTS.md остался идентичен main.
+
+В main независимо создана 019-mobile-home-balance. Оба каталога 019 сохранены,
+совпадение номера отмечено в specs/README.md; черновик 020 не активирован.
+
+Проверки объединённого состояния:
+- flutter test --no-pub: 143 теста прошли.
+- flutter analyze --no-pub: No issues found.
+- flutter build apk --debug --no-pub
+  --dart-define=API_BASE_URL=http://127.0.0.1:8088: APK собран успешно.
+- Изменений backend относительно исходного HEAD при объединении нет;
+  предыдущие результаты Coins/Gateway сохраняют применимость, повторно
+  backend не запускался. Установка нового APK на телефон не выполнялась.
+
+Логи: target/merge-mobile-tests.log, target/merge-mobile-analyze.log,
+target/merge-mobile-build.log. Финальный merge-коммит и push оставлены пользователю;
+до push MR на сервере продолжает показывать прежнее состояние.
+
 ## Повторная проверка Coins/Gateway, 2026-11-17
 
 По отдельной команде пользователя проверено текущее рабочее дерево, включая
