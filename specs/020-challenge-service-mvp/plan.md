@@ -1,7 +1,7 @@
 # План реализации Spec 020
 
 > **Спецификация:** [spec.md](spec.md)
-> **Статус:** draft
+> **Статус:** implemented — MVP реализован и проверен 2026-11-17.
 > **Ветка:** `feature/50-challenge-service-dev`
 > **Задачи:** [tasks.md](tasks.md)
 > **Стандарты:** [инженерные стандарты](../../docs/engineering-standards.md), [конституция](../constitution.md)

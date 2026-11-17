@@ -1,7 +1,7 @@
 # Проверка Spec 020
 
 > **Спецификация:** [spec.md](spec.md)
-> **Статус:** проверки фиксируются по задачам; записи — в истории ниже.
+> **Статус:** implemented — итоговые проверки T007 пройдены 2026-11-17.
 > **Ветка:** `feature/50-challenge-service-dev`
 > **Окружение:** macOS, Eclipse Temurin 25.0.5, Docker доступен, PostgreSQL локально, Python 3.13. `pwsh` локально не установлен; GitHub Actions использует `pwsh`.
 
@@ -64,49 +64,49 @@ Testcontainers-тесты требуют работающего Docker. Без D
 
 ### Gateway
 
-- [ ] `CHALLENGE_HTTP_BASE_URL` обязателен; без него контекст не стартует.
-- [ ] Каталог содержит все challenge-маршруты с `AUTHENTICATED`; внутреннего result нет.
-- [ ] JWT validation и CheckSession выполняются для защищённых маршрутов.
-- [ ] `Authorization`, `Idempotency-Key` и канонический `X-Request-Id` доходят до upstream.
-- [ ] Динамические UUID-сегменты проксируются; query string отклоняется с `400`.
-- [ ] Ошибки upstream передаются в общем формате.
+- [x] `CHALLENGE_HTTP_BASE_URL` обязателен; без него контекст не стартует.
+- [x] Каталог содержит все challenge-маршруты с `AUTHENTICATED`; внутреннего result нет.
+- [x] JWT validation и CheckSession выполняются для защищённых маршрутов.
+- [x] `Authorization`, `Idempotency-Key` и канонический `X-Request-Id` доходят до upstream.
+- [x] Динамические UUID-сегменты проксируются; query string отклоняется с `400`.
+- [x] Ошибки upstream передаются в общем формате.
 
 ### Challenge: данные и домен
 
-- [ ] Liquibase создаёт только таблицы MVP; CHECK и уникальные индексы работают.
-- [ ] Переходы `DRAFT→OPEN→ACTIVE→FINISHED` и `OPEN→CANCELLED` сериализуются.
-- [ ] `version` конфликтует корректно; `next_join_sequence` не переиспользуется.
-- [ ] Незавершённая операция одна на `(challenge_id, user_id)`.
-- [ ] Release intent один на `hold_id`.
+- [x] Liquibase создаёт только таблицы MVP; CHECK и уникальные индексы работают.
+- [x] Переходы `DRAFT→OPEN→ACTIVE→FINISHED` и `OPEN→CANCELLED` сериализуются.
+- [x] `version` конфликтует корректно; `next_join_sequence` не переиспользуется.
+- [x] Незавершённая операция одна на `(challenge_id, user_id)`.
+- [x] Release intent один на `hold_id`.
 
 ### Challenge: HTTP и security
 
-- [ ] `201` с `Location`, `200`, `202` со `statusUrl`, `400`, `401`, `404`, `409`, `422`, `503`.
-- [ ] `Idempotency-Key` обязателен; повтор с тем же ключом и телом возвращает сохранённый ответ.
-- [ ] Другое тело с тем же ключом — `409 idempotency_key_conflict`.
-- [ ] Чужой DRAFT — `404`; чужая операция — `404`.
-- [ ] `SecurityContext` очищается после запроса.
-- [ ] `requestId` присутствует в успешных и ошибочных ответах.
+- [x] `201` с `Location`, `200`, `202` со `statusUrl`, `400`, `401`, `404`, `409`, `422`, `503`.
+- [x] `Idempotency-Key` обязателен; повтор с тем же ключом и телом возвращает сохранённый ответ.
+- [x] Другое тело с тем же ключом — `409 idempotency_key_conflict`.
+- [x] Чужой DRAFT — `404`; чужая операция — `404`.
+- [x] `SecurityContext` очищается после запроса.
+- [x] `requestId` присутствует в успешных и ошибочных ответах.
 
 ### Challenge: конкурентность и отказы
 
-- [ ] Два join за последнее место: ровно один подтверждён; второй release подтверждён.
-- [ ] Cancel одновременно с join не подтверждает участие после отмены.
-- [ ] Потерянный ответ Coins до commit не создаёт participation.
-- [ ] Потерянный ответ Coins после commit восстанавливается по operation ID.
-- [ ] Повтор `FinalizeResult` с тем же `resultId` не создаёт вторую запись.
-- [ ] `MULTIPLE_WINNERS` отклоняется.
-- [ ] Тот же `event_id` с другим digest — карантин, без изменения состояния.
+- [x] Два join за последнее место: ровно один подтверждён; второй release подтверждён.
+- [x] Cancel одновременно с join не подтверждает участие после отмены.
+- [x] Потерянный ответ Coins до commit не создаёт participation.
+- [x] Потерянный ответ Coins после commit восстанавливается по operation ID.
+- [x] Повтор `FinalizeResult` с тем же `resultId` не создаёт вторую запись.
+- [x] `MULTIPLE_WINNERS` отклоняется.
+- [x] Тот же `event_id` с другим digest — карантин, без изменения состояния.
 
 ### Coins
 
-- [ ] Reserve обновляет available/locked, hold и ledger одной транзакцией.
-- [ ] Недостаток монет не меняет баланс; повтор возвращает сохранённый исход.
-- [ ] Release освобождает hold ровно один раз; двойной release разными ID отклоняется.
-- [ ] Begin/Put/Finalize сверяют count/digest/active holds; новый reserve после SEALED запрещён.
-- [ ] Freeze запрещает новые резервы; Complete не проходит при активном hold.
-- [ ] Settlement `SINGLE_WINNER`/`DRAW` сохраняет сумму, ledger и outbox; повтор не платит дважды.
-- [ ] `coins.settlement_completed` публикуется только после успешного расчёта.
+- [x] Reserve обновляет available/locked, hold и ledger одной транзакцией.
+- [x] Недостаток монет не меняет баланс; повтор возвращает сохранённый исход.
+- [x] Release освобождает hold ровно один раз; двойной release разными ID отклоняется.
+- [x] Begin/Put/Finalize сверяют count/digest/active holds; новый reserve после SEALED запрещён.
+- [x] Freeze запрещает новые резервы; Complete не проходит при активном hold.
+- [x] Settlement `SINGLE_WINNER`/`DRAW` сохраняет сумму, ledger и outbox; повтор не платит дважды.
+- [x] `coins.settlement_completed` публикуется только после успешного расчёта.
 
 ## Границы проверки
 
@@ -700,3 +700,18 @@ Testcontainers-тесты требуют работающего Docker. Без D
   - `assertions: 27`, `failed: 0`.
 - Первый запуск выявил ошибку prerequest: проверялись collection-переменные вместо environment. Исправлено, повторный запуск прошёл без ошибок.
 - Ограничение: сценарий не фиксирует `FINAL` через Gateway, потому что внутренний `FinalizeResult` доступен только по mTLS; запрос результата принимает `PENDING` и `FINAL`, а `FINAL` проверяется отдельным локальным mTLS-вызовом. Тестовые запуски создают дополнительные challenge и требуют локальных монет. Deploy не менялся.
+
+### 2026-11-17 — T007, итоговые проверки
+
+- `sh ./mvnw -B -ntp -pl services/gateway-service,services/challenge-service,services/coins-service -am verify`: `BUILD SUCCESS`.
+- Результаты модулей:
+  - gateway: 53/53, SpotBugs 0;
+  - challenge: 73/73, SpotBugs 0;
+  - coins: 91/91, SpotBugs 0;
+  - contracts: 5/5.
+- `challenge-v1.yaml` содержит реализованный `GET /api/v1/challenges/{challengeId}/result`; Gateway ссылается на owner-контракт, внутренний gRPC не добавлен в публичные маршруты.
+- `deployment/README.md` отражает локальную Kafka на `29092` и скрипт подготовки данных; production Compose и release scripts не менялись.
+- Статус `spec.md`, `plan.md`, `tasks.md` и `verification.md` обновлён на `implemented`. Открытые вопросы для будущих спецификаций сохранены в `questions.md`.
+- Подтверждённые пункты проверок по модулям отмечены в этом документе.
+- `git diff --check`: успешно. Проверка относительных Markdown-ссылок Python-скриптом: 1008 ссылок, ошибок нет.
+- Ограничения MVP: отсутствует production-источник результата; mTLS-вызов результата выполнен тестовым клиентом; нет нагрузочного теста Kafka и имитации хаоса; `invalid_access_token` в Gateway расходится с ожидаемым планом `unauthenticated`; TTL/rate limit и длительная недоступность БД остаются будущими задачами. Deploy, commit, push, merge и серверные миграции не выполнялись.
