@@ -7,4 +7,4 @@ databaseChangeLog:
         - sqlFile:
             path: 003-create-catalog-variations.sql
             relativeToChangelogFile: true
-            stripComments: false
+            stripComments: true
