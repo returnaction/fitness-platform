@@ -309,3 +309,15 @@ Testcontainers-тесты требуют работающего Docker. Без D
 - `sh ./mvnw -B -ntp -pl services/challenge-service -am test`: `BUILD SUCCESS`, contracts 5/5, challenge 27/27.
 - `git diff --check`: успешно. Проверка относительных Markdown-ссылок Python-скриптом: ошибок нет.
 - Ограничение: конкретные бизнес-коды будут бросать сервисы в T004.7–T004.12; HTTP-контроллеров пока нет. БД, Kafka и deploy не менялись.
+
+### 2026-11-17 — T004.7, хранение HTTP-идемпотентности
+
+- `IdempotencyStore` использует нативные SQL-запросы через `NamedParameterJdbcTemplate`; тело и заголовки ответа пишутся в JSONB через `CAST(... AS jsonb)`.
+- Ключ привязан к `(user_id, method, path, key)`: тот же ключ на другом пути или у другого пользователя — отдельная запись.
+- `IdempotencyService.requireKey` принимает только UUID; пустой или невалидный ключ — `400 invalid_request`.
+- Отпечаток тела — SHA-256 от исходных UTF-8 байтов. Повтор с тем же отпечатком возвращает сохранённый статус, тело и заголовки; другой отпечаток даёт `409 idempotency_key_conflict`.
+- Уникальность `(user_id, method, path, key)` проверена: повторная вставка отклоняется `DuplicateKeyException`.
+- `IdempotencyServiceIntegrationTest` на Testcontainers покрывает валидацию ключа, replay, конфликт тела и изоляцию по пути/пользователю.
+- `sh ./mvnw -B -ntp -pl services/challenge-service -am test`: `BUILD SUCCESS`, contracts 5/5, challenge 30/30.
+- `git diff --check`: успешно. Проверка относительных Markdown-ссылок Python-скриптом: ошибок нет.
+- Ограничение: подключение к draft/publish/join endpoints — T004.8; стратегия повторного чтения после конкурентной вставки будет реализована там. БД, Kafka и deploy не менялись.
