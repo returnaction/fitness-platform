@@ -4,6 +4,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import io.github.returnaction.fitness.contracts.accounts.profile.creation.v1.ProfileCreationServiceGrpc;
 import io.github.returnaction.fitness.contracts.accounts.profile.creation.v1.CreateProfileIfAbsentRequest;
+import io.github.returnaction.fitness.contracts.challenge.results.v1.ChallengeResultServiceGrpc;
+import io.github.returnaction.fitness.contracts.challenge.results.v1.FinalizeResultRequest;
+import io.github.returnaction.fitness.contracts.challenge.results.v1.ResultOutcome;
 import io.github.returnaction.fitness.contracts.coins.stake.v1.ReserveOutcome;
 import io.github.returnaction.fitness.contracts.coins.stake.v1.ReserveStakeRequest;
 import io.github.returnaction.fitness.contracts.coins.stake.v1.StakeServiceGrpc;
@@ -78,5 +81,26 @@ class GrpcContractsGenerationTest {
                 StakeServiceGrpc.getFreezeStakeSetMethod().getFullMethodName());
         assertEquals("fitness.coins.stake.v1.StakeService/CompleteStakeCancellation",
                 StakeServiceGrpc.getCompleteStakeCancellationMethod().getFullMethodName());
+    }
+
+    @Test
+    void generatesChallengeResultContract() {
+        FinalizeResultRequest request = FinalizeResultRequest.newBuilder()
+                .setResultId("00000000-0000-4000-8000-000000000006")
+                .setChallengeId("00000000-0000-4000-8000-000000000005")
+                .setSetVersion(1L)
+                .setSetDigest("a".repeat(64))
+                .setOutcome(ResultOutcome.RESULT_OUTCOME_DRAW)
+                .setRuleVersion("equal-pool-v1")
+                .addWinnerUserIds("00000000-0000-4000-8000-000000000003")
+                .addWinnerUserIds("00000000-0000-4000-8000-000000000007")
+                .build();
+
+        assertEquals("00000000-0000-4000-8000-000000000006", request.getResultId());
+        assertEquals(2, request.getWinnerUserIdsCount());
+        assertEquals("fitness.challenge.results.v1.ChallengeResultService/FinalizeResult",
+                ChallengeResultServiceGrpc.getFinalizeResultMethod().getFullMethodName());
+        assertEquals("fitness.challenge.results.v1.ChallengeResultService/ListResultWinners",
+                ChallengeResultServiceGrpc.getListResultWinnersMethod().getFullMethodName());
     }
 }

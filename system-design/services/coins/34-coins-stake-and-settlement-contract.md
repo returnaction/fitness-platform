@@ -29,7 +29,7 @@ TLS / авторизации. Все UUID в proto ниже — канониче
 авторизованный Challenge имеет право выполнять команды и читать их состояние.
 
 **Приоритет:** проектные контракты собраны в [coins-stake-v1.proto](../../../contracts/proto/coins-stake-v1.proto)
-и [challenge-results-v1.proto](../../contracts/challenge-results-v1.proto). Для закрытия больших наборов одиночный `SealStakeSet` заменён
+и [challenge-results-v1.proto](../../../contracts/proto/challenge-results-v1.proto). Для закрытия больших наборов одиночный `SealStakeSet` заменён
 методами `BeginStakeSet` / `PutStakeBatch` / `FinalizeStakeSet`. Сообщения
 этих методов описаны в разделе «Закрытие набора частями», а DTO отмены — в
 [контракте отмены](../challenge/21-challenge-cancellation-draft.md). Старые фрагменты в этом

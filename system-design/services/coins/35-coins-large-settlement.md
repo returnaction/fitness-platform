@@ -13,7 +13,7 @@
    или результат с другим event ID не создаёт вторую задачу. Противоречивый
    payload / второй результат ставится на разбор.
 3. Coins получает неизменяемый список победителей страницами по
-   [challenge-results-v1.proto](../../contracts/challenge-results-v1.proto). Staging
+   [challenge-results-v1.proto](../../../contracts/proto/challenge-results-v1.proto). Staging
    не меняет балансы. До расчёта проверяются число, digest, уникальность,
    принадлежность победителей закрытому набору и допустимость исхода.
 4. Coins сохраняет allocations по формуле `pool // winner_count`, остаточные

@@ -143,3 +143,15 @@ Testcontainers-тесты требуют работающего Docker. Без D
 - `git diff --check`: успешно. Проверка относительных Markdown-ссылок Python-скриптом: 1003 ссылки, ошибок нет.
 - Код сервисов, БД, Kafka, deployment, commit, push и deploy не выполнялись.
 - Ограничение окружения: `./mvnw` в рабочей копии имеет mode `100644`, команды запускались через `sh ./mvnw`.
+
+### 2026-11-17 — T002.3, gRPC-контракт результата
+
+- Создан `contracts/proto/challenge-results-v1.proto`: `FinalizeResult` и `ListResultWinners`. Пакет `fitness.challenge.results.v1`, Java-пакет `io.github.returnaction.fitness.contracts.challenge.results.v1`.
+- `FinalizeResult` принимает `resultId`, `challengeId`, `setVersion`, `setDigest`, `outcome`, `ruleVersion`, список победителей; возвращает `winnerCount` и `winnersDigest`, вычисленные Challenge. `MULTIPLE_WINNERS` зарезервирован и в MVP отклоняется.
+- Зафиксированы mTLS-правила: `FinalizeResult` — только доверенный источник результата с отдельным SAN, `ListResultWinners` — только `coins-service`; через Gateway контракт недоступен.
+- Конфликты: тот же `resultId` с другим payload — `RESULT_ID_CONFLICT`, другой `resultId` для challenge — `CHALLENGE_RESULT_EXISTS`.
+- Версия `fitness-grpc-contracts` оставлена `0.1.2` до T002.5 по решению пользователя; потребители повторно не обновлялись.
+- `sh ./mvnw -B -ntp -pl contracts/grpc-contracts verify`: `BUILD SUCCESS`, тесты 5/5, SpotBugs 0.
+- `sh ./mvnw -B -ntp -pl services/challenge-service,services/coins-service -am clean test-compile`: `BUILD SUCCESS`.
+- `git diff --check`: успешно. Проверка относительных Markdown-ссылок Python-скриптом: 1004 ссылки, ошибок нет.
+- Код сервисов, БД, Kafka, deployment, commit, push и deploy не выполнялись.
