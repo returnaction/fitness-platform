@@ -163,3 +163,12 @@ Testcontainers-тесты требуют работающего Docker. Без D
 - `/private/var/folders/.../opencode/openapi-venv/bin/python -m openapi_spec_validator contracts/openapi/challenge-v1.yaml contracts/openapi/gateway-v1.yaml`: оба файла `OK`.
 - `git diff --check`: успешно. Проверка относительных Markdown-ссылок Python-скриптом: ошибок нет.
 - Код сервисов, маршруты Gateway, БД, Kafka, deployment, commit, push и deploy не выполнялись.
+
+### 2026-11-17 — T002.5, проверка контрактов и потребителей
+
+- `openapi_spec_validator` для `accounts-profile-v1.yaml`, `challenge-v1.yaml`, `coins-wallet-v1.yaml`, `gateway-v1.yaml`, `identity-auth-v1.yaml`: все пять `OK`.
+- Все пять потребителей `fitness-grpc-contracts` используют `0.1.2`: identity, accounts, coins, gateway, challenge. Проверено скриптом по `pom.xml`.
+- `sh ./mvnw -B -ntp -pl contracts/grpc-contracts verify`: `BUILD SUCCESS`, тесты 5/5, SpotBugs 0.
+- `contracts/README.md`: в индексе присутствуют `coins-stake-v1.proto` и `challenge-results-v1.proto`; в команды проверки OpenAPI добавлен `challenge-v1.yaml`.
+- `git diff --check`: успешно. Проверка относительных Markdown-ссылок Python-скриптом: ошибок нет.
+- Код сервисов, БД, Kafka, deployment, commit, push и deploy не выполнялись.

@@ -111,6 +111,7 @@ Identity, Accounts, Coins, Gateway и Challenge подключают его ка
 ```powershell
 python -m pip install -r contracts/openapi/requirements-validation.txt
 python -m openapi_spec_validator contracts/openapi/accounts-profile-v1.yaml
+python -m openapi_spec_validator contracts/openapi/challenge-v1.yaml
 python -m openapi_spec_validator contracts/openapi/coins-wallet-v1.yaml
 python -m openapi_spec_validator contracts/openapi/gateway-v1.yaml
 python -m openapi_spec_validator contracts/openapi/identity-auth-v1.yaml
