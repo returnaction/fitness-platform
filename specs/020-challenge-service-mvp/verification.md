@@ -418,3 +418,16 @@ Testcontainers-тесты требуют работающего Docker. Без D
 - `sh ./mvnw -B -ntp -pl services/challenge-service -am test`: `BUILD SUCCESS`, contracts 5/5, challenge 38/38.
 - `git diff --check`: успешно. Проверка относительных Markdown-ссылок Python-скриптом: ошибок нет.
 - Ограничение: mTLS-канал клиента ещё не проверен end-to-end с реальным Coins; это T006.2. Клиент пока не подключён к publish/join. БД, Kafka и deploy не менялись.
+
+### 2026-11-17 — T004.10, публикация челленджа
+
+- `ChallengePublishService` сначала в отдельной транзакции фиксирует durable `PUBLISH`-операцию, затем вне транзакции вызывает `ReserveStake` Coins, затем отдельной транзакцией подтверждает участие создателя и переводит challenge в `OPEN`.
+- Успех: `200`, создатель `JOINED`, hold сохранён в операции, версия challenge увеличена.
+- Недостаток монет и активный hold: `409 insufficient_coins` / `409 stake_conflict`, challenge остаётся `DRAFT`, операция `FAILED`.
+- Неизвестный исход Coins: `202` с `operationId` и `statusUrl`, операция остаётся `PENDING`.
+- Неверная версия — `409 version_conflict`; чужой черновик — `404 challenge_not_found`; незаполненные поля — `422 validation_error` с `details`.
+- Идемпотентность: повтор publish с тем же ключом возвращает сохранённый `200`/`202` без второго резерва.
+- `ChallengePublishFlowIntegrationTest` на Testcontainers с mock `CoinsStakeClient` покрывает успех/replay, insufficient_coins, stake_conflict, неизвестный исход, stale version, чужого создателя и незаполненный черновик.
+- `sh ./mvnw -B -ntp -pl services/challenge-service -am test`: `BUILD SUCCESS`, contracts 5/5, challenge 43/43.
+- `git diff --check`: успешно. Проверка относительных Markdown-ссылок Python-скриптом: ошибок нет.
+- Ограничение: recovery worker для `PENDING` и release hold при сбое подтверждения — T004.13; Kafka и deploy не менялись.

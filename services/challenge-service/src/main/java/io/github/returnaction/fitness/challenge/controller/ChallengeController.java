@@ -5,7 +5,9 @@ import io.github.returnaction.fitness.challenge.dto.CreateDraftRequest;
 import io.github.returnaction.fitness.challenge.dto.DraftResponse;
 import io.github.returnaction.fitness.challenge.dto.OperationResponse;
 import io.github.returnaction.fitness.challenge.dto.UpdateDraftRequest;
+import io.github.returnaction.fitness.challenge.dto.VersionRequest;
 import io.github.returnaction.fitness.challenge.service.ChallengeDraftService;
+import io.github.returnaction.fitness.challenge.service.ChallengePublishService;
 import jakarta.validation.Valid;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -28,6 +30,7 @@ public class ChallengeController {
     private static final String NO_STORE = "no-store";
 
     private final ChallengeDraftService service;
+    private final ChallengePublishService publishService;
 
     @PostMapping("/api/v1/challenges/drafts")
     public ResponseEntity<DraftResponse> createDraft(
@@ -50,6 +53,18 @@ public class ChallengeController {
         return ResponseEntity.ok()
                 .header(HttpHeaders.CACHE_CONTROL, NO_STORE)
                 .body(service.updateDraft(userId, challengeId, idempotencyKey, request));
+    }
+
+    @PostMapping("/api/v1/challenges/{challengeId}/publish")
+    public ResponseEntity<?> publish(
+            @AuthenticationPrincipal UUID userId,
+            @PathVariable UUID challengeId,
+            @RequestHeader(name = "Idempotency-Key", required = false) String idempotencyKey,
+            @Valid @RequestBody VersionRequest request) {
+        var result = publishService.publish(userId, challengeId, idempotencyKey, request);
+        return ResponseEntity.status(result.status())
+                .header(HttpHeaders.CACHE_CONTROL, NO_STORE)
+                .body(result.body());
     }
 
     @GetMapping("/api/v1/challenges/{challengeId}")

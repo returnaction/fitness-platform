@@ -105,6 +105,24 @@ public class ChallengeEntity {
     }
 
     /**
+     * Переводит черновик в OPEN и резервирует первый номер участника.
+     * Вызывается под блокировкой строки после подтверждённого резерва Coins.
+     */
+    public long openForJoining(Instant now) {
+        status.requireTransitionTo(ChallengeStatus.OPEN);
+        mode = ChallengeMode.HEAD_TO_HEAD;
+        startMode = StartMode.WHEN_FULL;
+        minParticipants = 2;
+        maxParticipants = 2;
+        long sequence = nextJoinSequence;
+        nextJoinSequence = sequence + 1;
+        status = ChallengeStatus.OPEN;
+        version++;
+        updatedAt = now;
+        return sequence;
+    }
+
+    /**
      * Применяет частичное изменение черновика. Вызывается только после проверки
      * состояния, владельца и ожидаемой версии под блокировкой строки.
      */

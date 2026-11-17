@@ -67,4 +67,10 @@ public class ChallengeOperationEntity {
         status = ChallengeOperationStatus.CONFIRMED;
         updatedAt = now;
     }
+
+    public void fail(String failureCode, Instant now) {
+        this.failureCode = failureCode;
+        status = ChallengeOperationStatus.FAILED;
+        updatedAt = now;
+    }
 }

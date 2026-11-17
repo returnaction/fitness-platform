@@ -2,6 +2,7 @@ package io.github.returnaction.fitness.challenge.shared.web;
 
 import io.github.returnaction.fitness.challenge.domain.InvalidStateTransitionException;
 import io.github.returnaction.fitness.challenge.shared.exception.BusinessConflictException;
+import io.github.returnaction.fitness.challenge.shared.exception.DomainValidationException;
 import io.github.returnaction.fitness.challenge.shared.exception.InvalidRequestException;
 import io.github.returnaction.fitness.challenge.shared.exception.ResourceNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -80,6 +81,16 @@ public class ApiExceptionHandler {
                                                              HttpServletRequest request) {
         return response(HttpStatus.UNPROCESSABLE_CONTENT, VALIDATION_ERROR_CODE, VALIDATION_ERROR_MESSAGE,
                 List.of(new ApiErrorResponse.ErrorDetail("status", "invalid_transition")), request);
+    }
+
+    @ExceptionHandler(DomainValidationException.class)
+    ResponseEntity<ApiErrorResponse> handleDomainValidation(DomainValidationException exception,
+                                                            HttpServletRequest request) {
+        var details = exception.getDetails().stream()
+                .map(detail -> new ApiErrorResponse.ErrorDetail(detail.field(), detail.code()))
+                .toList();
+        return response(HttpStatus.UNPROCESSABLE_CONTENT, VALIDATION_ERROR_CODE, VALIDATION_ERROR_MESSAGE,
+                details, request);
     }
 
     @ExceptionHandler({ResourceNotFoundException.class, NoResourceFoundException.class, NoHandlerFoundException.class})
