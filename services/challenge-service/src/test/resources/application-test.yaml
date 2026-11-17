@@ -3,6 +3,8 @@ spring:
     import: classpath:test-environment.properties
   kafka:
     bootstrap-servers: 127.0.0.1:1
+    listener:
+      auto-startup: false
 management:
   health:
     kafka:

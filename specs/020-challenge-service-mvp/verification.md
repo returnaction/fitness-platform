@@ -506,3 +506,15 @@ Testcontainers-тесты требуют работающего Docker. Без D
 - `sh ./mvnw -B -ntp -pl services/challenge-service -am test`: `BUILD SUCCESS`, contracts 5/5, challenge 62/62.
 - `git diff --check`: успешно. Проверка относительных Markdown-ссылок Python-скриптом: ошибок нет.
 - Ограничение: mTLS-сервер результата не проверен end-to-end; курсор списка победителей в MVP — UUID без HMAC. Kafka и deploy не менялись.
+
+### 2026-11-17 — T004.17, consumer `coins.settlement_completed`
+
+- `SettlementCompletedConsumer` подписан на `fitness.coins.settlement_completed.v1` с группой `challenge-service.settlement-completed`; key проверяется как `challengeId`.
+- `SettlementCompletedProcessor` разбирает snake_case-оболочку и camelCase `data`, проверяет `event_type`, `schema_version=1`, `producer=coins`, обязательные поля, версию/ruleVersion и соответствие окончательному результату.
+- Проекция `COMPLETED` и запись `challenge_inbox` фиксируются одной транзакцией; digest считается по исходным UTF-8 байтам payload.
+- Повтор того же `event_id` с тем же digest — `DUPLICATE` без изменения состояния; другой digest — `QUARANTINED`, проекция не меняется.
+- Другой `settlementId` для уже рассчитанного challenge не перезаписывает проекцию; неизвестный результат пробрасывает `SettlementNotReadyException`, inbox не отмечается применённым.
+- `SettlementCompletedConsumerIntegrationTest` покрывает применение и replay, конфликт digest, другой `settlementId`, неизвестный результат и несовпадение версии набора.
+- `sh ./mvnw -B -ntp -pl services/challenge-service -am test`: `BUILD SUCCESS`, contracts 5/5, challenge 67/67.
+- `git diff --check`: успешно. Проверка относительных Markdown-ссылок Python-скриптом: ошибок нет.
+- Ограничение: таблица `challenge_pending_events` не входит в MVP; конфликт digest фиксируется отказом от применения и ERROR-логом, а неизвестный результат удерживается повторной доставкой Kafka. Реальный брокер в тестах не поднимался; deploy не менялся.

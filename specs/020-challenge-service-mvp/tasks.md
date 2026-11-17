@@ -56,7 +56,7 @@
 - [x] T004.14 — Seal и WHEN_FULL. Зависит от T005.4, T004.13. Критерий: после второго участия набор закрывается, затем `ACTIVE`; до seal challenge `OPEN`; повтор не создаёт второй seal.
 - [x] T004.15 — Outbox publisher. Зависит от T004.14. Критерий: событие и локальное изменение — один commit; claim с lease; повтор не дублирует событие; backlog наблюдаем.
 - [x] T004.16 — gRPC-сервер результата. Зависит от T004.15. Критерий: `FinalizeResult` пишет result/winners/digest/outbox одной транзакцией; `MULTIPLE_WINNERS` отклоняется; повтор по `resultId` безопасен; `ListResultWinners` доступен Coins по mTLS.
-- [ ] T004.17 — Consumer settlement с inbox. Зависит от T004.16, T005.6. Критерий: проекция `COMPLETED` только после `coins.settlement_completed`; тот же `event_id` с другим digest — карантин; неизвестный результат не применяется.
+- [x] T004.17 — Consumer settlement с inbox. Зависит от T004.16, T005.6. Критерий: проекция `COMPLETED` только после `coins.settlement_completed`; тот же `event_id` с другим digest — карантин; неизвестный результат не применяется.
 - [ ] T005.6 — Settlement Coins. Зависит от T005.5, T004.16. Критерий: `challenge.finished` создаёт settlement; победители проверяются по digest; `SINGLE_WINNER` получает банк, `DRAW` — возврат; событие завершения в outbox.
 - [ ] T005.7 — Outbox publisher Coins. Зависит от T005.6. Критерий: публикация `coins.settlement_completed` после commit, повтор и lease безопасны.
 
