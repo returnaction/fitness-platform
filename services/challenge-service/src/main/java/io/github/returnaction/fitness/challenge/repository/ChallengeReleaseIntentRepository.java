@@ -26,4 +26,12 @@ public interface ChallengeReleaseIntentRepository extends JpaRepository<Challeng
             """, nativeQuery = true)
     List<ChallengeReleaseIntentEntity> findByChallengeIdAndStatus(@Param("challengeId") UUID challengeId,
                                                                   @Param("status") String status);
+
+    @Query(value = """
+            SELECT * FROM challenge_release_intents
+            WHERE challenge_id = :challengeId
+            ORDER BY created_at DESC, id DESC
+            LIMIT 1
+            """, nativeQuery = true)
+    Optional<ChallengeReleaseIntentEntity> findLatestByChallengeId(@Param("challengeId") UUID challengeId);
 }

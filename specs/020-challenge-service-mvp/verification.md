@@ -443,3 +443,15 @@ Testcontainers-тесты требуют работающего Docker. Без D
 - `sh ./mvnw -B -ntp -pl services/challenge-service -am test`: `BUILD SUCCESS`, contracts 5/5, challenge 48/48.
 - `git diff --check`: успешно. Проверка относительных Markdown-ссылок Python-скриптом: ошибок нет.
 - Ограничение: гонка двух join за последнее место — T004.20; durable release intent — T004.12. Kafka и deploy не менялись.
+
+### 2026-11-17 — T004.12, отмена и release intents
+
+- `ChallengeCancelService` отменяет только создатель и только при отсутствии других подтверждённых участников; иначе `409 cancellation_not_allowed`, чужой challenge — `404`.
+- В одной транзакции фиксируются `CANCELLED` и один durable release intent на hold создателя (`UNIQUE(hold_id)`), повтор использует существующий intent.
+- После commit выполняются `FreezeStakeSet` → `ReleaseStake (CHALLENGE_CANCELLED)` → `CompleteStakeCancellation`; intent подтверждается только после успешного release.
+- `200` возвращается с `refundStatus COMPLETED` после подтверждённого release; при неизвестном исходе — `PENDING`, challenge остаётся `CANCELLED`, recovery продолжит позже.
+- Повтор с тем же `Idempotency-Key` возвращает сохранённый ответ; новый ключ для уже отменённого challenge возвращает текущий подтверждённый refund без повторных вызовов Coins.
+- `ChallengeCancelFlowIntegrationTest` покрывает успешную отмену/replay, отмену с другим участником, чужого создателя и `PENDING` при неизвестном ответе Coins.
+- `sh ./mvnw -B -ntp -pl services/challenge-service -am test`: `BUILD SUCCESS`, contracts 5/5, challenge 52/52.
+- `git diff --check`: успешно. Проверка относительных Markdown-ссылок Python-скриптом: ошибок нет.
+- Ограничение: recovery для `PENDING` release/complete — T004.13; Kafka и deploy не менялись.

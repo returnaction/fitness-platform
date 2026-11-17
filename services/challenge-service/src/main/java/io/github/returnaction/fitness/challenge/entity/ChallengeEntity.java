@@ -123,6 +123,17 @@ public class ChallengeEntity {
     }
 
     /**
+     * Отменяет опубликованный challenge. Вызывается под блокировкой строки,
+     * только пока нет других подтверждённых участников.
+     */
+    public void cancel(Instant now) {
+        status.requireTransitionTo(ChallengeStatus.CANCELLED);
+        status = ChallengeStatus.CANCELLED;
+        version++;
+        updatedAt = now;
+    }
+
+    /**
      * Применяет частичное изменение черновика. Вызывается только после проверки
      * состояния, владельца и ожидаемой версии под блокировкой строки.
      */

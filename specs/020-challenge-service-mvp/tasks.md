@@ -48,7 +48,7 @@
 - [x] T004.9 — gRPC-клиент Coins. Зависит от T005.10. Критерий: mTLS, deadline меньше gateway 7s, классификация `UNAVAILABLE`/`DEADLINE_EXCEEDED` как неизвестного исхода, повторы по operation ID.
 - [x] T004.10 — Publish. Зависит от T004.8, T004.9. Критерий: durable PUBLISH, резерв до `OPEN`, создатель `JOINED`, `200`/`202`, `409 insufficient_coins`/`stake_conflict`, черновик жив при отказе.
 - [x] T004.11 — Join. Зависит от T004.10. Критерий: reserve до места, повторная проверка под блокировкой, атомарный `join_sequence`, `409 already_joined/challenge_full/challenge_started/challenge_cancelled`, release при неудаче.
-- [ ] T004.12 — Cancel и release intents. Зависит от T004.11. Критерий: только создатель и только без других участников; один intent на hold; `PENDING→COMPLETED` только после Coins; retry безопасен.
+- [x] T004.12 — Cancel и release intents. Зависит от T004.11. Критерий: только создатель и только без других участников; один intent на hold; `PENDING→COMPLETED` только после Coins; retry безопасен.
 - [ ] T004.13 — Recovery worker. Зависит от T004.12. Критерий: продолжает publish/join/release/seal после рестарта, использует lease и `FOR UPDATE SKIP LOCKED`, не освобождает hold по таймеру.
 
 ### Старт, результат и события
