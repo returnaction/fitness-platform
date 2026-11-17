@@ -3,6 +3,7 @@ package io.github.returnaction.fitness.challenge;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
@@ -107,7 +108,7 @@ class ChallengeResultFlowIntegrationTest {
         assertEquals(1, count("SELECT count(*) FROM challenge_results WHERE challenge_id = ?",
                 UUID.fromString(fixture.challengeId())));
 
-        ListResultWinnersResponse winners = listWinners(resultId, "");
+        ListResultWinnersResponse winners = listWinners(resultId);
         assertEquals(List.of(fixture.owner().toString()), winners.getUserIdsList());
         assertTrue(winners.getNextCursor().isEmpty());
     }
@@ -194,7 +195,7 @@ class ChallengeResultFlowIntegrationTest {
     private FinalizeResultResponse finalize(Fixture fixture, UUID resultId, String outcome, List<UUID> winners) {
         var observer = new CapturingObserver<FinalizeResultResponse>();
         results.finalizeResult(request(fixture, resultId, outcome, winners), observer);
-        assertTrue(observer.error == null, () -> "Unexpected error: " + observer.error);
+        assertNull(observer.error, () -> "Unexpected error: " + observer.error);
         return observer.value;
     }
 
@@ -214,11 +215,11 @@ class ChallengeResultFlowIntegrationTest {
                 .build();
     }
 
-    private ListResultWinnersResponse listWinners(UUID resultId, String cursor) {
+    private ListResultWinnersResponse listWinners(UUID resultId) {
         var observer = new CapturingObserver<ListResultWinnersResponse>();
         results.listResultWinners(ListResultWinnersRequest.newBuilder()
                 .setResultId(resultId.toString())
-                .setCursor(cursor)
+                .setCursor("")
                 .setLimit(10)
                 .build(), observer);
         return observer.value;
@@ -288,8 +289,13 @@ class ChallengeResultFlowIntegrationTest {
     }
 
     private static String reason(Throwable error) throws Exception {
-        return StatusProto.fromThrowable(error).getDetailsList().getFirst()
-                .unpack(ErrorInfo.class).getReason();
+        var status = java.util.Objects.requireNonNull(StatusProto.fromThrowable(error),
+                "gRPC status is missing");
+        var detail = status.getDetailsList().stream()
+                .filter(candidate -> candidate.is(ErrorInfo.class))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("ErrorInfo is missing"));
+        return detail.unpack(ErrorInfo.class).getReason();
     }
 
     private static ReserveStakeResponse reserved() {
@@ -330,6 +336,9 @@ class ChallengeResultFlowIntegrationTest {
 
         @Override
         public void onCompleted() {
+            // Unary calls deliver the result through onNext and errors through onError.
+            //Унарные вызовы передают результат через onNext, а ошибки — через onError.
+            //Это техническая фраза из документации по gRPC
         }
     }
 }

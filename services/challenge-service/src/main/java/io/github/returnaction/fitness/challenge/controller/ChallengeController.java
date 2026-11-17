@@ -45,7 +45,7 @@ public class ChallengeController {
     public ResponseEntity<DraftResponse> createDraft(
             @AuthenticationPrincipal UUID userId,
             @RequestHeader(name = "Idempotency-Key", required = false) String idempotencyKey,
-            @Valid @RequestBody CreateDraftRequest request) {
+            @SuppressWarnings("unused") @Valid @RequestBody CreateDraftRequest request) {
         DraftResponse response = service.createDraft(userId, idempotencyKey);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .header(HttpHeaders.CACHE_CONTROL, NO_STORE)
@@ -65,7 +65,7 @@ public class ChallengeController {
     }
 
     @PostMapping("/api/v1/challenges/{challengeId}/publish")
-    public ResponseEntity<?> publish(
+    public ResponseEntity<Object> publish(
             @AuthenticationPrincipal UUID userId,
             @PathVariable UUID challengeId,
             @RequestHeader(name = "Idempotency-Key", required = false) String idempotencyKey,
@@ -77,11 +77,11 @@ public class ChallengeController {
     }
 
     @PostMapping("/api/v1/challenges/{challengeId}/joins")
-    public ResponseEntity<?> join(
+    public ResponseEntity<Object> join(
             @AuthenticationPrincipal UUID userId,
             @PathVariable UUID challengeId,
             @RequestHeader(name = "Idempotency-Key", required = false) String idempotencyKey,
-            @Valid @RequestBody JoinRequest request) {
+            @SuppressWarnings("unused") @Valid @RequestBody JoinRequest request) {
         var result = joinService.join(userId, challengeId, idempotencyKey);
         return ResponseEntity.status(result.status())
                 .header(HttpHeaders.CACHE_CONTROL, NO_STORE)
@@ -89,11 +89,11 @@ public class ChallengeController {
     }
 
     @PostMapping("/api/v1/challenges/{challengeId}/cancel")
-    public ResponseEntity<?> cancel(
+    public ResponseEntity<Object> cancel(
             @AuthenticationPrincipal UUID userId,
             @PathVariable UUID challengeId,
             @RequestHeader(name = "Idempotency-Key", required = false) String idempotencyKey,
-            @Valid @RequestBody CancelRequest request) {
+            @SuppressWarnings("unused") @Valid @RequestBody CancelRequest request) {
         var result = cancelService.cancel(userId, challengeId, idempotencyKey);
         return ResponseEntity.status(result.status())
                 .header(HttpHeaders.CACHE_CONTROL, NO_STORE)

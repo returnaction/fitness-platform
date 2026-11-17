@@ -16,9 +16,6 @@ import org.springframework.stereotype.Component;
 /**
  * mTLS gRPC-сервер результата. В тестах отключается свойством
  * challenge.result.grpc.enabled=false.
- *
- * TODO(spec-020): добавить end-to-end mTLS-тест с сертификатами result-source
- * и coins-service; сейчас проверены только interceptor и конфигурация.
  */
 @Component
 @ConditionalOnProperty(name = "challenge.result.grpc.enabled", havingValue = "true", matchIfMissing = true)
@@ -60,7 +57,7 @@ public final class ChallengeResultGrpcServer implements SmartLifecycle {
             if (!server.awaitTermination(5, TimeUnit.SECONDS)) {
                 server.shutdownNow();
             }
-        } catch (InterruptedException exception) {
+        } catch (InterruptedException _) {
             server.shutdownNow();
             Thread.currentThread().interrupt();
         }

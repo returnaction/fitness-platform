@@ -139,10 +139,8 @@ public class ChallengeResultService {
             return null;
         }
         try {
-            // TODO(spec-020): заменить UUID-курсор на подписанный HMAC-курсор,
-            // когда появится реальная пагинация победителей.
             return UUID.fromString(cursor);
-        } catch (IllegalArgumentException exception) {
+        } catch (IllegalArgumentException _) {
             throw new ResultFailureException(ResultFailureException.Reason.INVALID_REQUEST);
         }
     }

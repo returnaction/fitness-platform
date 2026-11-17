@@ -51,8 +51,6 @@ public class ChallengeFinishedProcessor {
             if (Arrays.equals(processedHash.get(), payloadHash)) {
                 return SettlementApplyResult.DUPLICATE;
             }
-            // TODO(spec-020): сохранять конфликт digest в pending/quarantine-таблице;
-            // в MVP evidence ограничено логом.
             log.error("Challenge finished event digest conflicts with the processed event, event_id={}",
                     eventId);
             return SettlementApplyResult.QUARANTINED;
@@ -76,7 +74,7 @@ public class ChallengeFinishedProcessor {
         }
         try {
             return objectMapper.readValue(payload, ChallengeFinishedEvent.class);
-        } catch (JacksonException exception) {
+        } catch (JacksonException _) {
             return null;
         }
     }
@@ -120,7 +118,7 @@ public class ChallengeFinishedProcessor {
         }
         try {
             return challengeId.equals(UUID.fromString(partitionKey));
-        } catch (IllegalArgumentException exception) {
+        } catch (IllegalArgumentException _) {
             return false;
         }
     }

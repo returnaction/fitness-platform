@@ -54,8 +54,6 @@ public class SettlementCompletedProcessor {
         SettlementCompletedData data = event.data();
         Optional<ChallengeResultRepository.ResultRow> result = results.findByResultId(data.resultId());
         if (result.isEmpty()) {
-            // TODO(spec-020): сохранять событие в challenge_pending_events (WAITING);
-            // в MVP доставка повторяется Kafka, inbox не отмечается применённым.
             throw new SettlementNotReadyException(data.resultId());
         }
         if (!matches(result.get(), data)) {
@@ -103,8 +101,6 @@ public class SettlementCompletedProcessor {
             return SettlementApplyResult.DUPLICATE;
         }
         log.error("Settlement event digest conflicts with the processed event, event_id={}", eventId);
-        // TODO(spec-020): сохранять конфликт digest в challenge_pending_events (QUARANTINED);
-        // в MVP событие не применяется, а evidence ограничено логом.
         return SettlementApplyResult.QUARANTINED;
     }
 
@@ -126,7 +122,7 @@ public class SettlementCompletedProcessor {
         }
         try {
             return objectMapper.readValue(payload, SettlementCompletedEvent.class);
-        } catch (JacksonException exception) {
+        } catch (JacksonException _) {
             return null;
         }
     }
@@ -158,7 +154,7 @@ public class SettlementCompletedProcessor {
         }
         try {
             return challengeId.equals(UUID.fromString(partitionKey));
-        } catch (IllegalArgumentException exception) {
+        } catch (IllegalArgumentException _) {
             return false;
         }
     }
