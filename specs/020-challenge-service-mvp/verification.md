@@ -602,3 +602,15 @@ Testcontainers-тесты требуют работающего Docker. Без D
 - Обе сессии проверены через Gateway: `GET /api/v1/coins/me` вернул `200` и `{"availableBalance":20,"lockedBalance":0}` для каждого пользователя.
 - Kafka остаётся `healthy`; топики присутствуют. Секреты, пароли и токены в Git не добавлены.
 - Ограничение: локальный контур использует тестовую накачку кошельков через ledger с типом `SETTLEMENT`, а не пользовательское начисление; это только тестовые данные. Deploy и production Compose не менялись.
+
+### 2026-11-17 — T006.2, publish и join через Gateway
+
+- Запущен Challenge на `127.0.0.1:8083`; readiness — `200`. Challenge использует локальный Kafka `localhost:29092`, gRPC Coins `localhost:9092` и mTLS-сертификат `challenge-client`.
+- Сессии обновлены через `scripts/prepare-local-challenge-data.sh`; баланс каждого кошелька остался 20.
+- Через Gateway `POST /api/v1/challenges/drafts` → `201`, `PATCH .../draft` → `200` (`version=2`), `POST .../publish` → `200`, статус `OPEN`, создатель `JOINED`.
+- После publish кошелёк создателя: `availableBalance=10`, `lockedBalance=10`; в Coins создан hold `ACTIVE` на 10.
+- `POST /api/v1/challenges/{id}/joins` вторым пользователем → `200`, участие `JOINED`.
+- После join кошелёк второго участника: `availableBalance=10`, `lockedBalance=10`; в Coins два hold `ACTIVE` по 10.
+- В Coins `coin_stake_sets.state=SEALED`, `set_version=1`, в `coin_sealed_stakes` две строки.
+- `GET /api/v1/challenges/{id}` через Gateway: `status=ACTIVE`, `participants.joined=2`, у создателя `participationStatus=ACTIVE`.
+- Ограничение: проверен успешный путь `200`; ветка `202` при неизвестном ответе Coins проверяется в T006.6. Deploy не менялся.
