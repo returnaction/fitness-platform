@@ -650,3 +650,14 @@ Testcontainers-тесты требуют работающего Docker. Без D
 - `sh ./mvnw -B -ntp -pl services/challenge-service -am verify`: `BUILD SUCCESS`, challenge 73/73, SpotBugs 0.
 - `git diff --check`: успешно. Проверка относительных Markdown-ссылок: ошибок нет.
 - Ограничение: источник результата в локальной проверке — тестовый mTLS-клиент, production-источник ещё не определён. Deploy не менялся.
+
+### 2026-11-17 — T006.6, security и ошибки через Gateway
+
+- `GET /api/v1/challenges/{id}` без токена через Gateway: `401`, код `invalid_access_token`, единый формат ошибки с `requestId`.
+- Внутренний gRPC через Gateway недоступен: `grpcurl -plaintext host.docker.internal:8088 list` завершился ошибкой соединения; Gateway не проксирует gRPC.
+- Недоступность БД Challenge: роль `fitness_challenge_app` переведена в `NOLOGIN`, соединения завершены. `GET challenge` через Gateway вернул `503 service_unavailable` без деталей БД и с `requestId`.
+- После восстановления роли запрос вернул `200`, challenge сохранил `FINISHED` и `settlementStatus=COMPLETED`.
+- Неизвестный ответ Coins: процесс Coins остановлен, затем `POST .../publish` вернул `202` с `operationId`, `status=PENDING` и `statusUrl`; операция сохранена как `PENDING`.
+- После запуска Coins recovery worker завершил операцию после получения reserve по тому же operation ID; challenge перешёл в `OPEN`, операция — в `CONFIRMED`.
+- `git diff --check`: успешно. Проверка относительных Markdown-ссылок: ошибок нет.
+- Ограничение: `NOT_FOUND` от Coins не считается доказательством отсутствия команды, поэтому операция ожидает; для локального завершения reserve был отправлен повторно с тем же ID. Это соответствует текущей политике recovery, но не заменяет production-механизм разбора. Deploy не менялся.
