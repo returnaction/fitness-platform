@@ -256,3 +256,13 @@ Testcontainers-тесты требуют работающего Docker. Без D
 - Проверка реальной базы: `\dt` показывает 12 таблиц challenge и таблицы Liquibase; `databasechangelog` содержит changeset `001-create-challenge-tables`.
 - `git diff --check`: успешно. Проверка относительных Markdown-ссылок Python-скриптом: ошибок нет.
 - Ограничение: rollback changeset не описан; доменный код и API ещё отсутствуют. Kafka, deploy и commit не выполнялись.
+
+### 2026-11-17 — T004.3, доменные статусы и переходы
+
+- `ChallengeStatus`: разрешены `DRAFT → OPEN`, `OPEN → ACTIVE`, `ACTIVE → FINISHED`, `OPEN → CANCELLED`. `FINISHED` и `CANCELLED` окончательны; `AWAITING_RESULTS` зарезервирован и не имеет переходов.
+- `ParticipationStatus`: `JOINED → ACTIVE`, `ACTIVE → WINNER`, `ACTIVE → COMPLETED`; `WINNER` и `COMPLETED` окончательны. Отмена challenge не меняет статус участия.
+- `InvalidStateTransitionException` содержит текущий и целевой статус без пользовательских данных; HTTP-маппинг появится вместе с обработчиком ошибок.
+- Unit-тесты `ChallengeStatusTest` и `ParticipationStatusTest` проверяют разрешённые переходы, полную матрицу запретов, терминальные состояния и исключение.
+- `sh ./mvnw -B -ntp -pl services/challenge-service -am test`: `BUILD SUCCESS`, contracts 5/5, challenge 12/12.
+- `git diff --check`: успешно. Проверка относительных Markdown-ссылок Python-скриптом: ошибок нет.
+- Ограничение: сериализация переходов пессимистической блокировкой строки и `version` относится к T004.4. БД, Kafka и deploy не менялись.
