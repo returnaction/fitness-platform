@@ -73,6 +73,10 @@ Docker-сеть из Compose, SSH-доступ Actions и доступ к GHCR. 
 `EXERCISE_CATALOG_HTTP_BASE_URL=http://exercise-catalog-service:8086`.
 Gateway запускается после готовности Identity и Catalog.
 
+Для первого выпуска по спецификации 007 подготовлены Catalog `0.1.2` и Gateway `0.1.4`.
+Подготовка VPS подтверждена оператором. На момент закрытия реализации публикация
+образов и запуск на VPS ещё предстояли. [Журнал проверок 007](../specs/007-exercise-catalog-readonly-mvp/verification.md)
+
 ## Обновление существующего сервиса
 
 1. Подготовьте изменение и проверьте совместимость API, gRPC и миграций

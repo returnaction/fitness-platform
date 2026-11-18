@@ -11,32 +11,7 @@ verification records; they do not authorize new work.
 
 ### Active specification
 
-- **Specification:** `specs/007-exercise-catalog-readonly-mvp/`.
-- **Branch:** `52-exercise-catalog-service`, created from the current `main`.
-- **Status:** `in-progress` — activated by the user 2026-11-17.
-- **Goal and acceptance criteria:** [spec.md](specs/007-exercise-catalog-readonly-mvp/spec.md).
-- **Included scope:** separate read-only Exercise Catalog database and service,
-  Liquibase schema and approved seed data, the authenticated full-catalog
-  `GET /api/v1/exercise-catalog` through Gateway, and Catalog rollout.
-- **Excluded scope:** admin API and administration tables, Kafka/outbox, manual
-  data edits, and changes to Challenge, Video Proof or Moderation.
-- **Plan and tasks:** [plan.md](specs/007-exercise-catalog-readonly-mvp/plan.md)
-  and [tasks.md](specs/007-exercise-catalog-readonly-mvp/tasks.md).
-- **Verification:** record required checks and evidence in `verification.md` if
-  created for this specification; tasks currently define the required checks.
-- **Authorized work:** the user authorized selecting this specification and
-  recording it in this file. No implementation task is authorized yet.
-- **Execution mode:** after each authorized task, report evidence and stop for
-  review unless the user explicitly authorizes continued work.
-- **Questions and decisions:** record material questions and decisions in
-  `questions.md`, with affected tasks, evidence, options, recommendation and
-  any blocked scope. The open decisions currently listed in `spec.md` and
-  `tasks.md` remain unresolved.
-
-Replace these placeholders only with information established by the user or
-verified in the repository. Do not create a specification or branch merely to
-fill in the template. Once the selected specification is complete, clear its
-active scope here and keep its history in its own directory.
+No active specification.
 
 ### Before each authorized development step
 

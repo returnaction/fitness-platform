@@ -15,10 +15,9 @@ in [System Design](system-design/README.md).
 - `platform/` — local infrastructure configuration, such as Docker Compose.
 - `system-design/` — architecture, domain model, service contracts, and ADRs.
 
-The repository contains the initial bootstrap of Identity Service. Business
-functionality is added only after its agreed System Design contracts. Coding
-conventions for all future service modules are in
-[Engineering Standards](docs/engineering-standards.md).
+The [Exercise Catalog service](services/exercise-catalog-service/README.md) provides
+the full exercise catalog through Gateway. See the [service index](services/README.md)
+and [Engineering Standards](docs/engineering-standards.md).
 
 ## Build baseline
 

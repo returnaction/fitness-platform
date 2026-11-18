@@ -1,7 +1,7 @@
 # План реализации: read-only MVP каталога упражнений
 
 > **Спецификация:** [spec.md](spec.md)  
-> **Статус:** in-progress
+> **Статус:** implemented — реализация принята 2026-11-18. Первый выпуск на VPS ожидает push и merge.
 > **Связанные документы system-design:** [модель Catalog](../../system-design/services/exercise-catalog/57-exercise-catalog-service.md), [инженерные стандарты](../../docs/engineering-standards.md)
 
 ## Краткое решение

@@ -62,7 +62,11 @@ specs/
 
 ## Текущий статус
 
-Активная спецификация не выбрана. [019-daily-reward](019-daily-reward/spec.md)
+Активная спецификация не выбрана. Реализация [007 — Exercise Catalog](007-exercise-catalog-readonly-mvp/spec.md)
+принята 2026-11-18 (`implemented`). Подготовка VPS и локальные проверки завершены.
+Первый выпуск и проверки работающего сервиса отслеживаются в [задачах 007](007-exercise-catalog-readonly-mvp/tasks.md).
+
+[019-daily-reward](019-daily-reward/spec.md)
 завершена (`implemented`) и принята пользователем 2026-11-17.
 Результаты проверок и ограничения сохранены в
 [verification.md](019-daily-reward/verification.md).
