@@ -44,8 +44,8 @@ cd fitness-platform
 ## Шаг 4. Подготовить и запустить серверы
 
 Все команды PowerShell выполняйте из корня проекта, где лежит `mvnw.cmd`.
-Для входа и регистрации в мобильном приложении запустите четыре сервиса:
-Accounts, Coins, Identity и Gateway.
+Для входа, регистрации и чтения каталога упражнений запустите пять сервисов:
+Accounts, Coins, Identity, Exercise Catalog и Gateway.
 
 ### 4.1. Создать .env, сертификаты gRPC и ключи JWT
 
@@ -64,15 +64,16 @@ OpenSSL он создаёт в `secrets` сертификаты и ключи gR
 ### 4.2. Создать базы и вписать пароли
 
 В DBeaver выполните шаги 1–5 из [инструкции по базам](docs/database-setup.md)
-для Accounts, Coins и Identity. Для каждого сервиса создайте роль и базу,
+для Accounts, Coins, Identity и Exercise Catalog. Для каждого сервиса создайте роль и базу,
 выполните команды настройки прав, затем откройте `.env` этого сервиса.
 В существующей строке `DATABASE_PASSWORD` замените значение после `=`
-на пароль роли, которую только что создали. Gateway база не нужна.
+на пароль роли, которую только что создали. Gateway база не нужна. В существующем `services/gateway-service/.env`
+проверьте строку `EXERCISE_CATALOG_HTTP_BASE_URL=http://127.0.0.1:8086`.
 
 ### 4.3. Собрать сервисы
 
 ```powershell
-.\mvnw.cmd -pl services/accounts-service,services/coins-service,services/identity-service,services/gateway-service -am -DskipTests package
+.\mvnw.cmd -pl services/accounts-service,services/coins-service,services/identity-service,services/exercise-catalog-service,services/gateway-service -am -DskipTests package
 ```
 
 Дождитесь `BUILD SUCCESS`. Эта команда собирает JAR для первого запуска
@@ -86,10 +87,11 @@ OpenSSL он создаёт в `secrets` сертификаты и ключи gR
 Оставляйте окна открытыми и дожидайтесь запуска сервиса перед следующей командой.
 
 ```powershell
-java -jar services/accounts-service/target/accounts-service-0.1.0-SNAPSHOT.jar --spring.profiles.active=local
-java -jar services/coins-service/target/coins-service-0.1.0-SNAPSHOT.jar --spring.profiles.active=local
-java -jar services/identity-service/target/identity-service-0.1.0-SNAPSHOT.jar --spring.profiles.active=local
-java -jar services/gateway-service/target/gateway-service-0.1.0-SNAPSHOT.jar --spring.profiles.active=local
+java -jar services/accounts-service/target/accounts-service-0.1.2.jar --spring.profiles.active=local
+java -jar services/coins-service/target/coins-service-0.1.3.jar --spring.profiles.active=local
+java -jar services/identity-service/target/identity-service-0.1.1.jar --spring.profiles.active=local
+java -jar services/exercise-catalog-service/target/exercise-catalog-service-0.1.2.jar --spring.profiles.active=local
+java -jar services/gateway-service/target/gateway-service-0.1.4.jar --spring.profiles.active=local
 ```
 
 Откройте [проверку Gateway](http://127.0.0.1:9088/actuator/health).
