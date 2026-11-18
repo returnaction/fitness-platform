@@ -1,12 +1,13 @@
 openapi: 3.1.0
 info:
   title: Fitness Gateway API
-  version: 1.1.0
+  version: 1.2.0
   description: >-
     Identity owns the referenced auth operations. Gateway additionally enforces
     the limits and transport errors in ../gateway-v1.md. Accounts owns the own-profile
     operations added by Spec 014. Coins owns the wallet and daily-reward operations
-    specified by Spec 017 and the daily-reward contract. No other paths are public.
+    specified by Spec 017 and the daily-reward contract.
+    Exercise Catalog owns the read-only catalog operation specified by Spec 007.
 servers:
   - url: http://127.0.0.1:8088
     description: Local development only
@@ -17,6 +18,8 @@ tags:
     description: 'Gateway → accounts-service: чтение и обновление своего профиля.'
   - name: Coins
     description: 'Gateway → coins-service: чтение своего баланса.'
+  - name: Exercise Catalog
+    description: Чтение каталога упражнений через Gateway.
 paths:
   /api/v1/auth/register:
     $ref: './identity-auth-v1.yaml#/paths/~1api~1v1~1auth~1register'
@@ -36,6 +39,8 @@ paths:
     $ref: './coins-wallet-v1.yaml#/paths/~1api~1v1~1coins~1daily-reward~1status'
   /api/v1/coins/daily-reward/claims:
     $ref: './coins-wallet-v1.yaml#/paths/~1api~1v1~1coins~1daily-reward~1claims'
+  /api/v1/exercise-catalog:
+    $ref: './exercise-catalog-v1.yaml#/paths/~1api~1v1~1exercise-catalog'
 components:
   securitySchemes:
     BearerAccess:
@@ -47,7 +52,10 @@ x-gateway-policy:
     - /api/v1/coins/me
     - /api/v1/coins/daily-reward/status
     - /api/v1/coins/daily-reward/claims
+    - /api/v1/exercise-catalog
   upstream-errors:
+    /api/v1/exercise-catalog:
+      '503': catalog_unavailable
     /api/v1/coins/me:
       '503': coins_unavailable
     /api/v1/coins/daily-reward/status:

@@ -284,6 +284,7 @@ def main():
                 "IDENTITY_HTTP_BASE_URL": f"http://127.0.0.1:{ports['identity']}",
                 "ACCOUNT_HTTP_BASE_URL": f"http://127.0.0.1:{ports['accounts']}",
                 "COINS_HTTP_BASE_URL": f"http://127.0.0.1:{ports['coins']}",
+                "EXERCISE_CATALOG_HTTP_BASE_URL": "http://127.0.0.1:1",
                 "GATEWAY_JWKS_URL": f"http://127.0.0.1:{ports['identity']}/.well-known/jwks.json",
                 "GATEWAY_JWT_ISSUER": issuer,
                 "GATEWAY_JWT_AUDIENCE": audience,

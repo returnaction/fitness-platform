@@ -6,6 +6,7 @@ import static io.github.returnaction.fitness.gateway.routing.RouteAccess.AUTHENT
 import static io.github.returnaction.fitness.gateway.routing.RouteAccess.PUBLIC;
 import static io.github.returnaction.fitness.gateway.routing.UpstreamId.ACCOUNT;
 import static io.github.returnaction.fitness.gateway.routing.UpstreamId.COINS;
+import static io.github.returnaction.fitness.gateway.routing.UpstreamId.EXERCISE_CATALOG;
 import static io.github.returnaction.fitness.gateway.routing.UpstreamId.IDENTITY;
 import static org.springframework.http.HttpMethod.GET;
 import static org.springframework.http.HttpMethod.POST;
@@ -25,7 +26,9 @@ public final class GatewayRouteCatalog {
 
             new GatewayRoute(GET, "/api/v1/coins/me", COINS, AUTHENTICATED),
             new GatewayRoute(GET, "/api/v1/coins/daily-reward/status", COINS, AUTHENTICATED),
-            new GatewayRoute(POST, "/api/v1/coins/daily-reward/claims", COINS, AUTHENTICATED));
+            new GatewayRoute(POST, "/api/v1/coins/daily-reward/claims", COINS, AUTHENTICATED),
+
+            new GatewayRoute(GET, "/api/v1/exercise-catalog", EXERCISE_CATALOG, AUTHENTICATED));
 
     private GatewayRouteCatalog() {
     }

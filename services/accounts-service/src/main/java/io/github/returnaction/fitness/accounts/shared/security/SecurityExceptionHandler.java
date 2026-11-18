@@ -43,6 +43,7 @@ public class SecurityExceptionHandler implements AuthenticationEntryPoint, Acces
     public void commence(@NonNull HttpServletRequest request,
                          @NonNull HttpServletResponse response,
                          @NonNull AuthenticationException exception) {
+
         resolve(request, response, exception);
     }
 

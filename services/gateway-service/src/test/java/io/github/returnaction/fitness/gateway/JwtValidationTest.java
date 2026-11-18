@@ -65,12 +65,14 @@ class JwtValidationTest {
     private static final TestUpstream UPSTREAM = new TestUpstream();
     private static final TestUpstream ACCOUNTS = new TestUpstream();
     private static final TestUpstream COINS = new TestUpstream();
+    private static final TestUpstream EXERCISE_CATALOG = new TestUpstream();
 
     @DynamicPropertySource
     static void upstream(DynamicPropertyRegistry registry) {
         registry.add("gateway.upstreams.services.IDENTITY.base-url", UPSTREAM::baseUrl);
         registry.add("gateway.upstreams.services.ACCOUNT.base-url", ACCOUNTS::baseUrl);
         registry.add("gateway.upstreams.services.COINS.base-url", COINS::baseUrl);
+        registry.add("gateway.upstreams.services.EXERCISE_CATALOG.base-url", EXERCISE_CATALOG::baseUrl);
     }
 
     @AfterAll
@@ -78,6 +80,7 @@ class JwtValidationTest {
         UPSTREAM.close();
         ACCOUNTS.close();
         COINS.close();
+        EXERCISE_CATALOG.close();
     }
 
     @MockitoBean
@@ -107,8 +110,10 @@ class JwtValidationTest {
         UPSTREAM.calls.set(0);
         ACCOUNTS.calls.set(0);
         COINS.calls.set(0);
+        EXERCISE_CATALOG.calls.set(0);
         ACCOUNTS.status.set(200);
         COINS.status.set(200);
+        EXERCISE_CATALOG.status.set(200);
         UPSTREAM.status.set(200);
         when(sessions.isActive(ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any(),
                 ArgumentMatchers.any())).thenReturn(true);
@@ -296,8 +301,12 @@ class JwtValidationTest {
         try (var client = HttpClient.newHttpClient()) {
             for (var route : GatewayRouteCatalog.routes()) {
                 boolean accountsRoute = route.path().equals("/api/v1/accounts/me");
-                boolean coinsRoute = route.path().startsWith("/api/v1/coins/");
-                var target = accountsRoute ? ACCOUNTS : coinsRoute ? COINS : UPSTREAM;
+                var target = switch (route.upstream()) {
+                    case IDENTITY -> UPSTREAM;
+                    case ACCOUNT -> ACCOUNTS;
+                    case COINS -> COINS;
+                    case EXERCISE_CATALOG -> EXERCISE_CATALOG;
+                };
                 var other = accountsRoute ? UPSTREAM : ACCOUNTS;
                 int otherCalls = other.calls.get();
                 String requestBody = route.method().name().equals("GET")
@@ -322,7 +331,12 @@ class JwtValidationTest {
                 assertThat(response.statusCode()).isEqualTo(200);
                 assertThat(response.body()).isEqualTo("{\"result\":\"unchanged\"}");
                 assertThat(other.calls.get()).isEqualTo(otherCalls);
-                assertThat(response.headers().firstValue("Cache-Control")).contains("no-store");
+                var cacheControl = response.headers().firstValue("Cache-Control");
+                if (target == EXERCISE_CATALOG) {
+                    assertThat(cacheControl).isEmpty();
+                } else {
+                    assertThat(cacheControl).contains("no-store");
+                }
                 var received = target.received.get();
                 assertThat(received.method()).isEqualTo(route.method().name());
                 assertThat(received.path()).isEqualTo(route.path());
@@ -343,7 +357,8 @@ class JwtValidationTest {
         assertThat(UPSTREAM.calls.get()).isEqualTo(5);
         assertThat(ACCOUNTS.calls.get()).isEqualTo(2);
         assertThat(COINS.calls.get()).isEqualTo(3);
-        verify(sessions, times(6)).isActive(ArgumentMatchers.any(), ArgumentMatchers.any(),
+        assertThat(EXERCISE_CATALOG.calls.get()).isEqualTo(1);
+        verify(sessions, times(7)).isActive(ArgumentMatchers.any(), ArgumentMatchers.any(),
                 ArgumentMatchers.any(), ArgumentMatchers.any());
     }
 
@@ -459,6 +474,20 @@ class JwtValidationTest {
             assertThat(UUID.fromString(generated)).isNotNull();
             assertThat(generated).isNotEqualTo(id);
             assertThat(ACCOUNTS.received.get().header("X-Request-Id")).isEqualTo(generated);
+        }
+    }
+
+    @Test
+    void catalogRejectsInvalidSignatureBeforeCallingSessionOrCatalog() throws Exception {
+        try (var client = HttpClient.newHttpClient()) {
+            var outgoing = HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + "/api/v1/exercise-catalog"))
+                .header("Authorization", "Bearer " + sign(claims(), key(), "trusted")).GET().build();
+            var response = client.send(outgoing, HttpResponse.BodyHandlers.ofString());
+            assertThat(response.statusCode()).isEqualTo(401);
+            assertThat(response.body()).contains("invalid_access_token", response.headers().firstValue("X-Request-Id").orElseThrow());
+            assertThat(EXERCISE_CATALOG.calls.get()).isZero();
+            verify(sessions, never()).isActive(ArgumentMatchers.any(), ArgumentMatchers.any(),
+                    ArgumentMatchers.any(), ArgumentMatchers.any());
         }
     }
 

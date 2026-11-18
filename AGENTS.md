@@ -16,11 +16,10 @@ verification records; they do not authorize new work.
 - **Status:** `in-progress` — activated by the user 2026-11-17.
 - **Goal and acceptance criteria:** [spec.md](specs/007-exercise-catalog-readonly-mvp/spec.md).
 - **Included scope:** separate read-only Exercise Catalog database and service,
-  Liquibase schema and approved seed data, read-only REST through Gateway, and
-  Challenge-to-Catalog gRPC validation as defined in `spec.md`.
+  Liquibase schema and approved seed data, the authenticated full-catalog
+  `GET /api/v1/exercise-catalog` through Gateway, and Catalog rollout.
 - **Excluded scope:** admin API and administration tables, Kafka/outbox, manual
-  data edits, and changes to Challenge, Video Proof or Moderation beyond the
-  agreed integration.
+  data edits, and changes to Challenge, Video Proof or Moderation.
 - **Plan and tasks:** [plan.md](specs/007-exercise-catalog-readonly-mvp/plan.md)
   and [tasks.md](specs/007-exercise-catalog-readonly-mvp/tasks.md).
 - **Verification:** record required checks and evidence in `verification.md` if

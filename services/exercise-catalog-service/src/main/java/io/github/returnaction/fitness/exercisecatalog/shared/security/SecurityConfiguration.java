@@ -17,6 +17,7 @@ class SecurityConfiguration {
                                             SecurityExceptionHandler securityExceptionHandler) throws Exception {
         return http
             .csrf(AbstractHttpConfigurer::disable)
+            .headers(headers -> headers.cacheControl(cache -> cache.disable()))
             .httpBasic(AbstractHttpConfigurer::disable)
             .formLogin(AbstractHttpConfigurer::disable)
             .logout(AbstractHttpConfigurer::disable)

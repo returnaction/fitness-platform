@@ -1,7 +1,7 @@
 {
   "info": {
-    "name": "Fitness Platform — локальная авторизация, профиль и Coins",
-    "description": "Auth, профиль и Coins через Gateway: регистрация, вход, refresh, просмотр и обновление профиля, баланс, ежедневная награда, выход и проверка отзыва. Реальные секреты не экспортировать. Недоступность Identity проверяется отдельно.",
+    "name": "Fitness Platform — локальная авторизация, профиль, Coins и каталог упражнений",
+    "description": "Auth, профиль, Coins и каталог упражнений через Gateway: регистрация, вход, refresh, просмотр и обновление профиля, каталог упражнений, баланс, ежедневная награда, выход и проверка отзыва. Реальные секреты не экспортировать. Недоступность Identity проверяется отдельно.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -748,6 +748,62 @@
                   "pm.test('Claim fields', () => pm.expect(Object.keys(body).sort()).to.eql(['availableBalance', 'claimedAmount', 'granted', 'lockedBalance', 'nextClaimAt', 'serverTime']));",
                   "pm.test('Granted is boolean', () => pm.expect(body.granted).to.be.a('boolean'));",
                   "pm.test('Claim amount matches result', () => { pm.expect(body.claimedAmount).to.be.a('number'); pm.expect(Number.isInteger(body.claimedAmount)).to.be.true; if (!body.granted) pm.expect(body.claimedAmount).to.equal(0); else pm.expect(body.claimedAmount).to.be.at.least(1); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Каталог упражнений",
+      "description": "Перед запросом выполните «Авторизация → 2. Вход». Запрос использует access_token и адрес Gateway из переменных коллекции.",
+      "item": [
+        {
+          "name": "1. Получить полный каталог",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/exercise-catalog",
+            "description": "Возвращает активные категории с вложенными упражнениями и их вариациями."
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.collectionVariables.get('access_token')) {",
+                  "  throw new Error('access_token is empty. Run Авторизация → 2. Вход or paste accessToken into collection variable access_token.');",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('No Cache-Control on catalog success', () => pm.expect(pm.response.headers.has('Cache-Control')).to.be.false);",
+                  "const body = pm.response.json();",
+                  "pm.test('Catalog contains nested exercises and variations', () => {",
+                  "  pm.expect(body.categories).to.be.an('array');",
+                  "  for (const category of body.categories) {",
+                  "    pm.expect(category.exercises).to.be.an('array');",
+                  "    for (const exercise of category.exercises) {",
+                  "      pm.expect(exercise.variations).to.be.an('array');",
+                  "      const standard = exercise.variations.find(v => v.code === 'STANDARD');",
+                  "      pm.expect(standard).to.be.an('object');",
+                  "      pm.expect(exercise.defaultVariationId).to.equal(standard.id);",
+                  "    }",
+                  "  }",
+                  "});"
                 ]
               }
             }

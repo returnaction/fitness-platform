@@ -1,11 +1,12 @@
 # Gateway Service
 
 Реализация [Spec 012](../../specs/012-gateway-refactor/spec.md).
-Настройки валидируются при запуске. Десять операций каталога проксируются после
+Настройки валидируются при запуске. Одиннадцать операций каталога проксируются после
 загрузки ключей и проверок доступа: пять auth-операций в Identity, GET/PUT
 `/api/v1/accounts/me` в Accounts по [Spec 014](../../specs/014-accounts-profile/spec.md)
 и три операции Coins: GET `/api/v1/coins/me` по [Spec 017](../../specs/017-coins-wallet-realtime/spec.md),
 GET `/api/v1/coins/daily-reward/status` и POST `/api/v1/coins/daily-reward/claims`.
+Защищённый GET `/api/v1/exercise-catalog` возвращает полный каталог упражнений по [Spec 007](../../specs/007-exercise-catalog-readonly-mvp/spec.md).
 GET/PUT профиля реализованы в Accounts и проверены сквозным сценарием через Gateway
 на временной тестовой среде (Spec 014 T009).
 Баланс Coins реализован и проверен локальным сквозным сценарием через Gateway (Spec 017 T005).
@@ -23,7 +24,7 @@ Local — профиль по умолчанию. Если .env ещё нет, �
 `http://127.0.0.1:8081`. Это origin без пути `/api/v1/accounts/me`.
 Для Coins обязательна переменная `COINS_HTTP_BASE_URL`, локально
 `http://127.0.0.1:8082`; это origin без пути `/api/v1/coins`.
-Ключи сервисов в конфигурации и enum — `ACCOUNT` и `COINS`.
+Для Exercise Catalog задайте `EXERCISE_CATALOG_HTTP_BASE_URL`, локально `http://127.0.0.1:8086`.
 В существующий .env добавляйте отсутствующие параметры, сохраняя свои значения.
 Local импортирует .env из текущего каталога и services/gateway-service/.env;
 второй файл имеет приоритет. Секреты и .env не добавляются в Git.
@@ -53,13 +54,13 @@ Management работает только на отдельном loopback-пор
 готовность Gateway. Остановка отменяет текущую загрузку/ожидание повтора.
 После готовности каталог допускает POST register/login/refresh/logout/logout-all
 под /api/v1/auth/ и GET/PUT /api/v1/accounts/me, GET /api/v1/coins/me,
-GET /api/v1/coins/daily-reward/status и POST /api/v1/coins/daily-reward/claims.
+GET /api/v1/coins/daily-reward/status, POST /api/v1/coins/daily-reward/claims и GET /api/v1/exercise-catalog.
 Неизвестный путь даёт 404, неверный метод — 405 с Allow: POST для auth,
-Allow: GET, PUT для профиля, Allow: GET для баланса и статуса Coins,
+Allow: GET, PUT для профиля, Allow: GET для каталога упражнений, баланса и статуса Coins,
 Allow: POST для claim, наличие query string — 400 (включая пустой вопросительный знак).
 OPTIONS не получает исключения для preflight; разрешающие CORS-заголовки отсутствуют.
 Локальная проверка JWT подключена для logout-all, обоих маршрутов профиля,
-баланса, статуса и claim Coins: ES256, kid из загруженного
+каталога упражнений, баланса, статуса и claim Coins: ES256, kid из загруженного
 набора, issuer/audience, обязательные UUID/даты и формат roles. Неизвестный kid
 даёт 401 без сетевой загрузки. Публичные операции пропускают JWT decoder.
 После корректного JWT выполняется CheckSession по переиспользуемому mTLS-каналу:
@@ -76,7 +77,7 @@ bearer защищённого маршрута, новый X-Request-Id и не�
 Путь и тело сохраняются; автоматическое добавление charset и разбор form/multipart
 в Gateway отключены. Проверку тела выполняет сервис назначения: Identity для auth,
 Accounts для профиля, Coins для баланса, статуса и claim. Статусы, тела ответов и Cache-Control: no-store передаются
-клиенту. Gateway всегда создаёт собственный X-Request-Id, игнорируя клиентский,
+клиенту. Успешный GET `/api/v1/exercise-catalog` возвращается без `Cache-Control`. Gateway всегда создаёт собственный X-Request-Id, игнорируя клиентский,
 даже корректный UUID; этот ID передаётся сервису и возвращается клиенту.
 Один планировщик отменяет HTTP-вызов по общему deadline; регистрация живёт до
 завершения передачи тела и финального flush. До начала ответа таймаут даёт 504

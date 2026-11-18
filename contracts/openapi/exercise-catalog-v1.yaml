@@ -1,0 +1,144 @@
+openapi: 3.1.0
+info:
+  title: Fitness Exercise Catalog API
+  version: 1.0.0
+  description: Контракт чтения каталога упражнений по спецификации 007.
+servers:
+  - url: http://127.0.0.1:8088
+    description: Local Gateway
+paths:
+  /api/v1/exercise-catalog:
+    get:
+      tags: [Exercise Catalog]
+      operationId: getExerciseCatalog
+      summary: Получить полный активный каталог упражнений
+      description: >-
+        Gateway проверяет Bearer-токен и сессию. Параметры строки запроса запрещены.
+        Каждый список отсортирован по sort_order, затем по id. Активная категория
+        может быть пустой. Упражнение включается только с активной вариацией STANDARD.
+      security:
+        - BearerAccess: []
+      responses:
+        '200':
+          description: Полный каталог. Успешный ответ возвращается без Cache-Control.
+          headers:
+            X-Request-Id:
+              schema: {type: string, format: uuid}
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [categories]
+                properties:
+                  categories:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Category'
+              examples:
+                populated:
+                  summary: Категория с упражнением и его вариацией
+                  value:
+                    categories:
+                      - id: 1
+                        code: BODYWEIGHT
+                        name: Bodyweight Exercises
+                        exercises:
+                          - id: 1
+                            code: SQUAT
+                            name: Squats
+                            description: Bodyweight squats.
+                            metric: REPETITIONS
+                            defaultVariationId: 1
+                            variations:
+                              - id: 1
+                                code: STANDARD
+                                name: Standard
+                                description: Standard squats.
+                                instructions: >-
+                                  Stand with your feet approximately shoulder-width apart,
+                                  squat in a controlled motion, then return to the starting position.
+                                minTarget: 1
+                                maxTarget: 200
+                                targetStep: 1
+                empty:
+                  summary: Пустой каталог
+                  value: {categories: []}
+        '400':
+          description: Запрос содержит query string (invalid_request).
+          content:
+            application/json:
+              schema:
+                $ref: './identity-auth-v1.yaml#/components/schemas/ErrorResponse'
+        '401':
+          description: Требуется действительный токен и активная сессия (invalid_access_token).
+          content:
+            application/json:
+              schema:
+                $ref: './identity-auth-v1.yaml#/components/schemas/ErrorResponse'
+        '403':
+          description: Доступ запрещён (access_denied).
+          content:
+            application/json:
+              schema:
+                $ref: './identity-auth-v1.yaml#/components/schemas/ErrorResponse'
+        '500':
+          description: Внутренняя ошибка (internal_error).
+          content:
+            application/json:
+              schema:
+                $ref: './identity-auth-v1.yaml#/components/schemas/ErrorResponse'
+        '503':
+          description: Каталог или сервис проверки сессии временно недоступен.
+          content:
+            application/json:
+              schema:
+                $ref: './identity-auth-v1.yaml#/components/schemas/ErrorResponse'
+        '406':
+          $ref: './identity-auth-v1.yaml#/components/responses/NotAcceptable'
+components:
+  securitySchemes:
+    BearerAccess:
+      $ref: './identity-auth-v1.yaml#/components/securitySchemes/BearerAccess'
+  schemas:
+    CatalogId:
+      type: integer
+      minimum: 1
+      maximum: 32767
+    Category:
+      type: object
+      required: [id, code, name, exercises]
+      properties:
+        id: {$ref: '#/components/schemas/CatalogId'}
+        code: {type: string}
+        name: {type: string}
+        exercises:
+          type: array
+          items: {$ref: '#/components/schemas/Exercise'}
+    Exercise:
+      type: object
+      required: [id, code, name, description, metric, defaultVariationId, variations]
+      properties:
+        id: {$ref: '#/components/schemas/CatalogId'}
+        code: {type: string}
+        name: {type: string}
+        description: {type: string}
+        metric: {type: string, enum: [REPETITIONS, DURATION]}
+        defaultVariationId:
+          $ref: '#/components/schemas/CatalogId'
+          description: Идентификатор активной вариации STANDARD этого упражнения.
+        variations:
+          type: array
+          minItems: 1
+          items: {$ref: '#/components/schemas/Variation'}
+    Variation:
+      type: object
+      required: [id, code, name, description, instructions, minTarget, maxTarget, targetStep]
+      properties:
+        id: {$ref: '#/components/schemas/CatalogId'}
+        code: {type: string}
+        name: {type: string}
+        description: {type: string}
+        instructions: {type: string}
+        minTarget: {type: integer, format: int64}
+        maxTarget: {type: integer, format: int64}
+        targetStep: {type: integer, format: int64}
