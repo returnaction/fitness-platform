@@ -1,4 +1,4 @@
-# Первый dev-набор: Accounts → Coins → Identity → Gateway.
+# Первый dev-набор: Accounts → Coins → Identity → Exercise Catalog → Gateway.
 # Настоящие env-файлы и crypto-файлы находятся только на VPS в /opt.
 services:
   accounts-service:
@@ -124,11 +124,47 @@ services:
         max-file: '2'
     networks: [ fitness-internal ]
 
+  exercise-catalog-service:
+    image: ${EXERCISE_CATALOG_IMAGE:?Set EXERCISE_CATALOG_IMAGE in compose.env}
+    restart: unless-stopped
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    volumes:
+      - type: bind
+        source: /opt/fitness-platform/secrets/exercise-catalog.env
+        target: /run/fitness-platform/secrets/exercise-catalog.env
+        read_only: true
+        bind: { create_host_path: false }
+      - type: bind
+        source: /opt/fitness-platform/runtime/exercise-catalog/dumps
+        target: /var/fitness/dumps
+        bind: { create_host_path: false }
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      JAVA_TOOL_OPTIONS: >-
+        -XX:+HeapDumpOnOutOfMemoryError
+        -XX:HeapDumpPath=/var/fitness/dumps
+        -XX:ErrorFile=/var/fitness/dumps/hs_err_pid%p.log
+    healthcheck:
+      test: [ CMD-SHELL, curl --fail --silent --show-error http://127.0.0.1:8086/actuator/health/readiness ]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 60s
+    logging:
+      driver: local
+      options:
+        max-size: 10m
+        max-file: '2'
+    networks: [ fitness-internal ]
+
   gateway-service:
     image: ${GATEWAY_IMAGE:?Set GATEWAY_IMAGE in compose.env}
     restart: unless-stopped
     depends_on:
       identity-service:
+        condition: service_healthy
+      exercise-catalog-service:
         condition: service_healthy
     ports:
       - '8088:8088'

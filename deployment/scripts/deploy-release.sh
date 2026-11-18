@@ -33,7 +33,8 @@ while IFS=$'\t' read -r service version; do
     accounts-service) rank=1 ;;
     coins-service) rank=2 ;;
     identity-service) rank=3 ;;
-    gateway-service) rank=4 ;;
+    exercise-catalog-service) rank=4 ;;
+    gateway-service) rank=5 ;;
     *) exit 2 ;;
   esac
   [[ "$version" =~ ^[0-9]+(\.[0-9]+)*$ ]]
@@ -56,7 +57,8 @@ while IFS=$'\t' read -r service version; do
     accounts-service) image_variable=ACCOUNTS_IMAGE; dependencies=() ;;
     coins-service) image_variable=COINS_IMAGE; dependencies=(accounts-service) ;;
     identity-service) image_variable=IDENTITY_IMAGE; dependencies=(accounts-service coins-service) ;;
-    gateway-service) image_variable=GATEWAY_IMAGE; dependencies=(identity-service) ;;
+    exercise-catalog-service) image_variable=EXERCISE_CATALOG_IMAGE; dependencies=() ;;
+    gateway-service) image_variable=GATEWAY_IMAGE; dependencies=(identity-service exercise-catalog-service) ;;
   esac
   [[ $(grep -c "^${image_variable}=" "$compose_env") == 1 ]]
   current_image=$(sed -n "s/^${image_variable}=//p" "$compose_env")
