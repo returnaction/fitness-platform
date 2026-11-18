@@ -23,6 +23,7 @@ public class SecurityExceptionHandler implements AuthenticationEntryPoint, Acces
         this.exceptionResolver = exceptionResolver;
     }
 
+    //commence() вызывается при ошибке аутентификации → наш ApiExceptionHandler сформирует 401.
     @Override
     public void commence(@NonNull HttpServletRequest request,
                          @NonNull HttpServletResponse response,
@@ -32,6 +33,7 @@ public class SecurityExceptionHandler implements AuthenticationEntryPoint, Acces
         resolve(request, response, exception);
     }
 
+    //handle() вызывается при отказе в доступе → сформируется 403.
     @Override
     public void handle(@NonNull HttpServletRequest request,
                        @NonNull HttpServletResponse response,

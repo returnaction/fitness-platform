@@ -12,7 +12,8 @@
 вариации и цели. Admin-функции, outbox и Kafka намеренно отложены.
 
 Порядок реализации: подготовка базы и конфигурация → миграции и seed-данные →
-единая валидация → REST → интеграция REST с API Gateway для Flutter → gRPC
+Entity и repositories → полный REST-каталог → интеграция REST с API Gateway
+для Flutter → единая валидация цели для gRPC → gRPC
 Challenge → сквозные проверки. Сетевой вызов не выполняется внутри транзакции
 Catalog.
 
@@ -72,17 +73,29 @@ changeset-ы строго в числовом порядке. Изменять �
 ```text
 io.github.returnaction.fitness.exercisecatalog/
   catalog/
-    controller/     # REST и DTO
+    controller/     # REST
+    dto/            # ExerciseCatalogResponse с вложенными records
     service/        # чтение и валидация цели
     repository/     # Spring Data JPA
     entity/         # category, exercise, variation, metric
     mapper/         # entity → DTO
     grpc/           # gRPC-адаптер
     exception/
-  security/
-  shared/web/       # общий error handler
+  shared/
+    security/       # SecurityConfiguration
+    web/
+      requestid/    # RequestIdFilter и RequestIdResolver
   configuration/
 ```
+
+Текущие общие компоненты:
+[SecurityConfiguration](../../services/exercise-catalog-service/src/main/java/io/github/returnaction/fitness/exercisecatalog/shared/security/SecurityConfiguration.java),
+[RequestIdFilter](../../services/exercise-catalog-service/src/main/java/io/github/returnaction/fitness/exercisecatalog/shared/web/requestid/RequestIdFilter.java)
+и [RequestIdResolver](../../services/exercise-catalog-service/src/main/java/io/github/returnaction/fitness/exercisecatalog/shared/web/requestid/RequestIdResolver.java).
+RequestIdFilter зарегистрирован через ServletFiltersConfiguration до Security,
+без дублирующего Component. Общий ApiExceptionHandler и SecurityExceptionHandler
+формируют ошибки в формате Coins. CatalogAuthenticationFilter создаёт контекст
+из Bearer, предварительно проверенного Gateway; подпись сам не проверяет.
 
 Правила диапазона не находятся в контроллере или gRPC-обработчике. Один
 сервисный use case получает вариацию, проверяет активность и цель, затем
@@ -90,9 +103,24 @@ io.github.returnaction.fitness.exercisecatalog/
 
 ## Контракты и взаимодействия
 
+Решение от 2026-11-17: `ExerciseCatalogController` вызывает
+`ExerciseCatalogService.getExercises()`. Сервис читает активные категории,
+упражнения и вариации тремя repository-запросами, каждый с сортировкой
+`sortOrder ASC, id ASC`. Чтение и сборка DTO выполняются в
+`@Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)`:
+три чтения используют один снимок PostgreSQL. Фактическое число SQL-запросов
+и отсутствие N+1 ещё требуется подтвердить интеграционным тестом.
+
+Сервис группирует вариации по exercise ID, упражнения по category ID,
+исключает упражнения без активного STANDARD. Mapper переносит поля в
+вложенные records `Category`, `Exercise`, `Variation` общего
+`ExerciseCatalogResponse`. Entity не сериализуются в HTTP напрямую.
+Точный состав ответа описан в `spec.md`; REST-поле `unit` удалено,
+`defaultVariationId` сохранено. Внутренний gRPC snapshot не изменяется.
+
 | Направление | Тип | MVP-контракт | Совместимость |
 | --- | --- | --- | --- |
-| Клиент → Gateway | REST | `GET /api/v1/exercise-categories`, `GET /api/v1/exercises`, `GET /api/v1/exercises/{exercise_id}` с Bearer access token | Gateway валидирует JWT и отвечает `401`; cursor согласовать до реализации списка. |
+| Клиент → Gateway | REST | `GET /api/v1/exercise-catalog` с Bearer access token | Полный вложенный каталог без пагинации; Gateway валидирует JWT и отвечает `401`. |
 | Gateway → Catalog | Внутренний HTTP | Тот же read-only REST после успешной проверки Gateway | Catalog не валидирует пользовательский JWT; доверяет только внутреннему Gateway. |
 | Challenge → Catalog | gRPC | `GetVariationForChallenge`, затем batch `GetVariationsForChallenge` | Protobuf в `contracts/grpc-contracts`; сверка со snapshot v1. |
 | Challenge → Moderation | Существующий поток | Catalog сообщений не отправляет; Challenge передаёт snapshot. | `schema_version: 1`. |
@@ -106,8 +134,8 @@ io.github.returnaction.fitness.exercisecatalog/
 ## Надёжность и безопасность
 
 - API Gateway валидирует пользовательский JWT для всех внешних read-only
-  запросов Catalog. Catalog не содержит повторной JWT-проверки и не получает
-  пользовательский token как источник решения.
+  запросов Catalog. Catalog не содержит повторной проверки подписи JWT,
+  но извлекает sub и роли в SecurityContext по модели Coins (решение 2026-11-18).
 - REST-порт Catalog не открывается в интернет: к нему допускается только
   Gateway во внутренней сети. Механизм удостоверения Gateway фиксируется в
   его контракте и не заменяется доверительным пользовательским заголовком.
@@ -122,8 +150,9 @@ io.github.returnaction.fitness.exercisecatalog/
 
 - Unit: metric/unit, границы, шаг, inactive-цепочка, `STANDARD` в seed-данных.
 - PostgreSQL/Testcontainers: Liquibase, FK/unique/check constraints, сортировка,
-  фильтрация активности и cursor.
-- HTTP Catalog: успех и `404`, DTO без выключенных вариаций. На уровне Gateway:
+  фильтрация активности, стабильная сортировка, согласованный снимок и отсутствие N+1.
+- HTTP Catalog: полный и пустой ответы, DTO без выключенных записей и упражнений
+  без активного STANDARD, отсутствие поля unit. На уровне Gateway:
   действующий JWT проходит, отсутствующий или неверный JWT получает `401`, а
   прямой внешний доступ к Catalog отсутствует.
 - gRPC: успех, отсутствующий ID, inactive, границы, шаг, отказ БД; для batch —
@@ -135,7 +164,7 @@ io.github.returnaction.fitness.exercisecatalog/
 | Риск | Решение / владелец |
 | --- | --- |
 | Неполные инструкции | Владелец продукта утверждает seed-данные до миграции. |
-| Cursor не определён | Senior фиксирует формат до endpoint списка. |
+| Рост полного каталога | Контролировать размер ответа; пагинация и ETag не входят в текущую реализацию. |
 | Доверие Gateway → Catalog и service identity gRPC не реализованы | Gateway уже является владельцем пользовательской JWT-проверки; Senior фиксирует внутренний механизм допуска Gateway и gRPC до реализации соответствующей инфраструктуры. |
 | В старом документе есть другие имена таблиц | Использовать `SMALLINT` ID и `catalog_*` из `57-exercise-catalog-service.md` — единственного источника таблиц. |
 | Catalog недоступен | Challenge сохраняет черновик и повторяет проверку. |
