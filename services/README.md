@@ -10,6 +10,8 @@ Current modules:
   requests profile and wallet creation through internal gRPC clients.
 - `accounts-service/` — owns profiles and implements `CreateProfileIfAbsent`.
 - `coins-service/` — owns wallets and implements `CreateWalletIfAbsent`.
+- [exercise-catalog-service](exercise-catalog-service/README.md) — serves active exercise categories,
+  exercises and variations through the authenticated Gateway endpoint `GET /api/v1/exercise-catalog`.
 
 Accounts and Coins always start their internal gRPC servers with mandatory mTLS.
 Prepare the certificates using the [local setup instructions](../LOCAL-SETUP.md)

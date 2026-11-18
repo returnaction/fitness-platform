@@ -6,7 +6,7 @@ import re
 import subprocess
 import xml.etree.ElementTree as ET
 
-SERVICES = ("accounts-service", "coins-service", "identity-service", "gateway-service")
+SERVICES = ("accounts-service", "coins-service", "identity-service", "exercise-catalog-service", "gateway-service")
 NS = {"m": "http://maven.apache.org/POM/4.0.0"}
 
 

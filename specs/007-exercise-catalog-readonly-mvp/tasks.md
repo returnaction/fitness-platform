@@ -2,7 +2,7 @@
 
 > **Спецификация:** [spec.md](spec.md)  
 > **План:** [plan.md](plan.md)  
-> **Статус:** draft
+> **Статус:** implemented — реализация принята 2026-11-18. Первый выпуск на VPS ожидает push и merge.
 
 Одна задача — одна отдельная пронумерованная ветка и Pull Request. Junior не
 берёт одновременно две зависимые задачи.
@@ -15,10 +15,12 @@
 
 ## Основа сервиса и данные
 
-- [ ] **T004 — Подключить DataSource и Liquibase.** Добавить `.env.example`,
+- [x] **T004 — Подключить DataSource и Liquibase.** Добавить `.env.example`,
   local/test-конфигурацию и проверку запуска без секретов в Git.
 
 ### T005 — Создать миграцию `catalog_categories`
+
+**Статус:** выполнено и проверено на временной PostgreSQL 17 ([результаты](verification.md)).
 
 **Предусловие:** T004 завершена: Liquibase уже подключён к пустой тестовой
 PostgreSQL-базе.
@@ -59,6 +61,8 @@ db/changelog/changes/001-create-catalog-categories.sql
 
 ### T006 — Создать миграцию `catalog_exercises`
 
+**Статус:** выполнено и проверено на временной PostgreSQL 17 ([результаты](verification.md)).
+
 **Предусловие:** T005 завершена. Не создавать данные категории: это T008.
 
 **Создать файлы:**
@@ -87,7 +91,7 @@ db/changelog/changes/002-create-catalog-exercises.sql
 | `updated_at` | `TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP` |
 
 Создать индекс `(category_id, is_active, sort_order, id)`. Не создавать
-вариации, REST endpoint, gRPC или seed-данные.
+вариации, REST endpoint или seed-данные.
 
 **Проверить:** PostgreSQL не разрешает создать упражнение с отсутствующей
 категорией, удалить категорию с упражнением, повторить `code`, указать ID вне
@@ -96,6 +100,8 @@ db/changelog/changes/002-create-catalog-exercises.sql
 **Готово:** есть PostgreSQL-интеграционные тесты FK, unique и всех checks.
 
 ### T007 — Создать миграцию `catalog_variations`
+
+**Статус:** выполнено и проверено на временной PostgreSQL 17 ([результаты](verification.md)).
 
 **Предусловие:** T006 завершена. Не создавать стартовые записи: это T008.
 
@@ -147,6 +153,8 @@ code одного упражнения, ID вне диапазона, нулев
 
 ### T008 — Создать стартовые seed-данные
 
+**Статус:** выполнено и проверено на временной PostgreSQL 17 ([результаты](verification.md)).
+
 **Предусловие:** T005, T006, T007 и D001 завершены.
 
 **Создать файлы:**
@@ -163,36 +171,36 @@ SQL добавляет записи ниже с явными `id`, `is_active = 
 
 | id | code | name | sort_order |
 | ---: | --- | --- | ---: |
-| 1 | `BODYWEIGHT` | Упражнения с собственным весом | 10 |
-| 2 | `CARDIO` | Кардио | 20 |
+| 1 | `BODYWEIGHT` | Bodyweight Exercises | 10 |
+| 2 | `CARDIO` | Cardio | 20 |
 
 **Упражнения:**
 
 | id | category_id | code | name | description | metric | sort_order |
 | ---: | ---: | --- | --- | --- | --- | ---: |
-| 1 | 1 | `SQUAT` | Приседания | Приседания с собственным весом. | `REPETITIONS` | 10 |
-| 2 | 1 | `PUSH_UP` | Отжимания | Отжимания в выбранном варианте. | `REPETITIONS` | 20 |
-| 3 | 1 | `BURPEE` | Бёрпи | Бёрпи в выбранном варианте. | `REPETITIONS` | 30 |
-| 4 | 1 | `JUMPING_JACK` | Прыжки с разведением рук и ног | Прыжки с одновременным разведением рук и ног. | `REPETITIONS` | 40 |
-| 5 | 2 | `JUMP_ROPE` | Прыжки со скакалкой | Прыжки через скакалку. | `REPETITIONS` | 10 |
-| 6 | 1 | `PLANK` | Планка | Статическое удержание положения планки. | `DURATION` | 50 |
+| 1 | 1 | `SQUAT` | Squats | Bodyweight squats. | `REPETITIONS` | 10 |
+| 2 | 1 | `PUSH_UP` | Push-ups | Push-ups in the selected variation. | `REPETITIONS` | 20 |
+| 3 | 1 | `BURPEE` | Burpees | Burpees in the selected variation. | `REPETITIONS` | 30 |
+| 4 | 1 | `JUMPING_JACK` | Jumping Jacks | Jumping jacks with coordinated arm and leg movement. | `REPETITIONS` | 40 |
+| 5 | 2 | `JUMP_ROPE` | Jump Rope | Jumping rope. | `REPETITIONS` | 10 |
+| 6 | 1 | `PLANK` | Plank | Static plank hold. | `DURATION` | 50 |
 
 **Вариации:**
 
 | id | exercise_id | code | name | description | instructions | min | max | step | sort_order |
 | ---: | ---: | --- | --- | --- | --- | ---: | ---: | ---: | ---: |
-| 1 | 1 | `STANDARD` | Обычные | Обычные приседания. | Поставьте ноги примерно на ширине плеч, присядьте с контролируемым движением и вернитесь в исходное положение. | 1 | 200 | 1 | 10 |
-| 2 | 2 | `STANDARD` | Обычные | Обычные отжимания. | Упритесь ладонями и носками в пол, сохраняйте прямое положение корпуса, опуститесь и выжмите себя вверх. | 1 | 150 | 1 | 10 |
-| 3 | 2 | `ELEVATED_FEET` | Ноги на возвышении | Отжимания с ногами на устойчивом возвышении. | Поставьте ноги на устойчивое возвышение, руки на пол и выполняйте контролируемые отжимания с прямым корпусом. | 1 | 100 | 1 | 20 |
-| 4 | 2 | `NARROW` | Узкий хват | Отжимания с узкой постановкой рук. | Поставьте ладони ближе ширины плеч и выполняйте контролируемые отжимания с прямым корпусом. | 1 | 100 | 1 | 30 |
-| 5 | 2 | `WIDE` | Широкий хват | Отжимания с широкой постановкой рук. | Поставьте ладони шире плеч и выполняйте контролируемые отжимания с прямым корпусом. | 1 | 100 | 1 | 40 |
-| 6 | 2 | `KNEE` | С колен | Отжимания с опорой на колени. | Упритесь ладонями и коленями в пол, сохраняйте корпус ровным и выполняйте контролируемые отжимания. | 1 | 150 | 1 | 50 |
-| 7 | 3 | `STANDARD` | Обычные | Обычные бёрпи. | Из стойки перейдите в упор лёжа, вернитесь в стойку и завершите повтор контролируемым подъёмом. | 1 | 100 | 1 | 10 |
-| 8 | 3 | `JUMP` | С прыжком | Бёрпи с вертикальным прыжком. | Выполните бёрпи и после возвращения в стойку сделайте вертикальный прыжок. | 1 | 75 | 1 | 20 |
-| 9 | 3 | `RAISED_ARMS_JUMP` | С прыжком и поднятыми руками | Бёрпи с прыжком и поднятыми руками. | Выполните бёрпи, затем прыгните вверх и полностью поднимите руки над головой. | 1 | 50 | 1 | 30 |
-| 10 | 4 | `STANDARD` | Обычные | Обычные jumping jacks. | Одновременно разведите ноги в стороны и поднимите руки над головой, затем вернитесь в исходное положение. | 1 | 300 | 1 | 10 |
-| 11 | 5 | `STANDARD` | Обычные | Обычные прыжки через скакалку. | Выполняйте последовательные прыжки через скакалку в безопасном и контролируемом темпе. | 10 | 1000 | 1 | 10 |
-| 12 | 6 | `STANDARD` | На предплечьях | Обычная планка на предплечьях. | Упритесь предплечьями и носками в пол, держите корпус прямым и сохраняйте положение заданное число секунд. | 10 | 600 | 1 | 10 |
+| 1 | 1 | `STANDARD` | Standard | Standard squats. | Stand with your feet approximately shoulder-width apart, squat in a controlled motion, then return to the starting position. | 1 | 200 | 1 | 10 |
+| 2 | 2 | `STANDARD` | Standard | Standard push-ups. | Place your palms and toes on the floor, keep your body straight, lower yourself, then push back up. | 1 | 150 | 1 | 10 |
+| 3 | 2 | `ELEVATED_FEET` | Elevated Feet | Push-ups with feet on a stable elevated surface. | Place your feet on a stable elevated surface, keep your hands on the floor, and perform controlled push-ups with a straight body. | 1 | 100 | 1 | 20 |
+| 4 | 2 | `NARROW` | Narrow Grip | Push-ups with a narrow hand position. | Place your palms closer than shoulder-width apart and perform controlled push-ups with a straight body. | 1 | 100 | 1 | 30 |
+| 5 | 2 | `WIDE` | Wide Grip | Push-ups with a wide hand position. | Place your palms wider than shoulder-width apart and perform controlled push-ups with a straight body. | 1 | 100 | 1 | 40 |
+| 6 | 2 | `KNEE` | Knee Push-ups | Push-ups supported on the knees. | Place your palms and knees on the floor, keep your body straight, and perform controlled push-ups. | 1 | 150 | 1 | 50 |
+| 7 | 3 | `STANDARD` | Standard | Standard burpees. | Move from standing to a plank position, return to standing, and complete the repetition with a controlled rise. | 1 | 100 | 1 | 10 |
+| 8 | 3 | `JUMP` | With Jump | Burpees with a vertical jump. | Perform a burpee and, after returning to standing, make a vertical jump. | 1 | 75 | 1 | 20 |
+| 9 | 3 | `RAISED_ARMS_JUMP` | Jump with Raised Arms | Burpees with a jump and raised arms. | Perform a burpee, then jump upward and raise your arms fully above your head. | 1 | 50 | 1 | 30 |
+| 10 | 4 | `STANDARD` | Standard | Standard jumping jacks. | Move your legs apart while raising your arms above your head, then return to the starting position. | 1 | 300 | 1 | 10 |
+| 11 | 5 | `STANDARD` | Standard | Standard jump rope. | Perform consecutive jumps over a rope at a safe, controlled pace. | 10 | 1000 | 1 | 10 |
+| 12 | 6 | `STANDARD` | Forearm | Standard forearm plank. | Support yourself on your forearms and toes, keep your body straight, and hold the position for the specified number of seconds. | 10 | 600 | 1 | 10 |
 
 Тексты инструкций задают условия для первого MVP, но не являются полными
 медицинскими рекомендациями или автоматическими критериями оценки техники.
@@ -209,67 +217,100 @@ SQL добавляет записи ниже с явными `id`, `is_active = 
 
 ## Правила и публичное чтение
 
-- [ ] **T009 — Реализовать единый use case проверки цели.** Проверить активную
-  цепочку, metric, range и step; unit-тесты для REP, SECOND и ошибок.
+- [x] **T010 — Реализовать и проверить полный каталог.**
+  `GET /api/v1/exercise-catalog`: один ответ с категориями, упражнениями и
+  вариациями по DTO из spec.md. Реализованы controller, service, mapper и
+  вложенные records; три чтения выполняются с REPEATABLE_READ и readOnly.
+  Поле unit отсутствует, defaultVariationId указывает на активный STANDARD.
+  Полный и пустой ответы, фильтрация, сортировка и три SQL-запроса подтверждены
+  HTTP-тестами на PostgreSQL ([результаты](verification.md)). Сквозной
+  доступ через Gateway и защита маршрута относятся к T013; Security Catalog
+  разрешает GET каталога с контекстом пользователя, остальные API запрещены.
 
-- [ ] **T010 — Реализовать API категорий.** `GET /api/v1/exercise-categories`,
-  только активные записи и HTTP-тесты успеха. `401` для внешнего запроса —
-  обязанность Gateway, а не Catalog.
+### D002 — Решение о полном каталоге
 
-### D002 — Зафиксировать cursor списка упражнений
+Пользователь 2026-11-17 выбрал полную загрузку за один HTTP-запрос.
+Cursor, limit и фильтр category_id для этого endpoint не нужны.
 
-**Владелец:** senior. До T011 описать непрозрачный cursor, его привязку к
-фильтру `category_id`, порядок `(sort_order, id)` и поведение при неверном
-cursor. Это не блокирует миграции, seed и API категорий.
-
-- [ ] **T011 — Реализовать API списка упражнений.** Фильтр категории, limit,
-  утверждённый cursor и только упражнения с активным `STANDARD`.
-
-- [ ] **T012 — Реализовать карточку упражнения.** `GET /api/v1/exercises/{id}`:
-  метрика, единица, активные вариации, инструкция и пределы; `404` для
-  неизвестного или выключенного упражнения.
+- **T011 — Заменена T010:** отдельный список упражнений с пагинацией
+  исключён из текущего объёма; не отмечается выполненным.
+- **T012 — Заменена T010:** отдельная карточка упражнения исключена из
+  текущего объёма, все её необходимые данные входят в полный ответ.
 
 ### D003 — Зафиксировать внутренний доступ Gateway → Catalog
 
 **Владелец:** senior / команда платформы. Определить, как Gateway удостоверяет
 себя перед Catalog во внутренней сети. Пользовательский JWT уже проверяет
-Gateway и не передаётся в Catalog как основание для решения.
+Gateway. По решению 2026-11-18 Catalog извлекает из Bearer контекст, как Coins,
+без проверки подписи; механизм удостоверения Gateway остаётся отдельным вопросом.
 
-- [ ] **T013 — Интегрировать Catalog с Gateway.** Catalog не валидирует JWT
-  пользователя. Закрыть его REST-порт от внешнего доступа, разрешить только
-  Gateway по механизму из D003, проверить отсутствие прямого доступа. Catalog
-  возвращает только свои `404`/`422` и безопасно логирует ошибки; `401` —
-  ответственность Gateway.
+- [x] **T013 — Интегрировать Catalog с Gateway и проверить HTTP/Security локально.**
+  Проверены защищённый маршрут, передача контекста и обработка ошибок чтения.
+  Проверка сетевого доступа к порту Catalog на VPS относится к T022.
 
-## Внутренний контракт Challenge
+### Выполненная часть T013 — Security Catalog
 
-### D004 — Зафиксировать gRPC-контракт и service identity
-
-**Владелец:** senior. До T014 согласовать Protobuf-поля, коды ошибок,
-deadline/retry и то, как `challenge-service` удостоверяет себя перед Catalog.
-Это не блокирует REST API через Gateway.
-
-- [ ] **T014 — Добавить gRPC-контракт.** В `contracts/grpc-contracts` добавить
-  версионированный Protobuf и проверить генерацию одиночного метода, затем batch.
-
-- [ ] **T015 — Реализовать одиночный gRPC endpoint.** Использовать T009 и
-  возвращать snapshot или точный gRPC-статус; добавить интеграционные тесты.
-
-- [ ] **T016 — Реализовать batch gRPC endpoint.** 1–100 items, один снимок БД,
-  запрет duplicate `task_ref`, различение invalid item и временного отказа.
-
-- [ ] **T017 — Защитить service-to-service gRPC.** Разрешить только
-  `challenge-service`; проверить отсутствующий и неверный service credential.
+- [x] **T013-A — Реализовать и скомпилировать локальную HTTP/Security-цепочку
+  по аналогии с Coins.** Выполнено 2026-11-18: структура shared/security и
+  shared/web, явная регистрация RequestIdFilter, CatalogAuthenticationFilter,
+  stateless SecurityConfiguration, SecurityExceptionHandler, единый формат
+  ApiErrorResponse/ApiExceptionHandler и NoQueryParametersInterceptor.
+  Свидетельства: [verification.md](verification.md).
+- [x] **T013-B — Проверить поведение HTTP/Security.** Проверены 401/403,
+  формат JSON ошибок и requestId, очистка контекста при исключении, запрет query,
+  согласование формата ответа и служебные endpoints.
+- [x] **T013-C — Проверить интеграцию с Gateway.** Проверены успешное чтение
+  через Gateway, отказ без токена и отклонение JWT с неверной подписью до обращения
+  к Catalog. Серверная проверка границы доверия остаётся в T022.
 
 ## Сквозная проверка и выпуск
 
-- [ ] **T018 — Проверить Challenge → Catalog.** Challenge сохраняет snapshot,
-  не публикуется при invalid/unavailable Catalog и не перечитывает Catalog для
-  опубликованного задания.
+- [x] **T019 — Выполнить проверки и обновить статус.** Проверены все модули Maven,
+  тесты, SpotBugs и Markdown-ссылки. Форматтер отключён по инженерному стандарту.
+  Результаты, три пропущенные проверки и условия прогона записаны в [verification.md](verification.md).
 
-- [ ] **T019 — Выполнить проверки и обновить статус.** Maven Wrapper,
-  formatter, static analysis, unit/integration-тесты; зафиксировать фактические
-  результаты и ограничения, отметить только проверенные критерии.
+## Подготовка к deploy
+
+- [ ] **T020 — При отдельно разрешённой подготовке deploy создать серверный
+  env-файл Catalog.** На VPS создать
+  `/opt/fitness-platform/secrets/exercise-catalog.env` по шаблону
+  `deployment/env/exercise-catalog.env.example`; записать в него реальные
+  значения переменных только на сервере. Не добавлять файл или секреты в Git,
+  не заменять существующие server env-файлы и не выполнять deploy без отдельного
+  разрешения. Перед задачей сверить `deployment/README.md`, путь монтирования в
+  Compose и `application-dev.yaml`; после создания проверить права файла и
+  отсутствие значений секретов в логах. Файл создан, права подтверждены. Проверка
+  логов приложения остаётся на первый запуск.
+
+- [x] **T021 — При отдельно разрешённой подготовке deploy создать серверную
+  базу и роль Exercise Catalog.** На PostgreSQL VPS по
+  `docs/database-setup.md` создать роль
+  `fitness_exercise_catalog_app` с наименьшими правами и базу
+  `fitness_exercise_catalog`, принадлежащую этой роли. Отозвать права `PUBLIC`
+  на базу и схему `public`, выдать прикладной роли только `USAGE` и `CREATE` на
+  `public`, затем проверить владельца базы, флаги роли и права схемы SQL-запросами
+  из инструкции. Пароль задать только в серверном env-файле; не записывать его в
+  Git, спецификацию или логи. Liquibase применит схему при первом запуске
+  сервиса: таблицы вручную не создавать. Создание базы, роли, прав и запуск
+  миграций требуют отдельного разрешения пользователя.
+  Создание и права подтверждены результатами запросов из DBeaver ([проверка](verification.md#t021)).
+
+- [ ] **T022 — Включить `exercise-catalog-service` в раскатку на VPS.**
+  Репозиторная часть выполнена и [проверена локально](verification.md). Подготовка VPS подтверждена
+  оператором. Открыты выпуск и проверки работающих контейнеров.
+  По [инструкции добавления сервиса](../../deployment/README.md#добавление-нового-сервиса-в-выкладку)
+  подготовить версию и образ Catalog, добавить его в `deployment/compose.yaml`
+  с профилем `dev`, серверным env, healthcheck и доступом только по внутренней сети.
+  Добавить `EXERCISE_CATALOG_IMAGE` в `compose.env.example` и серверный `compose.env`.
+  Зарегистрировать Catalog в `release-candidates.py` и `deploy-release.sh`,
+  задать порядок запуска Catalog перед Gateway и обновить `test_release.py`.
+  Для выпуска Gateway подготовить версию с маршрутом каталога и задать в его
+  серверном env `EXERCISE_CATALOG_HTTP_BASE_URL=http://exercise-catalog-service:8086`.
+  До выкладки проверить release-тесты и конфигурацию Compose, выполнить T020 и T021.
+  После отдельно разрешённой выкладки подтвердить доступность образа в GHCR,
+  статус `healthy`, применение миграций Liquibase и ответ `200` с каталогом
+  через Gateway на авторизованный `GET /api/v1/exercise-catalog`.
+  С внешнего клиента проверить, что порт Catalog на VPS недоступен напрямую (D003).
 
 ## Связанные Pull Request
 

@@ -23,7 +23,7 @@ Workflow запускается при push в `main`. Если повышенн
 сборка образов и выкладка пропускаются; проверка логики release всё равно идёт.
 Кандидаты собираются параллельно, но серверная выкладка ждёт успеха всех сборок
 и выполняется последовательно. Текущий порядок:
-Accounts → Coins → Identity → Gateway.
+Accounts → Coins → Identity → Exercise Catalog → Gateway.
 
 Используется точный числовой tag из POM, например `0.1.2`, без `latest`.
 Образы согласовано оставлять публичными; настоящие env и ключи в них не входят.
@@ -62,6 +62,20 @@ Docker-сеть из Compose, SSH-доступ Actions и доступ к GHCR. 
 Он хранит версии образов, а не пароли БД. При выпуске скрипт обновляет нужную
 строку `*_IMAGE` в серверном файле; шаблон не нужно переписывать при каждом релизе.
 Не заменяйте рабочий файл целиком стартовым шаблоном: это потеряет текущие версии.
+
+Перед первым выпуском Catalog подготовьте базу и роль по
+[инструкции PostgreSQL](../docs/database-setup.md), файл
+`/opt/fitness-platform/secrets/exercise-catalog.env` по
+[шаблону](env/exercise-catalog.env.example) и каталог
+`/opt/fitness-platform/runtime/exercise-catalog/dumps` с правом записи для UID 10001.
+Добавьте строку `EXERCISE_CATALOG_IMAGE` из [compose.env.example](compose.env.example)
+в серверный `compose.env` и укажите в серверном `gateway.env`
+`EXERCISE_CATALOG_HTTP_BASE_URL=http://exercise-catalog-service:8086`.
+Gateway запускается после готовности Identity и Catalog.
+
+Для первого выпуска по спецификации 007 подготовлены Catalog `0.1.2` и Gateway `0.1.4`.
+Подготовка VPS подтверждена оператором. На момент закрытия реализации публикация
+образов и запуск на VPS ещё предстояли. [Журнал проверок 007](../specs/007-exercise-catalog-readonly-mvp/verification.md)
 
 ## Обновление существующего сервиса
 

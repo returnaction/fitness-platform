@@ -43,7 +43,10 @@ class Versions(unittest.TestCase):
 
 DOCKER = r'''#!/usr/bin/env bash
 echo "$*" >> "$MOCK_LOG"
-if [[ "$1" == inspect ]]; then echo "${MOCK_HEALTH:-healthy}"; exit 0; fi
+if [[ "$1" == inspect ]]; then
+  if [[ "${@: -1}" == "${UNHEALTHY_CONTAINER:-}" ]]; then echo unhealthy; else echo healthy; fi
+  exit 0
+fi
 if [[ "$1" == compose ]]; then
   shift 5
   case "$1" in
@@ -75,7 +78,7 @@ class Deployment(unittest.TestCase):
             self.write(self.bin / "flock", "#!/usr/bin/env bash\nexit 0\n")
         self.services = list(release.SERVICES)
         self.write(self.app / "compose.env", "".join(
-            f"{s.split('-')[0].upper()}_IMAGE=ghcr.io/returnaction/fitness-{s}:0.1.1\n"
+            f"{s.removesuffix('-service').replace('-', '_').upper()}_IMAGE=ghcr.io/returnaction/fitness-{s}:0.1.1\n"
             for s in self.services))
         self.write(self.stage / "compose.yaml", "new compose\n")
         self.plan(self.services)
@@ -99,7 +102,10 @@ class Deployment(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         launched = [line.split()[-1] for line in log.splitlines() if " up " in line]
         self.assertEqual(launched, self.services)
-        self.assertEqual(log.count("image prune"), 4)
+        self.assertEqual(log.count("image prune"), len(self.services))
+        self.assertLess(launched.index("exercise-catalog-service"), launched.index("gateway-service"))
+        self.assertIn("EXERCISE_CATALOG_IMAGE=ghcr.io/returnaction/fitness-exercise-catalog-service:0.1.2",
+                      (self.app / "compose.env").read_text())
 
     def test_failure_stops_remaining_services_without_rollback(self):
         self.env["FAIL_SERVICE"] = "coins-service"
@@ -119,7 +125,14 @@ class Deployment(unittest.TestCase):
 
     def test_single_service_checks_existing_dependency(self):
         self.plan(["gateway-service"])
-        self.env["MOCK_HEALTH"] = "unhealthy"
+        self.env["UNHEALTHY_CONTAINER"] = "container-identity-service"
+        result, log = self.run_deploy()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertNotIn("pull gateway-service", log)
+
+    def test_gateway_waits_for_healthy_catalog(self):
+        self.plan(["gateway-service"])
+        self.env["UNHEALTHY_CONTAINER"] = "container-exercise-catalog-service"
         result, log = self.run_deploy()
         self.assertNotEqual(result.returncode, 0)
         self.assertNotIn("pull gateway-service", log)

@@ -1,4 +1,4 @@
-package io.github.returnaction.fitness.exercisecatalog.shared.web;
+package io.github.returnaction.fitness.exercisecatalog.shared.web.requestid;
 
 import java.util.UUID;
 

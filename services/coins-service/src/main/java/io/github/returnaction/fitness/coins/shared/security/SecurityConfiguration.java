@@ -29,12 +29,16 @@ public class SecurityConfiguration {
             .httpBasic(AbstractHttpConfigurer::disable)
             .formLogin(AbstractHttpConfigurer::disable)
             .logout(AbstractHttpConfigurer::disable)
-            .sessionManagement(sessions -> sessions.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            //STATELESS — Spring Security не хранит пользователя в HTTP-сессии. Контекст создаём заново для каждого запроса.
+            .sessionManagement(sessions ->
+                sessions.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             // Настройка B: ошибки security направляем в ветку E, а не в контроллер.
-            .exceptionHandling(errors -> errors.authenticationEntryPoint(securityExceptionHandler)
+            .exceptionHandling(errors -> errors
+                .authenticationEntryPoint(securityExceptionHandler)
                 .accessDeniedHandler(securityExceptionHandler))
             // Настройка C: подключаем шаги 1-A..1-D до проверки доступа.
-            .addFilterBefore(new CoinsAuthenticationFilter(securityExceptionHandler),
+            .addFilterBefore(
+                new CoinsAuthenticationFilter(securityExceptionHandler),
                 UsernamePasswordAuthenticationFilter.class)
             // Шаг 2-A при запросе: Spring Security применяет эти правила к пользователю из контекста.
             // Если доступ разрешён, идём к MVC-interceptors (шаг 3-A); иначе — ветка E.
@@ -48,8 +52,7 @@ public class SecurityConfiguration {
                 .requestMatchers(HttpMethod.GET, "/api/v1/coins/me").authenticated()
                 .requestMatchers(HttpMethod.GET, "/api/v1/coins/daily-reward/status").authenticated()
                 .requestMatchers(HttpMethod.POST, "/api/v1/coins/daily-reward/claims").authenticated()
-                .anyRequest()
-                .denyAll())
+                .anyRequest().denyAll())
             .build();
     }
 }
